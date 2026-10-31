@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>靶场 v0.1</title>
+  <title>靶场 v0.2</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -11,28 +11,41 @@
 
   <!-- 抬头显示（HUD） -->
   <div id="hud">
+    <div id="damage-flash"></div>
+    <div id="damage-dir"><i></i></div>
+
     <div id="crosshair">
       <i class="ch-top"></i><i class="ch-bottom"></i><i class="ch-left"></i><i class="ch-right"></i>
     </div>
     <div id="hitmarker"></div>
     <div id="reload-tip">换弹中…</div>
 
+    <div id="wave-info"></div>
+    <div id="banner"></div>
+
     <div id="stats">
+      <div class="battle-only">击杀 <b id="stat-kills">0</b></div>
       <div>射击 <b id="stat-shots">0</b></div>
       <div>命中 <b id="stat-hits">0</b></div>
       <div>爆头 <b id="stat-heads">0</b></div>
       <div>命中率 <b id="stat-acc">0%</b></div>
     </div>
 
+    <div id="health">
+      <span class="label">生命</span><span id="health-val">100</span>
+      <div class="bar"><i id="health-bar"></i></div>
+    </div>
+
     <div id="ammo"><span id="ammo-cur">30</span><span id="ammo-max">/ ∞</span></div>
-    <div id="hint">R 换弹 · T 重置统计 · Esc 暂停</div>
+    <div id="hint"></div>
   </div>
 
-  <!-- 开始 / 暂停界面 -->
+  <!-- 开始 / 暂停 / 阵亡界面 -->
   <div id="overlay">
     <div class="panel">
-      <h1>靶场 <small>v0.1</small></h1>
-      <p id="overlay-sub">第一人称射击训练场</p>
+      <h1>靶场 <small>v0.2</small></h1>
+      <p id="overlay-sub">选择模式开始</p>
+      <div id="overlay-result"></div>
       <table class="keys">
         <tr><td>鼠标</td><td>转动视角</td></tr>
         <tr><td>W A S D</td><td>移动</td></tr>
@@ -40,21 +53,27 @@
         <tr><td>空格</td><td>跳跃</td></tr>
         <tr><td>左键</td><td>射击（按住连发）</td></tr>
         <tr><td>R</td><td>换弹</td></tr>
-        <tr><td>T</td><td>重置统计</td></tr>
       </table>
-      <button id="start-btn">点击开始</button>
+      <button id="btn-resume">继续</button>
+      <div class="mode-btns">
+        <button id="btn-range">训练场</button>
+        <button id="btn-battle">NPC 对战</button>
+      </div>
     </div>
   </div>
 
   <!-- 按依赖顺序加载：先库，再配置，最后主循环 -->
   <script src="vendor/three.min.js"></script>
   <script src="js/config.js"></script>
+  <script src="js/physics.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/input.js"></script>
+  <script src="js/effects.js"></script>
   <script src="js/world.js"></script>
   <script src="js/targets.js"></script>
   <script src="js/player.js"></script>
   <script src="js/weapon.js"></script>
+  <script src="js/bots.js"></script>
   <script src="js/hud.js"></script>
   <script src="js/main.js"></script>
 </body>

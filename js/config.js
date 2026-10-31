@@ -23,6 +23,7 @@ Game.Config = {
     jumpSpeed: 5.6,        // 起跳初速度（跳跃高度 ≈ jumpSpeed² / 2g）
     gravity: 15,           // 重力。现实是 9.8，游戏里通常更大，跳起来不"飘"
     headBob: 0.035,        // 走路时镜头上下晃动幅度
+    maxHealth: 100,        // 生命值
   },
 
   weapon: {
@@ -43,10 +44,36 @@ Game.Config = {
     recoilPitch: 0.012,    // 每发上跳
     recoilYaw: 0.006,      // 每发左右随机抖动范围
     recoilRecover: 5,      // 停火后回正速度
+
+    // 打中不同部位的伤害（NPC 生命值 100）
+    damage: { head: 100, body: 34, leg: 25 },
   },
 
   targets: {
     resetTime: 3,          // 靶子被击倒后几秒重新立起
+  },
+
+  // NPC 敌人（对战模式）
+  bots: {
+    health: 100,
+    walkSpeed: 2.4,        // 巡逻、交战时的移动速度
+    runSpeed: 4.2,         // 搜索玩家时的奔跑速度
+    turnSpeed: 4,          // 每秒最多转多少弧度
+    viewDistance: 45,      // 最远能看多远
+    viewAngle: 120,        // 视野角度（度），背后是盲区
+    reactionTime: [0.6, 1.0],  // 发现玩家后多久开第一枪（随机范围）
+    preferredRange: [8, 20],   // 喜欢的交战距离：太远会靠近，太近会后退
+    burstCount: [3, 5],    // 每次点射几发
+    burstInterval: 0.12,   // 点射中每发的间隔
+    burstPause: [0.7, 1.3],    // 两次点射之间的停顿
+    damage: 8,             // 打中玩家一发扣多少血
+    spread: 0.05,          // 基础散布，越大越打不准
+    moveSpreadMul: 1.0,    // 玩家全速移动时，NPC 散布额外增加的倍数
+    searchTime: 6,         // 丢失目标后搜索多久
+    firstWave: 2,          // 第一波几个敌人
+    perWave: 1,            // 每波多几个
+    maxAlive: 7,           // 一波最多几个
+    wavePause: 4,          // 两波之间休息几秒
   },
 
   audio: {

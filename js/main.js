@@ -1,5 +1,5 @@
 // ============================================================
-// 主程序：创建所有对象，然后进入"游戏循环"
+// 主程序：创建所有对象，管理模式切换，然后进入"游戏循环"
 // 游戏循环每秒执行约 60 次：读取输入 → 更新逻辑 → 渲染画面
 // ============================================================
 (function () {
@@ -32,21 +32,79 @@
 
   // ---- 游戏对象 ----
   const world = Game.World.build(scene);
-  const targets = Game.Targets.create(scene, world.shootables);
+  const targets = Game.Targets.create(scene);
   const input = new Game.Input(canvas);
   const audio = new Game.Audio();
   const hud = new Game.Hud();
+  const effects = new Game.Effects(scene);
   const player = new Game.Player(camera, world.colliders, world.spawn);
-  const weapon = new Game.Weapon({
-    scene, camera, weaponCamera, player, audio, hud, shootables: world.shootables,
-  });
 
-  // ---- 开始 / 暂停 ----
-  hud.el.startBtn.addEventListener('click', () => {
+  // 武器射线能打到的所有物体。内容随模式和 NPC 生死变化，所以用同一个数组原地更新
+  const shootables = [];
+  const weapon = new Game.Weapon({ scene, camera, weaponCamera, player, audio, hud, shootables });
+  const bots = new Game.Bots.Manager({ scene, camera, world, player, audio, hud, effects });
+
+  let mode = null;
+
+  function refreshShootables() {
+    shootables.length = 0;
+    shootables.push(...world.shootables);
+    if (mode === 'range') targets.forEach((t) => shootables.push(...t.meshes));
+    if (mode === 'battle') shootables.push(...bots.aliveMeshes());
+  }
+  bots.onChange = refreshShootables;
+
+  // 每清完一波：回满血、补满子弹
+  bots.onWaveCleared = () => {
+    player.health = Game.Config.player.maxHealth;
+    hud.setHealth(player.health, Game.Config.player.maxHealth);
+    weapon.refill();
+  };
+
+  player.onDamage = (amount, fromPos) => {
+    hud.setHealth(player.health, Game.Config.player.maxHealth);
+    hud.showDamage(fromPos);
+    audio.hurt();
+  };
+
+  // 阵亡：先让镜头倒下 1.5 秒，再弹出结算界面
+  player.onDeath = () => {
+    audio.death();
+    hud.banner('你阵亡了', 1.5);
+    setTimeout(() => {
+      if (player.alive) return;  // 这 1.5 秒里已经开了新一局
+      if (document.pointerLockElement) document.exitPointerLock();
+      else hud.showOverlay('dead');
+    }, 1500);
+  };
+
+  function startMode(m) {
+    mode = m;
+    player.reset();
+    weapon.reset();
+    hud.resetStats();
+    hud.setMode(m);
+    hud.setHealth(player.health, Game.Config.player.maxHealth);
+    targets.forEach((t) => t.setActive(m === 'range'));
+    if (m === 'battle') bots.start();
+    else bots.stop();
+    refreshShootables();
+  }
+
+  // ---- 菜单按钮 ----
+  const play = (m) => {
     audio.init();
+    if (m) startMode(m);
     input.lock();
-  });
-  input.onLockChange = (locked) => hud.showOverlay(!locked, !locked);
+  };
+  document.getElementById('btn-range').addEventListener('click', () => play('range'));
+  document.getElementById('btn-battle').addEventListener('click', () => play('battle'));
+  document.getElementById('btn-resume').addEventListener('click', () => play(null));
+
+  input.onLockChange = (locked) => {
+    if (locked) hud.hideOverlay();
+    else hud.showOverlay(player.alive ? 'paused' : 'dead');
+  };
 
   window.addEventListener('resize', () => {
     const a = window.innerWidth / window.innerHeight;
@@ -66,27 +124,40 @@
 
     if (input.locked) {
       time += dt;
-      player.update(dt, input);
-      camera.updateMatrixWorld();
-      weapon.update(dt, input);
-      for (const t of targets) t.update(dt, time);
-      if (input.wasPressed('KeyT')) hud.resetStats();
+      player.extraColliders = bots.aliveBoxes();
+      if (player.alive) {
+        player.update(dt, input);
+        camera.updateMatrixWorld();
+        weapon.update(dt, input);
+      } else {
+        player.updateDead(dt);
+        input.consumeMouse();
+      }
+      if (mode === 'range') {
+        for (const t of targets) t.update(dt, time);
+        if (input.wasPressed('KeyT')) hud.resetStats();
+      }
+      bots.update(dt);
     }
-    hud.update(dt);
+    hud.update(dt, player);
     input.endFrame();
 
     renderer.clear();
     renderer.render(scene, camera);
-    renderer.clearDepth();
-    renderer.render(weaponScene, weaponCamera);
+    if (player.alive) {
+      renderer.clearDepth();
+      renderer.render(weaponScene, weaponCamera);
+    }
 
     requestAnimationFrame(frame);
   }
 
-  // 先摆好摄像机，让开始界面背后就能看到场景
+  // 先摆好摄像机、显示训练场，让菜单背后就能看到场景
+  startMode('range');
+  hud.showOverlay('menu');
   player.update(0, input);
   frame();
 
   // 方便在浏览器控制台（F12）里调试，例如输入 game.player.position 查看位置
-  window.game = { scene, camera, renderer, world, targets, input, audio, hud, player, weapon };
+  window.game = { scene, camera, renderer, world, targets, input, audio, hud, player, weapon, bots, startMode };
 })();

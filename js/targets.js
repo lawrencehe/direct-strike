@@ -34,7 +34,7 @@ Game.Targets = (function () {
   ];
 
   class Target {
-    constructor(scene, shootables, mats, spec) {
+    constructor(scene, mats, spec) {
       this.baseX = spec.x;
       this.move = spec.move || null;
       this.phase = Math.random() * Math.PI * 2;
@@ -66,11 +66,19 @@ Game.Targets = (function () {
       this.head.position.y = 1.62;
       this.head.userData = { target: this, part: 'head' };
 
-      for (const m of [post, this.body, this.head]) {
+      this.meshes = [post, this.body, this.head];
+      for (const m of this.meshes) {
         m.castShadow = true;
         this.pivot.add(m);
       }
-      shootables.push(post, this.body, this.head);
+    }
+
+    // 对战模式下把靶子藏起来
+    setActive(on) {
+      this.root.visible = on;
+      this.state = 'up';
+      this.pivot.rotation.x = 0;
+      this.clearDecals();
     }
 
     // 被打中时调用。返回 true 表示这一枪有效（击倒了靶子）
@@ -114,13 +122,13 @@ Game.Targets = (function () {
     }
   }
 
-  function create(scene, shootables) {
+  function create(scene) {
     const mats = {
       metal: new THREE.MeshStandardMaterial({ color: 0x4a4f55, roughness: 0.6, metalness: 0.4 }),
       plate: new THREE.MeshStandardMaterial({ map: plateTexture(), roughness: 0.9 }),
       head: new THREE.MeshStandardMaterial({ color: 0xd23a2a, roughness: 0.8 }),
     };
-    return LAYOUT.map((spec) => new Target(scene, shootables, mats, spec));
+    return LAYOUT.map((spec) => new Target(scene, mats, spec));
   }
 
   return { create };

@@ -63,25 +63,10 @@ Game.Weapon = class Weapon {
     part(0.03, 0.025, 0.03, 0, 0.055, 0.12, dark);     // 照门
 
     // 枪口火焰：一张发光的星形贴图
-    const c = document.createElement('canvas');
-    c.width = c.height = 64;
-    const g = c.getContext('2d');
-    const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-    grad.addColorStop(0, 'rgba(255,255,220,1)');
-    grad.addColorStop(0.3, 'rgba(255,190,80,0.9)');
-    grad.addColorStop(1, 'rgba(255,120,0,0)');
-    g.fillStyle = grad;
-    g.beginPath();
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      const r = i % 2 ? 12 : 32;
-      g.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r);
-    }
-    g.fill();
     this.flash = new THREE.Mesh(
       new THREE.PlaneGeometry(0.22, 0.22),
       new THREE.MeshBasicMaterial({
-        map: new THREE.CanvasTexture(c), transparent: true,
+        map: Game.Effects.flashTexture(), transparent: true,
         blending: THREE.AdditiveBlending, depthWrite: false,
       })
     );
@@ -133,6 +118,22 @@ Game.Weapon = class Weapon {
     this.hud.setSpread(this.currentSpread());
   }
 
+  // 换弹匣、清空弹孔（开新一局时）
+  reset() {
+    this.refill();
+    this.bloom = 0;
+    this.decals.forEach((d) => d.removeFromParent());
+    this.decals = [];
+  }
+
+  // 补满子弹（波次之间）
+  refill() {
+    const cfg = Game.Config.weapon;
+    this.ammo = cfg.magSize;
+    this.reloading = false;
+    this.hud.setAmmo(this.ammo, cfg.magSize, false);
+  }
+
   startReload() {
     const cfg = Game.Config.weapon;
     if (this.reloading || this.ammo === cfg.magSize) return;
@@ -164,10 +165,17 @@ Game.Weapon = class Weapon {
     this.hud.recordShot();
     if (hit) {
       const info = hit.object.userData;
+      const head = info.part === 'head';
       if (info.target && info.target.onHit()) {
-        const head = info.part === 'head';
-        this.hud.recordHit(head);
+        this.hud.recordHit(head, false);
         head ? this.audio.headshot() : this.audio.hit();
+      } else if (info.bot && info.part) {
+        const result = info.bot.takeDamage(info.part);
+        if (result) {
+          this.hud.recordHit(head, result.killed);
+          if (result.killed) this.audio.kill(head);
+          else head ? this.audio.headshot() : this.audio.hit();
+        }
       }
       this.addDecal(hit);
     }

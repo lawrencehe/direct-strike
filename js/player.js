@@ -1,15 +1,12 @@
 // ============================================================
-// 玩家：视角控制 + 移动 + 重力跳跃 + 碰撞
-//
-// 碰撞的思路（AABB = 轴对齐包围盒）：
-//   玩家是一个竖着的长方体，所有墙和箱子也是长方体。
-//   每帧把移动拆成 X、Z、Y 三步分别走，每走一步检查有没有撞进某个箱子，
-//   撞进去了就把玩家推回到箱子表面。分轴处理可以让玩家贴着墙"滑"过去。
+// 玩家：视角控制 + 移动 + 重力跳跃 + 碰撞 + 生命值
+// 碰撞的具体做法见 physics.js
 // ============================================================
 Game.Player = class Player {
   constructor(camera, colliders, spawn) {
     this.camera = camera;
     this.colliders = colliders;
+    this.extraColliders = [];               // 会动的障碍（NPC），由 main.js 每帧更新
     this.spawn = spawn.clone();
 
     this.position = spawn.clone();          // 脚底位置
@@ -21,6 +18,12 @@ Game.Player = class Player {
     this.bobPhase = 0;
     this.lastLook = { x: 0, y: 0 };         // 本帧鼠标移动量，给枪模晃动用
 
+    this.health = Game.Config.player.maxHealth;
+    this.alive = true;
+    this.deathTimer = 0;
+    this.onDamage = null;                   // (伤害, 攻击者位置) => void
+    this.onDeath = null;
+
     this._box = new THREE.Box3();
     camera.rotation.order = 'YXZ';          // 先左右再上下，FPS 视角的标准顺序
   }
@@ -29,6 +32,17 @@ Game.Player = class Player {
   addRecoil(pitch, yaw) {
     this.recoilPitch += pitch;
     this.yaw += yaw;
+  }
+
+  takeDamage(amount, fromPos) {
+    if (!this.alive) return;
+    this.health = Math.max(0, this.health - amount);
+    if (this.onDamage) this.onDamage(amount, fromPos);
+    if (this.health <= 0) {
+      this.alive = false;
+      this.deathTimer = 0;
+      if (this.onDeath) this.onDeath();
+    }
   }
 
   horizontalSpeed() {
@@ -107,24 +121,19 @@ Game.Player = class Player {
     this.camera.rotation.set(this.pitch + this.recoilPitch, this.yaw, 0);
   }
 
-  // 沿一个轴移动 delta，撞到东西就停在表面。返回是否发生碰撞
-  moveAxis(axis, delta) {
-    if (delta === 0) return false;
-    const cfg = Game.Config.player;
-    this.position[axis] += delta;
+  // 阵亡后：镜头慢慢倒向地面
+  updateDead(dt) {
+    this.deathTimer += dt;
+    const p = Math.min(1, this.deathTimer / 0.8);
+    const eye = Game.Config.player.eyeHeight;
+    this.camera.position.y = this.position.y + eye - (eye - 0.3) * p * p;
+    this.camera.rotation.z = 0.5 * p;
+  }
 
-    let hit = false;
-    for (const c of this.colliders) {
-      const box = this.getBox();
-      if (!overlaps(box, c)) continue;
-      hit = true;
-      if (axis === 'y') {
-        this.position.y = delta > 0 ? c.min.y - cfg.height : c.max.y;
-      } else {
-        this.position[axis] = delta > 0 ? c.min[axis] - cfg.radius : c.max[axis] + cfg.radius;
-      }
-    }
-    return hit;
+  moveAxis(axis, delta) {
+    const { radius, height } = Game.Config.player;
+    return Game.Physics.moveAxis(this.position, axis, delta, radius, height,
+      [this.colliders, this.extraColliders]);
   }
 
   getBox() {
@@ -140,13 +149,13 @@ Game.Player = class Player {
     this.velocity.set(0, 0, 0);
     this.yaw = this.pitch = this.recoilPitch = 0;
   }
-};
 
-// 严格重叠判断：刚好贴着表面不算重叠
-// （否则站在箱子顶上时，左右走一步也会被当成"撞墙"）
-function overlaps(a, b) {
-  const e = 1e-6;
-  return a.min.x < b.max.x - e && a.max.x > b.min.x + e &&
-         a.min.y < b.max.y - e && a.max.y > b.min.y + e &&
-         a.min.z < b.max.z - e && a.max.z > b.min.z + e;
-}
+  // 开新一局：满血复活
+  reset() {
+    this.respawn();
+    this.health = Game.Config.player.maxHealth;
+    this.alive = true;
+    this.deathTimer = 0;
+    this.camera.rotation.z = 0;
+  }
+};

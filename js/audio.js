@@ -56,6 +56,33 @@ Game.Audio = class Audio {
     osc.stop(t + 0.13);
   }
 
+  // NPC 的枪声：更闷（远处高频衰减），pan = -1 左 ~ 1 右
+  botShot(pan, distance) {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const vol = 0.7 / (1 + distance / 8);
+    const panner = ctx.createStereoPanner();
+    panner.pan.value = Math.max(-1, Math.min(1, pan));
+    panner.connect(this.master);
+
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1800, t);
+    filter.frequency.exponentialRampToValueAtTime(200, t + 0.15);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+    src.connect(filter).connect(g).connect(panner);
+    src.start(t, Math.random() * 0.5);
+    src.stop(t + 0.18);
+  }
+
+  kill(head) { this.tone(head ? 1500 : 1100, 0.07, 'sine', 0.35); this.tone(head ? 2400 : 1650, 0.18, 'sine', 0.3, 0.06); }
+  hurt()     { this.tone(180, 0.12, 'sawtooth', 0.25); }
+  death()    { this.tone(300, 0.6, 'sawtooth', 0.3); this.tone(150, 0.9, 'sine', 0.3, 0.1); }
   hit()      { this.tone(900, 0.05, 'square', 0.12); }
   headshot() { this.tone(1400, 0.08, 'sine', 0.35); this.tone(2100, 0.14, 'sine', 0.3, 0.05); }
   empty()    { this.click(0, 0.25); }
