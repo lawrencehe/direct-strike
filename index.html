@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>靶场 v0.1</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- 抬头显示（HUD） -->
+  <div id="hud">
+    <div id="crosshair">
+      <i class="ch-top"></i><i class="ch-bottom"></i><i class="ch-left"></i><i class="ch-right"></i>
+    </div>
+    <div id="hitmarker"></div>
+    <div id="reload-tip">换弹中…</div>
+
+    <div id="stats">
+      <div>射击 <b id="stat-shots">0</b></div>
+      <div>命中 <b id="stat-hits">0</b></div>
+      <div>爆头 <b id="stat-heads">0</b></div>
+      <div>命中率 <b id="stat-acc">0%</b></div>
+    </div>
+
+    <div id="ammo"><span id="ammo-cur">30</span><span id="ammo-max">/ ∞</span></div>
+    <div id="hint">R 换弹 · T 重置统计 · Esc 暂停</div>
+  </div>
+
+  <!-- 开始 / 暂停界面 -->
+  <div id="overlay">
+    <div class="panel">
+      <h1>靶场 <small>v0.1</small></h1>
+      <p id="overlay-sub">第一人称射击训练场</p>
+      <table class="keys">
+        <tr><td>鼠标</td><td>转动视角</td></tr>
+        <tr><td>W A S D</td><td>移动</td></tr>
+        <tr><td>Shift</td><td>奔跑</td></tr>
+        <tr><td>空格</td><td>跳跃</td></tr>
+        <tr><td>左键</td><td>射击（按住连发）</td></tr>
+        <tr><td>R</td><td>换弹</td></tr>
+        <tr><td>T</td><td>重置统计</td></tr>
+      </table>
+      <button id="start-btn">点击开始</button>
+    </div>
+  </div>
+
+  <!-- 按依赖顺序加载：先库，再配置，最后主循环 -->
+  <script src="vendor/three.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/targets.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/weapon.js"></script>
+  <script src="js/hud.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
