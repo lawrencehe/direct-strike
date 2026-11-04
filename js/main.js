@@ -33,6 +33,7 @@
   const weaponCamera = new THREE.PerspectiveCamera(Game.Config.view.weaponFov, aspect, 0.01, 10);
   weaponScene.add(weaponCamera);
   weaponScene.add(new THREE.HemisphereLight(0xdfefff, 0x5a5040, 0.8));
+  weaponScene.environment = Game.GunModel.environment();   // 让枪上的金属件有反光
   const weaponSun = new THREE.DirectionalLight(0xffe3c0, 0.9);
   weaponSun.position.set(-1, 2, 1);
   weaponScene.add(weaponSun);
@@ -43,6 +44,7 @@
   const input = new Game.Input(canvas);
   const audio = new Game.Audio();
   const hud = new Game.Hud();
+  hud.bindKeySettings(input);   // 开始界面的改键表格
   const effects = new Game.Effects(scene);
   const player = new Game.Player(camera, world.colliders, world.spawn);
 
@@ -174,7 +176,7 @@
       }
       if (mode === 'range') {
         for (const t of targets) t.update(dt, time);
-        if (input.wasPressed('KeyT')) hud.resetStats();
+        if (input.wasAction('resetStats')) hud.resetStats();
       }
       bots.update(dt);
     }

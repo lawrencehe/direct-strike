@@ -47,14 +47,12 @@
       <h1>靶场 <small>v0.3</small></h1>
       <p id="overlay-sub">选择模式开始</p>
       <div id="overlay-result"></div>
-      <table class="keys">
-        <tr><td>鼠标</td><td>转动视角</td></tr>
-        <tr><td>W A S D</td><td>移动</td></tr>
-        <tr><td>Shift</td><td>奔跑</td></tr>
-        <tr><td>空格</td><td>跳跃</td></tr>
-        <tr><td>左键</td><td>射击（按住连发）</td></tr>
-        <tr><td>R</td><td>换弹</td></tr>
-      </table>
+      <!-- 按键表由 hud.js 根据当前绑定生成，点击按键名可以改键 -->
+      <div class="keys-head">
+        <span>按键（点击可改）</span>
+        <a id="btn-keys-reset" href="#">恢复默认</a>
+      </div>
+      <table class="keys" id="keys"></table>
       <button id="btn-resume">继续</button>
       <div class="mode-btns">
         <button id="btn-range">训练场</button>
@@ -79,6 +77,7 @@
   <script src="js/targets.js"></script>
   <script src="js/character.js"></script>
   <script src="js/player.js"></script>
+  <script src="js/gunmodel.js"></script>
   <script src="js/weapon.js"></script>
   <script src="js/bots.js"></script>
   <script src="js/hud.js"></script>

@@ -18,6 +18,10 @@ Game.Config = {
     radius: 0.3,           // 身体半宽（碰撞盒）
     walkSpeed: 5.0,        // 走路速度 m/s
     sprintSpeed: 7.5,      // 奔跑速度 m/s
+    crouchSpeed: 2.6,      // 下蹲时的移动速度 m/s
+    crouchHeight: 1.1,     // 下蹲时的身高（碰撞盒）
+    crouchEyeHeight: 1.0,  // 下蹲时眼睛离地高度
+    crouchTime: 0.18,      // 站 ↔ 蹲 过渡时间（秒）
     groundAccel: 50,       // 地面加速度：越大起步/急停越"跟手"
     airAccel: 8,           // 空中加速度：越小空中越难改变方向
     jumpSpeed: 5.6,        // 起跳初速度（跳跃高度 ≈ jumpSpeed² / 2g）
@@ -45,6 +49,7 @@ Game.Config = {
     bloomPerShot: 0.006,   // 连续开火时每发累积的散布
     bloomMax: 0.04,        // 累积上限
     bloomRecover: 0.08,    // 每秒恢复多少
+    crouchSpreadMul: 0.6,  // 下蹲时散布乘以这个系数（更准）
 
     // 后坐力：每发让枪口往上（和左右随机）跳
     recoilPitch: 0.012,    // 每发上跳
@@ -101,5 +106,20 @@ Game.Config = {
 
   audio: {
     volume: 0.5,
+  },
+
+  // 默认按键。值是 KeyboardEvent.code（KeyW、ShiftLeft、Space…）或 Mouse0 ~ Mouse4。
+  // 玩家在开始界面里改过的按键会存到浏览器 localStorage，优先级高于这里。
+  keys: {
+    forward:    ['KeyW'],
+    back:       ['KeyS'],
+    left:       ['KeyA'],
+    right:      ['KeyD'],
+    jump:       ['Space'],
+    crouch:     ['ShiftLeft', 'ShiftRight'],
+    sprint:     ['CapsLock'],   // 浏览器里 Ctrl+W 会关标签页、Alt 会弹菜单，所以不用它们
+    fire:       ['Mouse0'],
+    reload:     ['KeyR'],
+    resetStats: ['KeyT'],
   },
 };

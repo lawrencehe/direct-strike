@@ -42,42 +42,33 @@ Game.Weapon = class Weapon {
     hud.setAmmo(this.ammo, cfg.magSize, false);
   }
 
-  // 用几个方块拼一把枪，挂在"武器摄像机"前面
+  // 枪模在 gunmodel.js 里拼好，这里只负责摆位置、挂枪口火焰
   buildModel(weaponCamera) {
-    const dark = new THREE.MeshStandardMaterial({ color: 0x2b2e33, roughness: 0.5, metalness: 0.6 });
-    const mid = new THREE.MeshStandardMaterial({ color: 0x4b5058, roughness: 0.6, metalness: 0.4 });
-    const wood = new THREE.MeshStandardMaterial({ color: 0x6b4426, roughness: 0.8 });
-
-    const gun = new THREE.Group();
-    const part = (w, h, d, x, y, z, mat) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-      m.position.set(x, y, z);
-      gun.add(m);
-    };
-    part(0.07, 0.09, 0.42, 0, 0, 0, mid);              // 机匣
-    part(0.03, 0.03, 0.34, 0, 0.015, -0.36, dark);     // 枪管
-    part(0.05, 0.05, 0.16, 0, -0.005, -0.25, wood);    // 护木
-    part(0.05, 0.14, 0.07, 0, -0.1, -0.06, dark);      // 弹匣
-    part(0.045, 0.11, 0.05, 0, -0.08, 0.1, wood);      // 握把
-    part(0.06, 0.08, 0.2, 0, -0.01, 0.28, wood);       // 枪托
-    part(0.012, 0.03, 0.012, 0, 0.06, -0.18, dark);    // 准星
-    part(0.03, 0.025, 0.03, 0, 0.055, 0.12, dark);     // 照门
+    const ak = Game.GunModel.buildAK();
+    const gun = ak.group;
+    this.bolt = ak.bolt;           // 拉机柄：开枪时往后跳
+    this.boltHome = ak.boltHome;
+    this.mag = ak.mag;             // 弹匣：换弹时抽出再插回
+    this.magHome = ak.magHome;
 
     // 枪口火焰：一张发光的星形贴图
     this.flash = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.22, 0.22),
+      new THREE.PlaneGeometry(0.26, 0.26),
       new THREE.MeshBasicMaterial({
         map: Game.Effects.flashTexture(), transparent: true,
         blending: THREE.AdditiveBlending, depthWrite: false,
       })
     );
-    this.flash.position.set(0, 0.015, -0.55);
+    this.flash.position.copy(ak.muzzle);
     this.flash.visible = false;
     gun.add(this.flash);
 
-    this.basePos = new THREE.Vector3(0.16, -0.17, -0.5);
+    // 摆在画面右下，枪口略微朝准星方向内收
+    this.basePos = new THREE.Vector3(0.16, -0.18, -0.40);
+    this.baseRot = new THREE.Euler(0.0, 0.075, 0.0);
     gun.position.copy(this.basePos);
-    gun.scale.setScalar(0.7);
+    gun.rotation.copy(this.baseRot);
+    gun.scale.setScalar(0.75);
     weaponCamera.add(gun);
     this.model = gun;
   }
@@ -87,7 +78,8 @@ Game.Weapon = class Weapon {
     const cfg = Game.Config.weapon;
     const p = this.player;
     const moveRatio = Math.min(1, p.horizontalSpeed() / Game.Config.player.walkSpeed);
-    return cfg.baseSpread + cfg.moveSpread * moveRatio + (p.onGround ? 0 : cfg.airSpread) + this.bloom;
+    const spread = cfg.baseSpread + cfg.moveSpread * moveRatio + (p.onGround ? 0 : cfg.airSpread) + this.bloom;
+    return spread * (1 - (1 - cfg.crouchSpreadMul) * p.crouchT);   // 蹲下更准
   }
 
   update(dt, input) {
@@ -104,13 +96,13 @@ Game.Weapon = class Weapon {
       }
     }
 
-    if (input.wasPressed('KeyR')) this.startReload();
+    if (input.wasAction('reload')) this.startReload();
 
-    if (input.isDown('Mouse0') && !this.reloading && this.cooldown <= 0) {
+    if (input.isAction('fire') && !this.reloading && this.cooldown <= 0) {
       if (this.ammo > 0) {
         this.fire();
       } else {
-        if (input.wasPressed('Mouse0')) this.audio.empty();
+        if (input.wasAction('fire')) this.audio.empty();
         this.startReload();  // 打空了自动换弹
       }
     }
@@ -220,19 +212,36 @@ Game.Weapon = class Weapon {
     const bob = this.player.bobPhase;
     const moving = Math.min(1, this.player.horizontalSpeed() / Game.Config.player.walkSpeed) * (this.player.onGround ? 1 : 0);
 
-    let dip = 0;
+    // 换弹：枪往下沉并侧倾；弹匣先抽出去（0 → 0.4），空一会儿，再插回来（0.6 → 1）
+    let dip = 0, magOut = 0;
     if (this.reloading) {
       const p = 1 - this.reloadTimer / Game.Config.weapon.reloadTime;
       dip = Math.sin(p * Math.PI);
+      if (p < 0.4) magOut = p / 0.4;
+      else if (p < 0.6) magOut = 1;
+      else magOut = 1 - (p - 0.6) / 0.4;
     }
+    this.mag.position.set(this.magHome.x, this.magHome.y - magOut * 0.16, this.magHome.z - magOut * 0.05);
+    this.mag.rotation.x = magOut * 0.5;
+    this.mag.visible = magOut < 0.98;
+
+    // 拉机柄随后坐往后跳
+    this.bolt.position.z = this.boltHome.z + this.kick * 0.07;
+
+    // 下蹲时枪稍微抬高靠近一点
+    const crouch = this.player.crouchT;
 
     const m = this.model;
     m.position.set(
-      this.basePos.x + this.sway.x + Math.cos(bob * 0.5) * 0.012 * moving,
-      this.basePos.y + this.sway.y - Math.abs(Math.sin(bob * 0.5)) * 0.01 * moving - dip * 0.12,
+      this.basePos.x + this.sway.x + Math.cos(bob * 0.5) * 0.012 * moving - crouch * 0.02,
+      this.basePos.y + this.sway.y - Math.abs(Math.sin(bob * 0.5)) * 0.01 * moving - dip * 0.1 + crouch * 0.015,
       this.basePos.z + this.kick * 0.06
     );
-    m.rotation.set(this.kick * 0.06 - dip * 0.7, this.sway.x * 2, dip * 0.3);
+    m.rotation.set(
+      this.baseRot.x + this.kick * 0.05 - dip * 0.45,
+      this.baseRot.y + this.sway.x * 2,
+      this.baseRot.z + dip * 0.35
+    );
 
     this.flashTimer -= dt;
     const on = this.flashTimer > 0;

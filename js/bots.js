@@ -238,7 +238,7 @@ Game.Bots = (function () {
 
       // 瞄准玩家胸口到头之间的某一点
       const aim = player.position.clone();
-      aim.y += rand(1.1, 1.55);
+      aim.y += rand(0.65, 0.91) * player.height;   // 玩家蹲下时瞄准点也跟着降低
       const dir = aim.sub(muzzle).normalize();
 
       // 散布：玩家跑得越快、自己在移动，就越打不准；技能越高越准
@@ -318,7 +318,7 @@ Game.Bots = (function () {
       // 交战时枪口跟着玩家抬高/压低，其他时候平举
       if (this.state === 'combat' && this.mgr.player.alive) {
         this.aimPoint.copy(this.mgr.player.position);
-        this.aimPoint.y += 1.3;
+        this.aimPoint.y += 0.76 * this.mgr.player.height;
         this.model.aimAt(this.aimPoint);
       } else {
         this.model.aimAt(null);

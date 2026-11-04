@@ -87,9 +87,25 @@ html, body {
 .panel h1 { font-size: 32px; letter-spacing: 4px; }
 .panel h1 small { font-size: 14px; opacity: .6; letter-spacing: 0; }
 .panel p { margin: 6px 0 18px; opacity: .7; }
-.keys { width: 100%; border-collapse: collapse; margin-bottom: 22px; font-size: 14px; }
-.keys td { padding: 4px 0; text-align: left; }
-.keys td:first-child { color: #fc3; width: 40%; }
+.keys-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12px; opacity: .6; margin-bottom: 4px; padding: 0 2px;
+}
+.keys-head a { color: #9cf; text-decoration: none; }
+.keys-head a:hover { text-decoration: underline; }
+.keys { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 13px; }
+.keys tr { display: flex; align-items: center; }
+.keys td { padding: 1px 2px; text-align: left; }
+.keys td:first-child { flex: 1; }
+.keys td:last-child { width: 46%; text-align: right; }
+.keys .key {
+  display: inline-block; min-width: 88px; padding: 2px 10px; border-radius: 4px;
+  background: #2a3240; border: 1px solid #3c4858; color: #fc3; font-size: 13px;
+  cursor: pointer; text-align: center;
+}
+.keys .key:hover { background: #344056; }
+.keys .key.waiting { color: #fff; background: #3a7; border-color: #4b8; animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: .55; } }
 .panel button {
   width: 100%; padding: 12px; border: 0; border-radius: 6px;
   background: #3a7; color: #fff; font-size: 17px; cursor: pointer;

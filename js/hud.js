@@ -15,6 +15,7 @@ Game.Hud = class Hud {
       wave: $('wave-info'), banner: $('banner'), hint: $('hint'),
       overlay: $('overlay'), overlaySub: $('overlay-sub'), result: $('overlay-result'),
       resume: $('btn-resume'), loading: $('loading'),
+      keys: $('keys'), keysReset: $('btn-keys-reset'),
       modeBtns: [$('btn-duel'), $('btn-waves')],
     };
     this.hitTimer = 0;
@@ -45,7 +46,51 @@ Game.Hud = class Hud {
     }
   }
 
-  hideOverlay() { this.el.overlay.classList.add('hidden'); }
+  hideOverlay() {
+    this.el.overlay.classList.add('hidden');
+    if (this.input && this.input.capture) this.input.finishCapture(null);   // 改到一半就开始游戏：取消
+  }
+
+  // ---------- 改键界面 ----------
+  // 把动作列表画成表格，点按键名 → 等待玩家按一个键 → 保存并重画
+  bindKeySettings(input) {
+    this.input = input;
+    this.el.keysReset.addEventListener('click', (e) => {
+      e.preventDefault();
+      input.finishCapture(null);
+      input.resetBindings();
+      this.renderKeys();
+      if (this.mode) this.setMode(this.mode);   // 刷新底部的按键提示
+    });
+    this.renderKeys();
+  }
+
+  renderKeys() {
+    const input = this.input;
+    const table = this.el.keys;
+    table.innerHTML = '';
+    const row = (label, html) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${label}</td><td>${html}</td>`;
+      table.appendChild(tr);
+      return tr;
+    };
+    row('转动视角', '<span style="opacity:.7">鼠标</span>');
+    for (const [action, label] of Game.Input.ACTIONS) {
+      const tr = row(label, `<span class="key">${Game.Input.bindingName(input.bindings[action])}</span>`);
+      const btn = tr.querySelector('.key');
+      btn.addEventListener('click', () => {
+        if (input.capture) { input.finishCapture(null); this.renderKeys(); return; }
+        btn.textContent = '按一个键…';
+        btn.classList.add('waiting');
+        input.startCapture((code) => {
+          if (code) input.bind(action, code);
+          this.renderKeys();
+          if (this.mode) this.setMode(this.mode);
+        });
+      });
+    }
+  }
 
   // 模型加载中：禁用对战按钮
   setLoading(on, note = '') {
@@ -60,7 +105,11 @@ Game.Hud = class Hud {
     this.el.stats.classList.toggle('battle', battle);
     this.el.health.style.display = battle ? 'block' : 'none';
     this.el.wave.style.display = battle ? 'block' : 'none';
-    this.el.hint.textContent = battle ? 'R 换弹 · Esc 暂停' : 'R 换弹 · T 重置统计 · Esc 暂停';
+    const key = (a) => this.input ? Game.Input.bindingName(this.input.bindings[a]) : '?';
+    this.el.hint.textContent = battle
+      ? `${key('reload')} 换弹 · Esc 暂停`
+      : `${key('reload')} 换弹 · ${key('resetStats')} 重置统计 · Esc 暂停`;
+    this.mode = mode;
     this.damageTimer = this.bannerTimer = 0;
   }
 
