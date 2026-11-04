@@ -1,6 +1,8 @@
-# 靶场 v0.3
+# 靶场 v0.5
 
 一个纯浏览器运行的第一人称射击游戏。不需要安装任何东西，也不需要联网。
+
+**在线试玩：https://game.lightup.host**
 
 ## 三种模式
 
@@ -17,6 +19,8 @@
 
 > 为什么不能直接双击 `index.html`？浏览器禁止 `file://` 页面加载 `.glb` 模型文件。
 > 直接双击也能玩，但 NPC 会退化成方块小人。
+
+发布到线上：`./deploy.sh`，说明见 `docs/deploy.md`。
 
 ## 操作
 
@@ -48,6 +52,10 @@
 fps/
 ├── index.html        页面骨架：画布、HUD、开始界面，按顺序加载脚本
 ├── start.sh / .bat   一键启动本地服务
+├── deploy.sh         一键发布到 game.lightup.host
+├── deploy/           站点容器的 compose 和 Caddyfile
+├── docs/deploy.md    部署架构、首次接入、回滚
+├── CLAUDE.md         给 AI 助手看的项目约定
 ├── css/style.css     HUD 和界面样式
 ├── assets/
 │   ├── models/soldier.glb   NPC 模型（Mixamo 骨骼，带待机/走/跑动画）

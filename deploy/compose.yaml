@@ -1,0 +1,16 @@
+# 游戏站点容器。只负责出静态文件，不占 80/443。
+# 它加入 paseo-relay 的网络，由那边的 Caddy 按域名把 game.lightup.host 转发过来。
+services:
+  game:
+    image: caddy:2.10.2-alpine
+    container_name: fps-game
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /home/donkey/fps-site:/srv/game:ro
+    networks: [relay]
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+networks:
+  relay:
+    external: true
+    name: paseo-relay_default

@@ -1,0 +1,81 @@
+# 部署说明
+
+线上地址：**https://game.lightup.host**，跑在本机（GCP 实例）。
+
+## 架构
+
+```
+浏览器
+  │ https://game.lightup.host
+  ▼
+paseo-relay 的 Caddy 容器（占 80/443，自动签 Let's Encrypt 证书）
+  │ 按域名分流：relay.lightup.host → relay 容器；game.lightup.host → fps-game 容器
+  ▼
+fps-game 容器（caddy:alpine，只在 Docker 网络 paseo-relay_default 内开 80，gzip 压缩）
+  │ 只读挂载
+  ▼
+/home/donkey/fps-site（deploy.sh 用 rsync 同步过去的纯站点文件）
+```
+
+为什么这样设计：
+
+- **80/443 已经被 relay 项目的 Caddy 占了**，而且 relay 不能中断。游戏不另起端口，而是借它的 Caddy 按域名分流，这是 Caddy 的原生能力。
+- **游戏单独一个容器**，加入 relay 的 Docker 网络。这样接入时只需往 Caddyfile 追加几行并热重载，Caddy 容器不用重建，relay 零中断。
+- **站点目录和代码目录分开**。`/home/donkey/fps` 里有 `.git`、`refer/` 草图、文档，不该公开；而且改代码改到一半不该被玩家看到。`deploy.sh` 用 rsync 做一次性同步并排除这些。
+
+## 文件
+
+| 路径 | 作用 |
+|---|---|
+| `deploy.sh` | 一键发布：rsync 到站点目录 + 拉起容器 |
+| `deploy/compose.yaml` | fps-game 容器定义，网络指向 `paseo-relay_default` |
+| `deploy/Caddyfile` | 容器内部的静态服务配置：根目录、gzip、缓存策略 |
+| `/home/donkey/paseo-relay/Caddyfile` | relay 项目的 Caddy 配置，末尾有 `game.lightup.host` 一段（不在本仓库） |
+
+## 日常更新
+
+```bash
+./deploy.sh
+```
+
+rsync 完立刻生效。缓存策略是 `Cache-Control: no-cache`：浏览器每次先向服务器确认文件有没有变，
+没变就返回 304 用本地缓存。所以推了新版本玩家刷新就能看到，2 MB 的模型又不会被反复下载。
+
+## 首次接入（已经做过，记录在这里以便重建）
+
+1. DNS：给 `game.lightup.host` 加 A 记录指向本机公网 IP。
+2. `./deploy.sh` 拉起 fps-game 容器。
+3. 在 `/home/donkey/paseo-relay/Caddyfile` 末尾追加：
+
+   ```
+   game.lightup.host {
+   	reverse_proxy fps-game:80
+   }
+   ```
+
+4. 校验并热重载（在 paseo-relay 目录）：
+
+   ```bash
+   docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile
+   docker compose exec caddy caddy reload   --config /etc/caddy/Caddyfile
+   ```
+
+   校验不过 reload 不会执行，旧配置继续跑。重载后十几秒内证书自动签好。
+
+## 验证
+
+```bash
+curl -sI https://game.lightup.host/ | head -1                      # 200
+curl -s -o /dev/null -w '%{http_code}\n' https://game.lightup.host/refer/ak.png   # 必须 404
+curl -s -o /dev/null -w '%{http_code}\n' https://game.lightup.host/.git/HEAD      # 必须 404
+```
+
+## 回滚
+
+- 代码：`git checkout <tag>` 然后 `./deploy.sh`。
+- Caddyfile：同目录有 `Caddyfile.bak-<时间戳>`，复制回去再 `caddy reload`。
+
+## 以后加地图要注意
+
+每张地图的模型和贴图单独放，选了哪张才加载哪张。这样首次必须下载的体积一直保持在引擎加一张图，
+总体积变大也不影响打开速度。
