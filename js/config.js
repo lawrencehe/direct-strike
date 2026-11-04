@@ -22,8 +22,14 @@ Game.Config = {
     airAccel: 8,           // 空中加速度：越小空中越难改变方向
     jumpSpeed: 5.6,        // 起跳初速度（跳跃高度 ≈ jumpSpeed² / 2g）
     gravity: 15,           // 重力。现实是 9.8，游戏里通常更大，跳起来不"飘"
+    stepHeight: 0.45,      // 不用跳就能直接走上去的台阶高度
     headBob: 0.035,        // 走路时镜头上下晃动幅度
     maxHealth: 100,        // 生命值
+  },
+
+  graphics: {
+    shadowMapSize: 2048,   // 阴影贴图分辨率。卡的话改成 1024
+    exposure: 1.0,         // 画面整体亮度
   },
 
   weapon: {
@@ -70,10 +76,27 @@ Game.Config = {
     spread: 0.05,          // 基础散布，越大越打不准
     moveSpreadMul: 1.0,    // 玩家全速移动时，NPC 散布额外增加的倍数
     searchTime: 6,         // 丢失目标后搜索多久
-    firstWave: 2,          // 第一波几个敌人
+    gravity: 15,
+    stepHeight: 0.45,      // NPC 能直接走上去的台阶高度
+    firstWave: 2,          // 波次模式：第一波几个敌人
     perWave: 1,            // 每波多几个
     maxAlive: 7,           // 一波最多几个
     wavePause: 4,          // 两波之间休息几秒
+  },
+
+  // 1v1 对决
+  duel: {
+    winScore: 10,          // 先打到几杀获胜
+    respawnDelay: 3,       // 被击杀后几秒重生
+    botSkill: 0.5,         // 对手强度 0 ~ 1（影响反应、准度、转身）
+  },
+
+  // NPC 外观
+  character: {
+    model: 'assets/models/soldier.glb',  // 加载失败时自动退回方块小人
+    walkAnimSpeed: 1.5,    // 走路动画对应的实际速度（m/s），用来匹配脚步和位移
+    runAnimSpeed: 4.0,
+    showHitboxes: false,   // 调试用：显示头/身/腿的判定盒
   },
 
   audio: {

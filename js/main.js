@@ -1,6 +1,11 @@
 // ============================================================
 // 主程序：创建所有对象，管理模式切换，然后进入"游戏循环"
 // 游戏循环每秒执行约 60 次：读取输入 → 更新逻辑 → 渲染画面
+//
+// 三种模式：
+//   range  训练场：站在高台上打靶
+//   duel   1v1 对决：和一个 NPC 互相击杀，先到 N 杀获胜
+//   waves  波次：一波波的敌人，看能撑到第几波
 // ============================================================
 (function () {
   const canvas = document.getElementById('game');
@@ -10,6 +15,8 @@
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;   // 电影式色调映射：高光不会死白，颜色更有层次
+  renderer.toneMappingExposure = Game.Config.graphics.exposure;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.autoClear = false;  // 要分两次画（世界 + 枪模），手动清屏
@@ -17,7 +24,7 @@
   // ---- 世界场景 ----
   const scene = new THREE.Scene();
   const aspect = window.innerWidth / window.innerHeight;
-  const camera = new THREE.PerspectiveCamera(Game.Config.view.fov, aspect, 0.05, 300);
+  const camera = new THREE.PerspectiveCamera(Game.Config.view.fov, aspect, 0.05, 320);
   scene.add(camera);
 
   // ---- 枪模场景 ----
@@ -26,13 +33,13 @@
   const weaponCamera = new THREE.PerspectiveCamera(Game.Config.view.weaponFov, aspect, 0.01, 10);
   weaponScene.add(weaponCamera);
   weaponScene.add(new THREE.HemisphereLight(0xdfefff, 0x5a5040, 0.8));
-  const weaponSun = new THREE.DirectionalLight(0xfff2dd, 0.8);
-  weaponSun.position.set(1, 2, 1);
+  const weaponSun = new THREE.DirectionalLight(0xffe3c0, 0.9);
+  weaponSun.position.set(-1, 2, 1);
   weaponScene.add(weaponSun);
 
   // ---- 游戏对象 ----
   const world = Game.World.build(scene);
-  const targets = Game.Targets.create(scene);
+  const targets = Game.Targets.create(scene, world.targetLayout);
   const input = new Game.Input(canvas);
   const audio = new Game.Audio();
   const hud = new Game.Hud();
@@ -41,24 +48,35 @@
 
   // 武器射线能打到的所有物体。内容随模式和 NPC 生死变化，所以用同一个数组原地更新
   const shootables = [];
-  const weapon = new Game.Weapon({ scene, camera, weaponCamera, player, audio, hud, shootables });
+  const weapon = new Game.Weapon({ scene, camera, weaponCamera, player, audio, hud, effects, shootables });
   const bots = new Game.Bots.Manager({ scene, camera, world, player, audio, hud, effects });
 
   let mode = null;
+  let respawnTimer = 0;   // 对决里玩家阵亡后的重生倒计时
 
   function refreshShootables() {
     shootables.length = 0;
     shootables.push(...world.shootables);
     if (mode === 'range') targets.forEach((t) => shootables.push(...t.meshes));
-    if (mode === 'battle') shootables.push(...bots.aliveMeshes());
+    if (mode === 'duel' || mode === 'waves') shootables.push(...bots.aliveMeshes());
   }
   bots.onChange = refreshShootables;
 
-  // 每清完一波：回满血、补满子弹
+  // 波次模式：每清完一波回满血、补满子弹
   bots.onWaveCleared = () => {
     player.health = Game.Config.player.maxHealth;
     hud.setHealth(player.health, Game.Config.player.maxHealth);
     weapon.refill();
+  };
+
+  // 对决结束
+  bots.onDuelEnd = (result) => {
+    hud.banner(result === 'win' ? '胜利！' : '失败', 2);
+    setTimeout(() => {
+      if (mode !== 'duel') return;
+      if (document.pointerLockElement) document.exitPointerLock();
+      hud.showOverlay(result, bots.score);
+    }, 1800);
   };
 
   player.onDamage = (amount, fromPos) => {
@@ -67,9 +85,15 @@
     audio.hurt();
   };
 
-  // 阵亡：先让镜头倒下 1.5 秒，再弹出结算界面
+  // 阵亡：先让镜头倒下，再决定是重生（对决）还是结算（波次）
   player.onDeath = () => {
     audio.death();
+    if (mode === 'duel' && bots.onPlayerKilled()) {
+      hud.banner('你被击杀了', 1.5);
+      respawnTimer = Game.Config.duel.respawnDelay;
+      return;
+    }
+    if (mode === 'duel') return;   // 对决已分出胜负，由 onDuelEnd 处理
     hud.banner('你阵亡了', 1.5);
     setTimeout(() => {
       if (player.alive) return;  // 这 1.5 秒里已经开了新一局
@@ -78,15 +102,24 @@
     }, 1500);
   };
 
+  function respawnPlayer() {
+    player.setSpawn(bots.playerSpawn());
+    player.reset();
+    weapon.refill();
+    hud.setHealth(player.health, Game.Config.player.maxHealth);
+  }
+
   function startMode(m) {
     mode = m;
+    respawnTimer = 0;
+    player.setSpawn(m === 'range' ? world.rangeSpawn : world.spawns[0]);
     player.reset();
     weapon.reset();
     hud.resetStats();
     hud.setMode(m);
     hud.setHealth(player.health, Game.Config.player.maxHealth);
     targets.forEach((t) => t.setActive(m === 'range'));
-    if (m === 'battle') bots.start();
+    if (m === 'duel' || m === 'waves') bots.start(m);
     else bots.stop();
     refreshShootables();
   }
@@ -98,12 +131,14 @@
     input.lock();
   };
   document.getElementById('btn-range').addEventListener('click', () => play('range'));
-  document.getElementById('btn-battle').addEventListener('click', () => play('battle'));
+  document.getElementById('btn-duel').addEventListener('click', () => play('duel'));
+  document.getElementById('btn-waves').addEventListener('click', () => play('waves'));
   document.getElementById('btn-resume').addEventListener('click', () => play(null));
 
   input.onLockChange = (locked) => {
     if (locked) hud.hideOverlay();
-    else hud.showOverlay(player.alive ? 'paused' : 'dead');
+    else if (bots.phase === 'over') hud.showOverlay(bots.score.player > bots.score.bot ? 'win' : 'lose', bots.score);
+    else hud.showOverlay(player.alive || respawnTimer > 0 ? 'paused' : 'dead');   // 对决里等重生时按 Esc 只是暂停
   };
 
   window.addEventListener('resize', () => {
@@ -132,6 +167,10 @@
       } else {
         player.updateDead(dt);
         input.consumeMouse();
+        if (respawnTimer > 0) {
+          respawnTimer -= dt;
+          if (respawnTimer <= 0) respawnPlayer();
+        }
       }
       if (mode === 'range') {
         for (const t of targets) t.update(dt, time);
@@ -139,6 +178,7 @@
       }
       bots.update(dt);
     }
+    world.update(dt);
     hud.update(dt, player);
     input.endFrame();
 
@@ -155,8 +195,14 @@
   // 先摆好摄像机、显示训练场，让菜单背后就能看到场景
   startMode('range');
   hud.showOverlay('menu');
+  hud.setLoading(true);
   player.update(0, input);
   frame();
+
+  // NPC 模型是异步加载的，加载完才允许进入对战模式
+  Game.Character.load().then((ok) => {
+    hud.setLoading(false, ok ? '' : '（NPC 模型加载失败，使用简易小人。请用 start.sh 启动）');
+  });
 
   // 方便在浏览器控制台（F12）里调试，例如输入 game.player.position 查看位置
   window.game = { scene, camera, renderer, world, targets, input, audio, hud, player, weapon, bots, startMode };

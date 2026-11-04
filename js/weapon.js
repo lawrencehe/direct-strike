@@ -5,12 +5,13 @@
 // 射线第一个碰到的物体就是被打中的物体。CS 的步枪就是这么做的。
 // ============================================================
 Game.Weapon = class Weapon {
-  constructor({ scene, camera, weaponCamera, player, audio, hud, shootables }) {
+  constructor({ scene, camera, weaponCamera, player, audio, hud, effects, shootables }) {
     this.scene = scene;
     this.camera = camera;
     this.player = player;
     this.audio = audio;
     this.hud = hud;
+    this.effects = effects;
     this.shootables = shootables;
 
     const cfg = Game.Config.weapon;
@@ -177,7 +178,9 @@ Game.Weapon = class Weapon {
           else head ? this.audio.headshot() : this.audio.hit();
         }
       }
-      this.addDecal(hit);
+      // 打中人：冒一团血雾；打中别的：留弹孔
+      if (info.bot) { if (this.effects) this.effects.bloodPuff(hit.point); }
+      else this.addDecal(hit);
     }
 
     // 3. 后坐力和效果

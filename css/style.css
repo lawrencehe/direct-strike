@@ -97,9 +97,16 @@ html, body {
 .panel button:hover { background: #4b8; }
 #btn-resume { margin-bottom: 10px; background: #357; }
 #btn-resume:hover { background: #468; }
-.mode-btns { display: flex; gap: 10px; }
-#btn-battle { background: #a43; }
-#btn-battle:hover { background: #b54; }
+.mode-btns { display: flex; gap: 8px; }
+.mode-btns button { padding: 12px 6px; font-size: 16px; }
+#btn-duel { background: #a43; }
+#btn-duel:hover { background: #b54; }
+#btn-waves { background: #864; }
+#btn-waves:hover { background: #975; }
+.panel button:disabled { opacity: .45; cursor: default; }
+#loading { margin-top: 12px; font-size: 13px; opacity: .7; display: none; }
+#wave-info b.me { color: #6f6; }
+#wave-info b.enemy { color: #f66; }
 #overlay-result {
   margin: -6px 0 18px; padding: 10px; border-radius: 6px;
   background: rgba(170, 50, 40, .25); line-height: 1.8;

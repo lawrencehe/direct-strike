@@ -50,6 +50,18 @@ Game.Effects = class Effects {
     this.items.push({ obj: sprite, life: 0.05, max: 0.05 });
   }
 
+  // 打中 NPC 时冒出的一小团血雾
+  bloodPuff(pos) {
+    if (!Game.Effects._bloodTex) Game.Effects._bloodTex = Game.Textures.softDisc('rgba(140,10,10,0.9)', 'rgba(90,0,0,0)');
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: Game.Effects._bloodTex, transparent: true, depthWrite: false,
+    }));
+    sprite.position.copy(pos);
+    sprite.scale.setScalar(0.25 + Math.random() * 0.15);
+    this.scene.add(sprite);
+    this.items.push({ obj: sprite, life: 0.25, max: 0.25 });
+  }
+
   update(dt) {
     for (const it of this.items) {
       it.life -= dt;

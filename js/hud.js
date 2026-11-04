@@ -1,5 +1,5 @@
 // ============================================================
-// HUD：准星、命中标记、弹药、生命值、受击方向、波次、统计、菜单
+// HUD：准星、命中标记、弹药、生命值、受击方向、比分/波次、统计、菜单
 // 用普通 HTML 元素叠在 3D 画面上面，比在 3D 里画文字简单得多。
 // ============================================================
 Game.Hud = class Hud {
@@ -14,7 +14,8 @@ Game.Hud = class Hud {
       damageFlash: $('damage-flash'), damageDir: $('damage-dir'),
       wave: $('wave-info'), banner: $('banner'), hint: $('hint'),
       overlay: $('overlay'), overlaySub: $('overlay-sub'), result: $('overlay-result'),
-      resume: $('btn-resume'),
+      resume: $('btn-resume'), loading: $('loading'),
+      modeBtns: [$('btn-duel'), $('btn-waves')],
     };
     this.hitTimer = 0;
     this.bannerTimer = 0;
@@ -23,26 +24,39 @@ Game.Hud = class Hud {
     this.resetStats();
   }
 
-  // kind: 'menu' | 'paused' | 'dead'
-  showOverlay(kind) {
+  // kind: 'menu' | 'paused' | 'dead' | 'win' | 'lose'
+  showOverlay(kind, score) {
     const el = this.el;
     el.overlay.classList.remove('hidden');
     el.resume.style.display = kind === 'paused' ? 'block' : 'none';
-    el.result.style.display = kind === 'dead' ? 'block' : 'none';
-    el.overlaySub.textContent = { menu: '选择模式开始', paused: '已暂停', dead: '你阵亡了' }[kind];
+    el.result.style.display = kind === 'menu' || kind === 'paused' ? 'none' : 'block';
+    el.overlaySub.textContent = {
+      menu: '选择模式开始', paused: '已暂停', dead: '你阵亡了', win: '你赢了！', lose: '你输了',
+    }[kind];
+    const s = this.stats;
     if (kind === 'dead') {
-      const s = this.stats;
       el.result.innerHTML =
         `坚持到 <b>第 ${this.waveNum} 波</b><br>` +
         `击杀 <b>${s.kills}</b> · 爆头 <b>${s.heads}</b> · 命中率 <b>${this.accuracy()}</b>`;
+    } else if (kind === 'win' || kind === 'lose') {
+      el.result.innerHTML =
+        `比分 <b>${score.player} : ${score.bot}</b><br>` +
+        `爆头 <b>${s.heads}</b> · 命中率 <b>${this.accuracy()}</b>`;
     }
   }
 
   hideOverlay() { this.el.overlay.classList.add('hidden'); }
 
+  // 模型加载中：禁用对战按钮
+  setLoading(on, note = '') {
+    this.el.loading.textContent = on ? 'NPC 模型加载中…' : note;
+    this.el.loading.style.display = on || note ? 'block' : 'none';
+    for (const b of this.el.modeBtns) b.disabled = on;
+  }
+
   // 不同模式显示不同的 HUD 元素
   setMode(mode) {
-    const battle = mode === 'battle';
+    const battle = mode === 'duel' || mode === 'waves';
     this.el.stats.classList.toggle('battle', battle);
     this.el.health.style.display = battle ? 'block' : 'none';
     this.el.wave.style.display = battle ? 'block' : 'none';
@@ -72,6 +86,11 @@ Game.Hud = class Hud {
   setWave(wave, alive, total) {
     this.waveNum = wave;
     this.el.wave.textContent = `第 ${wave} 波 · 剩余敌人 ${alive} / ${total}`;
+  }
+
+  // 对决比分
+  setScore(mine, theirs, target) {
+    this.el.wave.innerHTML = `你 <b class="me">${mine}</b> : <b class="enemy">${theirs}</b> 敌 · 先到 ${target} 杀`;
   }
 
   banner(text, seconds = 2) {

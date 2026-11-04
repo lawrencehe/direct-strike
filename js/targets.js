@@ -22,16 +22,7 @@ Game.Targets = (function () {
     return tex;
   }
 
-  // 靶子位置：近、中、远三排，部分会左右移动
-  const LAYOUT = [
-    { x: -6, z: -4 }, { x: -2, z: -4 }, { x: 2, z: -4 }, { x: 6, z: -4 },
-    { x: -8, z: -13, move: { range: 3, speed: 1.2 } },
-    { x: 0, z: -13 },
-    { x: 8, z: -13, move: { range: 3, speed: 0.9 } },
-    { x: -6, z: -24 },
-    { x: 0, z: -24, move: { range: 6, speed: 0.7 } },
-    { x: 6, z: -24 },
-  ];
+  // 靶子位置由地图提供（world.targetLayout）：近、中、远三排，部分会左右移动
 
   class Target {
     constructor(scene, mats, spec) {
@@ -122,13 +113,13 @@ Game.Targets = (function () {
     }
   }
 
-  function create(scene) {
+  function create(scene, layout) {
     const mats = {
       metal: new THREE.MeshStandardMaterial({ color: 0x4a4f55, roughness: 0.6, metalness: 0.4 }),
       plate: new THREE.MeshStandardMaterial({ map: plateTexture(), roughness: 0.9 }),
       head: new THREE.MeshStandardMaterial({ color: 0xd23a2a, roughness: 0.8 }),
     };
-    return LAYOUT.map((spec) => new Target(scene, mats, spec));
+    return layout.map((spec) => new Target(scene, mats, spec));
   }
 
   return { create };

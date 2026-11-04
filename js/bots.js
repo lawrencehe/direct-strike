@@ -1,20 +1,21 @@
 // ============================================================
-// NPC 敌人 + 波次管理
+// NPC 敌人 + 对战模式管理（1v1 对决 / 波次）
 //
 // 每个 NPC 是一个"状态机"，在几种状态之间切换：
-//   patrol（巡逻）  ：在场地里随便走，没发现玩家
+//   patrol（巡逻）  ：在地图标好的巡逻点之间走，没发现玩家
 //   combat（交战）  ：看见玩家 → 反应一下 → 转身、左右横移、点射
 //   search（搜索）  ：玩家躲起来了 → 跑去最后看见玩家的地方找
 //   dead（阵亡）    ：向后倒下，几秒后消失
 //
 // "看见"的判断（感知）有三个条件，全部满足才算看见：
 //   1. 距离够近   2. 在视野角度内（背后看不见）   3. 中间没有墙挡着（射线检测）
+//
+// 外观（模型、动画、判定盒）在 character.js 里，这里只管"脑子"和位置。
 // ============================================================
 Game.Bots = (function () {
   const RADIUS = 0.3;
   const HEIGHT = 1.8;
   const EYE = 1.6;
-  const MUZZLE = new THREE.Vector3(0.1, 1.37, -0.8);  // 枪口在模型里的位置
 
   const rand = (a, b) => a + Math.random() * (b - a);
   const randInt = (a, b) => Math.floor(rand(a, b + 1));
@@ -29,57 +30,14 @@ Game.Bots = (function () {
   // 朝向 (dx, dz) 方向所需的 yaw（和玩家用同一套约定：yaw=0 朝 -z）
   const yawTo = (dx, dz) => Math.atan2(-dx, -dz);
 
-  // ---------------- 模型 ----------------
-  // 用方块拼一个士兵，原点在脚底，面朝 -z
-  function buildModel() {
-    const mats = {
-      shirt: new THREE.MeshStandardMaterial({ color: 0x9a3b2e, roughness: 0.9 }),
-      pants: new THREE.MeshStandardMaterial({ color: 0x3b3f46, roughness: 0.9 }),
-      skin: new THREE.MeshStandardMaterial({ color: 0xc89a74, roughness: 0.8 }),
-      helmet: new THREE.MeshStandardMaterial({ color: 0x2f3328, roughness: 0.7 }),
-      gun: new THREE.MeshStandardMaterial({ color: 0x222428, roughness: 0.5, metalness: 0.5 }),
-    };
-    const root = new THREE.Group();
-    root.rotation.order = 'YXZ';
-    const hitMeshes = [];
-
-    const box = (w, h, d, x, y, z, mat, part, parent = root) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-      m.position.set(x, y, z);
-      m.castShadow = true;
-      m.userData.part = part;  // head / body / leg / null（打到枪上不算伤害）
-      parent.add(m);
-      hitMeshes.push(m);
-      return m;
-    };
-
-    // 腿：挂在髋部的转轴上，走路时前后摆动
-    const legs = [-0.12, 0.12].map((x) => {
-      const hip = new THREE.Group();
-      hip.position.set(x, 0.85, 0);
-      root.add(hip);
-      box(0.19, 0.85, 0.22, 0, -0.425, 0, mats.pants, 'leg', hip);
-      return hip;
-    });
-
-    box(0.5, 0.62, 0.3, 0, 1.16, 0, mats.shirt, 'body');           // 躯干
-    box(0.26, 0.28, 0.28, 0, 1.62, 0, mats.skin, 'head');          // 头
-    box(0.32, 0.1, 0.34, 0, 1.79, 0, mats.helmet, 'head');         // 头盔
-    box(0.12, 0.12, 0.45, 0.24, 1.3, -0.2, mats.shirt, 'body');    // 右臂
-    box(0.12, 0.12, 0.4, -0.12, 1.3, -0.32, mats.shirt, 'body');   // 左臂
-    box(0.07, 0.1, 0.62, 0.1, 1.36, -0.48, mats.gun, null);        // 枪
-
-    return { root, legs, hitMeshes, flashMats: [mats.shirt, mats.pants, mats.skin] };
-  }
-
   // ---------------- 单个 NPC ----------------
   class Bot {
-    constructor(manager, x, z, skill) {
+    constructor(manager, x, z, yaw, skill) {
       this.mgr = manager;
-      this.skill = skill;              // 0 ~ 1，波次越高越强
+      this.skill = skill;              // 0 ~ 1，越高越强
       this.pos = new THREE.Vector3(x, 0, z);
       this.vel = new THREE.Vector3();
-      this.yaw = Math.PI;              // 出生时面向玩家那一侧（+z）
+      this.yaw = yaw;
       this.health = Game.Config.bots.health;
       this.alive = true;
       this.state = 'patrol';
@@ -103,17 +61,15 @@ Game.Bots = (function () {
       this.detourSide = 1;
       this.stuckCount = 0;
 
-      this.walkPhase = 0;
-      this.flash = 0;
       this.deathTimer = 0;
+      this.aimPoint = new THREE.Vector3();
 
       this.box = new THREE.Box3();
       this.updateBox();
 
-      const model = buildModel();
-      this.model = model;
-      for (const m of model.hitMeshes) m.userData.bot = this;
-      manager.scene.add(model.root);
+      this.model = Game.Character.create();
+      for (const m of this.model.hitMeshes) m.userData.bot = this;
+      manager.scene.add(this.model.root);
       this.syncModel(0);
     }
 
@@ -128,7 +84,7 @@ Game.Bots = (function () {
     takeDamage(part) {
       if (!this.alive) return null;
       this.health -= Game.Config.weapon.damage[part];
-      this.flash = 1;
+      this.model.hitFlash();
 
       // 被打了就警觉：转身找玩家
       this.alertTimer = 3;
@@ -142,6 +98,7 @@ Game.Bots = (function () {
       if (this.health <= 0) {
         this.alive = false;
         this.state = 'dead';
+        this.model.die();
         this.mgr.onBotKilled(this);
         return { killed: true };
       }
@@ -152,8 +109,7 @@ Game.Bots = (function () {
     update(dt) {
       if (!this.alive) {
         this.deathTimer += dt;
-        const p = Math.min(1, this.deathTimer / 0.45);
-        this.model.root.rotation.x = (Math.PI / 2) * p * p;  // 向后倒
+        this.model.update(dt);
         return this.deathTimer > 5;
       }
 
@@ -176,7 +132,7 @@ Game.Bots = (function () {
 
       if (this.state === 'patrol') {
         if (!this.waypoint || Math.hypot(this.waypoint.x - this.pos.x, this.waypoint.z - this.pos.z) < 1) {
-          this.waypoint = this.mgr.randomPoint();
+          this.waypoint = this.mgr.nextNavPoint(this.pos);
         }
         mx = this.waypoint.x - this.pos.x;
         mz = this.waypoint.z - this.pos.z;
@@ -278,15 +234,14 @@ Game.Bots = (function () {
     shoot() {
       const cfg = Game.Config.bots;
       const player = this.mgr.player;
-      this.model.root.updateMatrixWorld();
-      const muzzle = MUZZLE.clone().applyMatrix4(this.model.root.matrixWorld);
+      const muzzle = this.model.getMuzzle(new THREE.Vector3());
 
       // 瞄准玩家胸口到头之间的某一点
       const aim = player.position.clone();
       aim.y += rand(1.1, 1.55);
       const dir = aim.sub(muzzle).normalize();
 
-      // 散布：玩家跑得越快、自己在移动，就越打不准；波次越高越准
+      // 散布：玩家跑得越快、自己在移动，就越打不准；技能越高越准
       const playerMove = Math.min(1, player.horizontalSpeed() / Game.Config.player.walkSpeed);
       const selfMove = this.vel.length() > 0.5 ? 1.4 : 1;
       const spread = cfg.spread * (1 - 0.5 * this.skill) * (1 + playerMove * cfg.moveSpreadMul) * selfMove;
@@ -300,6 +255,8 @@ Game.Bots = (function () {
     }
 
     move(dt, mx, mz, speed) {
+      const cfg = Game.Config.bots;
+
       // 卡住检测：想走却半天没走出多远 → 往侧面绕一下
       if (this.detourTimer > 0) {
         this.detourTimer -= dt;
@@ -308,7 +265,7 @@ Game.Bots = (function () {
           this.progressTimer = 0;            // 绕完重新开始计算进度
           this.progressFrom.copy(this.pos);
         }
-        speed = Math.max(speed, Game.Config.bots.walkSpeed);
+        speed = Math.max(speed, cfg.walkSpeed);
       } else if (speed > 0) {
         this.progressTimer += dt;
         if (this.progressTimer > 0.6) {
@@ -342,10 +299,13 @@ Game.Bots = (function () {
       const k = Math.min(1, dt * 8);
       this.vel.x += (vx - this.vel.x) * k;
       this.vel.z += (vz - this.vel.z) * k;
+      this.vel.y -= cfg.gravity * dt;
 
       const lists = [this.mgr.colliders, [this.mgr.player.getBox()]];
-      if (Game.Physics.moveAxis(this.pos, 'x', this.vel.x * dt, RADIUS, HEIGHT, lists)) this.vel.x = 0;
-      if (Game.Physics.moveAxis(this.pos, 'z', this.vel.z * dt, RADIUS, HEIGHT, lists)) this.vel.z = 0;
+      const P = Game.Physics;
+      if (P.moveAxis(this.pos, 'x', this.vel.x * dt, RADIUS, HEIGHT, lists, cfg.stepHeight)) this.vel.x = 0;
+      if (P.moveAxis(this.pos, 'z', this.vel.z * dt, RADIUS, HEIGHT, lists, cfg.stepHeight)) this.vel.z = 0;
+      if (P.moveAxis(this.pos, 'y', this.vel.y * dt, RADIUS, HEIGHT, lists)) this.vel.y = 0;
       this.updateBox();
     }
 
@@ -353,39 +313,40 @@ Game.Bots = (function () {
       const root = this.model.root;
       root.position.copy(this.pos);
       root.rotation.y = this.yaw;
+      this.model.setMotion(Math.hypot(this.vel.x, this.vel.z), dt);
 
-      // 走路摆腿
-      const speed = Math.hypot(this.vel.x, this.vel.z);
-      this.walkPhase += speed * dt * 3.2;
-      const swing = Math.sin(this.walkPhase) * 0.6 * Math.min(1, speed / 2);
-      this.model.legs[0].rotation.x = swing;
-      this.model.legs[1].rotation.x = -swing;
-
-      // 被打中时闪红
-      this.flash = Math.max(0, this.flash - dt * 6);
-      for (const m of this.model.flashMats) m.emissive.setRGB(this.flash * 0.8, 0, 0);
+      // 交战时枪口跟着玩家抬高/压低，其他时候平举
+      if (this.state === 'combat' && this.mgr.player.alive) {
+        this.aimPoint.copy(this.mgr.player.position);
+        this.aimPoint.y += 1.3;
+        this.model.aimAt(this.aimPoint);
+      } else {
+        this.model.aimAt(null);
+      }
+      this.model.update(dt);
     }
 
     dispose() {
       this.mgr.scene.remove(this.model.root);
-      this.model.root.traverse((o) => {
-        if (o.geometry) o.geometry.dispose();
-        if (o.material) o.material.dispose();
-      });
+      this.model.dispose();
     }
   }
 
-  // ---------------- 波次管理 ----------------
+  // ---------------- 对战管理 ----------------
+  // mode = 'duel'：一个对手，互相击杀后在远处重生，先到 winScore 杀获胜
+  // mode = 'waves'：一波波的敌人，清完一波来更多更强的
   class Manager {
     constructor({ scene, camera, world, player, audio, hud, effects }) {
-      Object.assign(this, { scene, camera, player, audio, hud, effects });
+      Object.assign(this, { scene, camera, world, player, audio, hud, effects });
       this.colliders = world.colliders;
       this.obstacles = world.shootables;  // 挡视线、挡子弹的静态物体
       this.bots = [];
       this.raycaster = new THREE.Raycaster();
       this.onChange = null;               // NPC 增减时通知 main.js 更新可射击物体列表
       this.onWaveCleared = null;
+      this.onDuelEnd = null;              // (result: 'win' | 'lose') => void
       this.active = false;
+      this.mode = null;
       this.reset();
     }
 
@@ -395,55 +356,64 @@ Game.Bots = (function () {
       this.wave = 0;
       this.phase = 'idle';
       this.timer = 0;
+      this.score = { player: 0, bot: 0 };
       this.effects.clear();
       if (this.onChange) this.onChange();
     }
 
-    start() {
+    start(mode) {
       this.reset();
       this.active = true;
-      this.nextWave();
+      this.mode = mode;
+      if (mode === 'duel') {
+        this.phase = 'fighting';
+        this.spawnBot(Game.Config.duel.botSkill, this.player.position);
+        this.updateHud();
+      } else {
+        this.nextWave();
+      }
     }
 
     stop() {
       this.reset();
       this.active = false;
+      this.mode = null;
     }
 
-    nextWave() {
-      const cfg = Game.Config.bots;
-      this.wave++;
-      this.total = Math.min(cfg.maxAlive, cfg.firstWave + cfg.perWave * (this.wave - 1));
-      const skill = Math.min(1, (this.wave - 1) * 0.15);
+    aliveMeshes() {
+      const out = [];
+      for (const b of this.bots) if (b.alive) out.push(...b.meshes);
+      return out;
+    }
 
-      const used = [];
-      for (let i = 0; i < this.total; i++) {
-        const p = this.spawnPoint(used);
-        used.push(p);
-        this.bots.push(new Bot(this, p.x, p.z, skill));
-      }
-      this.phase = 'fighting';
-      this.hud.banner(`第 ${this.wave} 波`);
-      this.updateHud();
+    aliveBoxes() {
+      return this.bots.filter((b) => b.alive).map((b) => b.box);
+    }
+
+    // ---- 出生点、巡逻点 ----
+
+    // 离 avoid 最远的几个出生点里随机挑一个（对决时：在对手看不到的另一头重生）
+    pickSpawn(avoid, used = []) {
+      const list = this.world.spawns
+        .filter((s) => this.isFree(s) && used.every((u) => Math.hypot(u.x - s.x, u.z - s.z) > 2))
+        .map((s) => ({ s, d: avoid ? Math.hypot(s.x - avoid.x, s.z - avoid.z) : Math.random() }))
+        .sort((a, b) => b.d - a.d);
+      if (!list.length) return this.world.spawns[3];
+      return list[randInt(0, Math.min(2, list.length - 1))].s;
+    }
+
+    spawnBot(skill, avoid, used) {
+      const s = this.pickSpawn(avoid, used);
+      const bot = new Bot(this, s.x, s.z, s.yaw, skill);
+      this.bots.push(bot);
       if (this.onChange) this.onChange();
+      return bot;
     }
 
-    // 出生点：场地远端，彼此至少隔 2 米
-    spawnPoint(used) {
-      for (let i = 0; i < 30; i++) {
-        const p = { x: rand(-24, 24), z: rand(-27, -18) };
-        if (used.every((u) => Math.hypot(u.x - p.x, u.z - p.z) > 2) && this.isFree(p)) return p;
-      }
-      return { x: rand(-20, 20), z: -22 };
-    }
-
-    // 巡逻目标点：场地里任意一个不在箱子里的位置
-    randomPoint() {
-      for (let i = 0; i < 20; i++) {
-        const p = { x: rand(-27, 27), z: rand(-27, 27) };
-        if (this.isFree(p)) return p;
-      }
-      return { x: 0, z: 0 };
+    // 巡逻：随机挑一个不是脚下的巡逻点
+    nextNavPoint(from) {
+      const pts = this.world.navPoints.filter((p) => Math.hypot(p.x - from.x, p.z - from.z) > 3);
+      return pts[randInt(0, pts.length - 1)] || { x: 0, z: 0 };
     }
 
     isFree(p) {
@@ -454,6 +424,28 @@ Game.Bots = (function () {
       return !this.colliders.some((c) => Game.Physics.overlaps(b, c));
     }
 
+    // ---- 波次 ----
+    nextWave() {
+      const cfg = Game.Config.bots;
+      this.wave++;
+      this.total = Math.min(cfg.maxAlive, cfg.firstWave + cfg.perWave * (this.wave - 1));
+      const skill = Math.min(1, (this.wave - 1) * 0.15);
+
+      const used = [];
+      for (let i = 0; i < this.total; i++) {
+        // 波次模式只从北侧出生点出来
+        const north = this.world.spawns.filter((s) => s.z < 0 && used.every((u) => Math.hypot(u.x - s.x, u.z - s.z) > 2));
+        const s = north[randInt(0, north.length - 1)] || this.world.spawns[3];
+        used.push(s);
+        this.bots.push(new Bot(this, s.x + rand(-1, 1), s.z + rand(-1, 1), s.yaw, skill));
+      }
+      this.phase = 'fighting';
+      this.hud.banner(`第 ${this.wave} 波`);
+      this.updateHud();
+      if (this.onChange) this.onChange();
+    }
+
+    // ---- 视线和射击 ----
     hasLineOfSight(from, to) {
       const dir = to.clone().sub(from);
       const dist = dir.length();
@@ -462,7 +454,7 @@ Game.Bots = (function () {
       return this.raycaster.intersectObjects(this.obstacles, false).length === 0;
     }
 
-    // NPC 开枪：先找射线碰到的第一面墙，再看玩家是不是在墙前面
+    // NPC 开枪：先看射线有没有被墙挡住，再看有没有穿过玩家的碰撞盒
     fireRay(origin, dir, bot) {
       const maxDist = 120;
       this.raycaster.set(origin, dir);
@@ -488,41 +480,83 @@ Game.Bots = (function () {
       this.audio.botShot(-Math.sin(rel), Math.hypot(dx, dz));
     }
 
-    onBotKilled() {
-      this.updateHud();
+    // ---- 击杀和回合 ----
+    onBotKilled(bot) {
+      if (this.mode === 'duel') {
+        this.score.player++;
+        this.updateHud();
+        this.hud.banner('击杀！', 1.2);
+        if (this.score.player >= Game.Config.duel.winScore) {
+          this.phase = 'over';
+          if (this.onDuelEnd) this.onDuelEnd('win');
+        } else {
+          this.phase = 'respawning';
+          this.timer = Game.Config.duel.respawnDelay;
+        }
+      }
       if (this.onChange) this.onChange();
     }
 
-    aliveCount() { return this.bots.filter((b) => b.alive).length; }
+    // 玩家被击杀（由 main.js 调用）。返回 true 表示对决还没结束、玩家会重生
+    onPlayerKilled() {
+      if (this.mode !== 'duel' || this.phase === 'over') return false;
+      this.score.bot++;
+      this.updateHud();
+      if (this.score.bot >= Game.Config.duel.winScore) {
+        this.phase = 'over';
+        if (this.onDuelEnd) this.onDuelEnd('lose');
+        return false;
+      }
+      return true;
+    }
 
-    // 给玩家碰撞用：还活着的 NPC 的碰撞盒
-    aliveBoxes() { return this.bots.filter((b) => b.alive).map((b) => b.box); }
-
-    // 给武器射线用：还活着的 NPC 的所有部件
-    aliveMeshes() {
-      return this.bots.filter((b) => b.alive).flatMap((b) => b.meshes);
+    // 玩家重生点：离对手最远
+    playerSpawn() {
+      const enemy = this.bots.find((b) => b.alive);
+      return this.pickSpawn(enemy ? enemy.pos : null);
     }
 
     updateHud() {
-      this.hud.setWave(this.wave, this.aliveCount(), this.total);
+      if (this.mode === 'duel') {
+        this.hud.setScore(this.score.player, this.score.bot, Game.Config.duel.winScore);
+      } else {
+        this.hud.setWave(this.wave, this.bots.filter((b) => b.alive).length, this.total);
+      }
     }
 
     update(dt) {
       this.effects.update(dt);
-      if (!this.active) return;
+      if (!this.active || this.phase === 'over') return;   // 分出胜负后 NPC 停下来
 
-      for (const bot of this.bots) {
-        if (bot.update(dt)) bot.removeMe = true;
+      for (const b of this.bots) {
+        if (b.update(dt)) { b.dispose(); b.remove = true; }
       }
-      for (const bot of this.bots.filter((b) => b.removeMe)) bot.dispose();
-      this.bots = this.bots.filter((b) => !b.removeMe);
+      if (this.bots.some((b) => b.remove)) {
+        this.bots = this.bots.filter((b) => !b.remove);
+      }
 
-      if (this.phase === 'fighting' && this.aliveCount() === 0) {
-        this.phase = 'cleared';
-        this.timer = Game.Config.bots.wavePause;
-        this.hud.banner(`第 ${this.wave} 波完成！`);
-        if (this.onWaveCleared) this.onWaveCleared(this.wave);
-      } else if (this.phase === 'cleared') {
+      if (this.mode === 'duel') {
+        if (this.phase === 'respawning') {
+          this.timer -= dt;
+          if (this.timer <= 0) {
+            this.phase = 'fighting';
+            this.spawnBot(Game.Config.duel.botSkill, this.player.position);
+          }
+        }
+        return;
+      }
+
+      // 波次模式
+      if (this.phase === 'fighting') {
+        const alive = this.bots.filter((b) => b.alive).length;
+        this.updateHud();
+        if (alive === 0) {
+          this.phase = 'pause';
+          this.timer = Game.Config.bots.wavePause;
+          this.hud.banner(`第 ${this.wave} 波清空`, 2);
+          if (this.onWaveCleared) this.onWaveCleared();
+        }
+      } else if (this.phase === 'pause') {
         this.timer -= dt;
         if (this.timer <= 0) this.nextWave();
       }

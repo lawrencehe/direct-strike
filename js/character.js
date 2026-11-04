@@ -1,0 +1,356 @@
+// ============================================================
+// NPC 的外观：加载 glTF 士兵模型、播放动画、摆持枪姿势、挂判定盒
+//
+// 模型来自 three.js 自带的 Soldier.glb（Mixamo 骨骼），只有待机/走/跑三个动画。
+// 持枪姿势不是动画，而是每帧把手臂骨骼"掰"向枪上的握把位置（一个很简单的 IK）。
+// 这样换成别的 Mixamo 骨骼模型时，不需要重做持枪动画。
+//
+// 命中判定不直接打骨骼蒙皮（three.js 的射线不认蒙皮变形），而是在头、躯干、
+// 四肢的骨骼上各挂一个看不见的方块，射线打这些方块。userData.part 告诉武器打中了哪里。
+//
+// 模型加载失败（比如直接双击 index.html 打开）时，退回到用方块拼的小人。
+// ============================================================
+Game.Character = (function () {
+  const cfg = () => Game.Config.character;
+
+  let asset = null;
+  let loadPromise = null;
+
+  function load() {
+    if (loadPromise) return loadPromise;
+    loadPromise = new Promise((resolve) => {
+      if (!THREE.GLTFLoader) { resolve(false); return; }
+      new THREE.GLTFLoader().load(cfg().model, (gltf) => {
+        gltf.scene.traverse((o) => {
+          if (o.isMesh) {
+            o.castShadow = o.receiveShadow = true;
+            o.frustumCulled = false;   // 蒙皮动起来后包围球不准，关掉以免被误剔除
+          }
+        });
+        asset = gltf;
+        resolve(true);
+      }, undefined, (err) => {
+        console.warn('NPC 模型加载失败，改用方块小人。用 start.sh 启动本地服务可以解决。', err);
+        resolve(false);
+      });
+    });
+    return loadPromise;
+  }
+
+  // Mixamo 骨骼名（不带前缀）。不同导出工具的前缀不一样：
+  // "mixamorig:Head"、"mixamorigHead"、"Head" 都可能出现，findBone 会挨个试
+  const B = {
+    head: 'Head', spine: 'Spine1',
+    lUpLeg: 'LeftUpLeg', rUpLeg: 'RightUpLeg', lLeg: 'LeftLeg', rLeg: 'RightLeg',
+    lArm: 'LeftArm', lFore: 'LeftForeArm', lHand: 'LeftHand',
+    rArm: 'RightArm', rFore: 'RightForeArm', rHand: 'RightHand',
+  };
+  const BONE_PREFIXES = ['mixamorig:', 'mixamorig', 'mixamorig_', ''];
+  function findBone(model, name) {
+    for (const p of BONE_PREFIXES) {
+      const o = model.getObjectByName(p + name);
+      if (o) return o;
+    }
+    return null;
+  }
+
+  // 判定盒：挂在哪根骨头上、沿骨头方向偏多少、多大、算哪个部位
+  // （size 是 [宽, 沿骨头的长, 厚]；大腿和小腿分开挂，站姿弯腿时盒子才贴着腿）
+  const HITBOXES = [
+    { bone: 'head', offset: 0.13, size: [0.22, 0.26, 0.24], part: 'head' },
+    { bone: 'spine', offset: 0.1, size: [0.4, 0.5, 0.28], part: 'body' },
+    { bone: 'lUpLeg', offset: 0.22, size: [0.2, 0.46, 0.22], part: 'leg' },
+    { bone: 'rUpLeg', offset: 0.22, size: [0.2, 0.46, 0.22], part: 'leg' },
+    { bone: 'lLeg', offset: 0.24, size: [0.16, 0.5, 0.18], part: 'leg' },
+    { bone: 'rLeg', offset: 0.24, size: [0.16, 0.5, 0.18], part: 'leg' },
+    { bone: 'lArm', offset: 0.26, size: [0.12, 0.52, 0.12], part: 'body' },
+    { bone: 'rArm', offset: 0.26, size: [0.12, 0.52, 0.12], part: 'body' },
+    { bone: 'lFore', offset: 0.14, size: [0.1, 0.28, 0.1], part: 'body' },
+    { bone: 'rFore', offset: 0.14, size: [0.1, 0.28, 0.1], part: 'body' },
+  ];
+
+  // 枪在身体坐标系里的位置（原点在脚底，面朝 -z）
+  const RIFLE_POS = new THREE.Vector3(0.16, 1.3, -0.12);
+
+  // 用几个方块拼一把步枪，返回 { group, muzzle, grip, guard }
+  function buildRifle() {
+    const dark = new THREE.MeshStandardMaterial({ color: 0x24262a, roughness: 0.5, metalness: 0.6 });
+    const mid = new THREE.MeshStandardMaterial({ color: 0x45494f, roughness: 0.6, metalness: 0.4 });
+    const g = new THREE.Group();
+    const part = (w, h, d, x, y, z, mat) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      m.position.set(x, y, z);
+      m.castShadow = true;
+      g.add(m);
+    };
+    part(0.06, 0.08, 0.4, 0, 0, -0.05, mid);        // 机匣
+    part(0.03, 0.03, 0.34, 0, 0.015, -0.42, dark);  // 枪管
+    part(0.05, 0.05, 0.18, 0, -0.005, -0.3, dark);  // 护木
+    part(0.045, 0.14, 0.06, 0, -0.1, -0.1, dark);   // 弹匣
+    part(0.04, 0.1, 0.045, 0, -0.08, 0.06, dark);   // 握把
+    part(0.05, 0.07, 0.2, 0, -0.01, 0.25, mid);     // 枪托
+    part(0.012, 0.03, 0.012, 0, 0.055, -0.22, dark);// 准星
+    const muzzle = new THREE.Object3D(); muzzle.position.set(0, 0.015, -0.6); g.add(muzzle);
+    const grip = new THREE.Object3D(); grip.position.set(0.02, -0.1, 0.06); g.add(grip);
+    const guard = new THREE.Object3D(); guard.position.set(-0.03, -0.05, -0.3); g.add(guard);
+    return { group: g, muzzle, grip, guard };
+  }
+
+  // 让骨头的方向（骨头的局部 Y 轴）指向世界坐标里的 dir
+  const _pq = new THREE.Quaternion(), _q = new THREE.Quaternion();
+  const _Y = new THREE.Vector3(0, 1, 0);
+  function aimBone(bone, dir, twist = 0) {
+    bone.parent.getWorldQuaternion(_pq);
+    _q.setFromUnitVectors(_Y, dir.normalize());
+    if (twist) _q.multiply(new THREE.Quaternion().setFromAxisAngle(_Y, twist));
+    bone.quaternion.copy(_pq.invert()).multiply(_q);
+    bone.updateMatrixWorld(true);
+  }
+
+  const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _v4 = new THREE.Vector3();
+
+  // ---------------- glTF 士兵 ----------------
+  class SoldierModel {
+    constructor() {
+      this.root = new THREE.Group();
+      this.root.rotation.order = 'YXZ';
+      this.hitMeshes = [];
+      this.flashMats = [];
+
+      const model = THREE.SkeletonUtils.clone(asset.scene);
+      model.traverse((o) => {
+        if (o.isMesh) {
+          o.material = o.material.clone();   // 每个 NPC 自己的材质，受伤闪红互不影响
+          this.flashMats.push(o.material);
+        }
+      });
+      this.root.add(model);
+
+      this.bones = {};
+      const missing = [];
+      for (const [k, name] of Object.entries(B)) {
+        this.bones[k] = findBone(model, name);
+        if (!this.bones[k]) missing.push(name);
+      }
+      if (missing.length && !SoldierModel.warned) {
+        SoldierModel.warned = true;
+        console.warn('NPC 模型里找不到这些骨骼，持枪姿势和判定盒会不完整：', missing.join(', '));
+      }
+
+      // 动画
+      this.mixer = new THREE.AnimationMixer(model);
+      this.actions = {};
+      for (const name of ['Idle', 'Walk', 'Run']) {
+        const clip = THREE.AnimationClip.findByName(asset.animations, name);
+        const a = this.mixer.clipAction(clip);
+        a.play();
+        a.setEffectiveWeight(name === 'Idle' ? 1 : 0);
+        this.actions[name.toLowerCase()] = a;
+      }
+      this.weights = { idle: 1, walk: 0, run: 0 };
+
+      // 枪
+      this.rifle = buildRifle();
+      this.rifle.group.position.copy(RIFLE_POS);
+      this.root.add(this.rifle.group);
+
+      // 判定盒
+      const hitMat = cfg().showHitboxes
+        ? new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
+        : new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+      for (const h of HITBOXES) {
+        const bone = this.bones[h.bone];
+        if (!bone) continue;
+        const holder = new THREE.Group();
+        const s = bone.getWorldScale(_v1).x;      // 骨骼带缩放（Mixamo 是 0.01），要抵消掉
+        holder.scale.setScalar(1 / s);
+        const m = new THREE.Mesh(new THREE.BoxGeometry(...h.size), hitMat);
+        m.position.y = h.offset;
+        m.userData.part = h.part;
+        holder.add(m);
+        bone.add(holder);
+        this.hitMeshes.push(m);
+      }
+
+      this.pitch = 0;
+      this.flash = 0;
+      this.dead = false;
+      this.deathTime = 0;
+    }
+
+    // 根据移动速度混合待机/走/跑
+    setMotion(speed, dt) {
+      const c = cfg();
+      const target = { idle: speed < 0.4 ? 1 : 0, walk: speed >= 0.4 && speed < 3 ? 1 : 0, run: speed >= 3 ? 1 : 0 };
+      const k = Math.min(1, dt * 8);
+      for (const n of ['idle', 'walk', 'run']) {
+        this.weights[n] += (target[n] - this.weights[n]) * k;
+        this.actions[n].setEffectiveWeight(this.weights[n]);
+      }
+      this.actions.walk.setEffectiveTimeScale(THREE.MathUtils.clamp(speed / c.walkAnimSpeed, 0.7, 1.6));
+      this.actions.run.setEffectiveTimeScale(THREE.MathUtils.clamp(speed / c.runAnimSpeed, 0.7, 1.5));
+    }
+
+    // 枪口上下抬：point 是世界坐标里的目标点，null 表示平举
+    aimAt(point) {
+      let target = 0;
+      if (point) {
+        this.rifle.group.getWorldPosition(_v1);
+        const dx = point.x - _v1.x, dz = point.z - _v1.z;
+        target = Math.atan2(point.y - _v1.y, Math.hypot(dx, dz));
+      }
+      this.pitch += (THREE.MathUtils.clamp(target, -0.7, 0.7) - this.pitch) * 0.25;
+      this.rifle.group.rotation.x = this.pitch;
+    }
+
+    getMuzzle(out) { return this.rifle.muzzle.getWorldPosition(out); }
+
+    hitFlash() { this.flash = 1; }
+
+    die() {
+      this.dead = true;
+      for (const a of Object.values(this.actions)) a.paused = true;
+    }
+
+    update(dt) {
+      if (this.dead) {
+        this.deathTime += dt;
+        const p = Math.min(1, this.deathTime / 0.5);
+        this.root.rotation.x = (Math.PI / 2) * p * p;    // 向后倒
+        this.root.position.y -= 0.6 * dt * (p >= 1 ? 1 : 0); // 倒下后慢慢"沉"进地里
+        return;
+      }
+      this.mixer.update(dt);
+      this.root.updateMatrixWorld(true);
+      this.poseArms();
+
+      this.flash = Math.max(0, this.flash - dt * 6);
+      for (const m of this.flashMats) m.emissive.setRGB(this.flash * 0.9, 0, 0);
+    }
+
+    // 把两条手臂掰到枪上：右手握把，左手托护木
+    poseArms() {
+      this.root.getWorldQuaternion(_pq);
+      const right = _v4.set(1, 0, 0).applyQuaternion(_pq);
+      this.poseArm(this.bones.rArm, this.bones.rFore, this.bones.rHand, this.rifle.grip, right, 1);
+      this.poseArm(this.bones.lArm, this.bones.lFore, this.bones.lHand, this.rifle.guard, right, -1);
+    }
+
+    poseArm(upper, fore, hand, targetObj, right, side) {
+      if (!upper || !fore || !hand) return;
+      const shoulder = upper.getWorldPosition(_v1);
+      const target = targetObj.getWorldPosition(_v2);
+      // 肘关节目标：肩和手的中点，往外、往下各偏一点，手臂才会自然弯曲
+      const elbow = _v3.copy(shoulder).lerp(target, 0.5)
+        .addScaledVector(right, side * 0.12)
+        .add(new THREE.Vector3(0, -0.16, 0));
+      aimBone(upper, elbow.clone().sub(shoulder));
+      const forePos = fore.getWorldPosition(_v3);
+      const dir = target.clone().sub(forePos);
+      aimBone(fore, dir);
+      aimBone(hand, dir.clone(), side * 1.2);
+    }
+
+    dispose() {
+      this.mixer.stopAllAction();
+      this.root.traverse((o) => {
+        if (o.isMesh && !o.isSkinnedMesh) o.geometry.dispose();
+        if (o.material && o.material.dispose) o.material.dispose();
+      });
+    }
+  }
+
+  // ---------------- 方块小人（备用） ----------------
+  class BlockModel {
+    constructor() {
+      const mats = {
+        shirt: new THREE.MeshStandardMaterial({ color: 0x4f5a3c, roughness: 0.9 }),
+        pants: new THREE.MeshStandardMaterial({ color: 0x3b3f46, roughness: 0.9 }),
+        skin: new THREE.MeshStandardMaterial({ color: 0xc89a74, roughness: 0.8 }),
+        helmet: new THREE.MeshStandardMaterial({ color: 0x2f3328, roughness: 0.7 }),
+      };
+      const root = new THREE.Group();
+      root.rotation.order = 'YXZ';
+      this.root = root;
+      this.hitMeshes = [];
+      this.flashMats = [mats.shirt, mats.pants, mats.skin];
+
+      const box = (w, h, d, x, y, z, mat, part, parent = root) => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+        m.position.set(x, y, z);
+        m.castShadow = true;
+        m.userData.part = part;
+        parent.add(m);
+        this.hitMeshes.push(m);
+        return m;
+      };
+      this.legs = [-0.12, 0.12].map((x) => {
+        const hip = new THREE.Group();
+        hip.position.set(x, 0.85, 0);
+        root.add(hip);
+        box(0.19, 0.85, 0.22, 0, -0.425, 0, mats.pants, 'leg', hip);
+        return hip;
+      });
+      box(0.5, 0.62, 0.3, 0, 1.16, 0, mats.shirt, 'body');
+      box(0.26, 0.28, 0.28, 0, 1.62, 0, mats.skin, 'head');
+      box(0.32, 0.1, 0.34, 0, 1.79, 0, mats.helmet, 'head');
+      box(0.12, 0.12, 0.45, 0.24, 1.3, -0.2, mats.shirt, 'body');
+      box(0.12, 0.12, 0.4, -0.12, 1.3, -0.32, mats.shirt, 'body');
+
+      this.rifle = buildRifle();
+      this.rifle.group.position.set(0.1, 1.36, -0.2);
+      root.add(this.rifle.group);
+
+      this.walkPhase = 0;
+      this.speed = 0;
+      this.pitch = 0;
+      this.flash = 0;
+      this.dead = false;
+      this.deathTime = 0;
+    }
+
+    setMotion(speed) { this.speed = speed; }
+
+    aimAt(point) {
+      let target = 0;
+      if (point) {
+        this.rifle.group.getWorldPosition(_v1);
+        target = Math.atan2(point.y - _v1.y, Math.hypot(point.x - _v1.x, point.z - _v1.z));
+      }
+      this.pitch += (THREE.MathUtils.clamp(target, -0.7, 0.7) - this.pitch) * 0.25;
+      this.rifle.group.rotation.x = this.pitch;
+    }
+
+    getMuzzle(out) { return this.rifle.muzzle.getWorldPosition(out); }
+    hitFlash() { this.flash = 1; }
+    die() { this.dead = true; }
+
+    update(dt) {
+      if (this.dead) {
+        this.deathTime += dt;
+        const p = Math.min(1, this.deathTime / 0.45);
+        this.root.rotation.x = (Math.PI / 2) * p * p;
+        return;
+      }
+      this.walkPhase += this.speed * dt * 3.2;
+      const swing = Math.sin(this.walkPhase) * 0.6 * Math.min(1, this.speed / 2);
+      this.legs[0].rotation.x = swing;
+      this.legs[1].rotation.x = -swing;
+      this.flash = Math.max(0, this.flash - dt * 6);
+      for (const m of this.flashMats) m.emissive.setRGB(this.flash * 0.8, 0, 0);
+    }
+
+    dispose() {
+      this.root.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) o.material.dispose();
+      });
+    }
+  }
+
+  function create() {
+    return asset ? new SoldierModel() : new BlockModel();
+  }
+
+  return { load, create, isLoaded: () => !!asset };
+})();

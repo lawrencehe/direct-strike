@@ -1,0 +1,19 @@
+# 第三方资源
+
+| 文件 | 来源 | 协议 |
+|---|---|---|
+| `models/soldier.glb` | three.js 仓库 `examples/models/gltf/Soldier.glb`（r149），角色和动画来自 Mixamo | 随 three.js 以 MIT 协议分发，见 `../vendor/three.LICENSE` |
+| `../vendor/GLTFLoader.js` | three.js r147 `examples/js/loaders/GLTFLoader.js` | MIT |
+| `../vendor/SkeletonUtils.js` | three.js r147 `examples/js/utils/SkeletonUtils.js` | MIT |
+
+其余贴图、音效全部由代码实时生成（`js/textures.js`、`js/audio.js`），没有外部文件。
+
+## 换模型
+
+`js/character.js` 只假设模型是 Mixamo 骨骼（骨头名以 `mixamorig:` 开头），且带 `Idle` / `Walk` / `Run` 三个动画。
+任何从 Mixamo 导出、再转成 glb 的角色都可以直接替换 `models/soldier.glb`，或者改 `config.js` 里的 `character.model` 路径。
+
+推荐的免费来源：
+- Mixamo（https://www.mixamo.com）：免费角色和动作，可下载 FBX，用 Blender 转 glb
+- Quaternius（https://quaternius.com）：CC0 低多边形角色包，骨骼名不同，需要改 `character.js` 里的 `B` 表
+- KayKit（https://kaylousberg.itch.io）：CC0 角色包，自带大量动画

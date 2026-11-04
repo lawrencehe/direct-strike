@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>靶场 v0.2</title>
+  <title>靶场 v0.3</title>
+  <link rel="icon" href="data:,">  <!-- 没有图标文件，免得浏览器去请求 favicon.ico 报 404 -->
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -40,10 +41,10 @@
     <div id="hint"></div>
   </div>
 
-  <!-- 开始 / 暂停 / 阵亡界面 -->
+  <!-- 开始 / 暂停 / 结算界面 -->
   <div id="overlay">
     <div class="panel">
-      <h1>靶场 <small>v0.2</small></h1>
+      <h1>靶场 <small>v0.3</small></h1>
       <p id="overlay-sub">选择模式开始</p>
       <div id="overlay-result"></div>
       <table class="keys">
@@ -57,20 +58,26 @@
       <button id="btn-resume">继续</button>
       <div class="mode-btns">
         <button id="btn-range">训练场</button>
-        <button id="btn-battle">NPC 对战</button>
+        <button id="btn-duel">1v1 对决</button>
+        <button id="btn-waves">波次</button>
       </div>
+      <div id="loading"></div>
     </div>
   </div>
 
   <!-- 按依赖顺序加载：先库，再配置，最后主循环 -->
   <script src="vendor/three.min.js"></script>
+  <script src="vendor/GLTFLoader.js"></script>
+  <script src="vendor/SkeletonUtils.js"></script>
   <script src="js/config.js"></script>
   <script src="js/physics.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/input.js"></script>
+  <script src="js/textures.js"></script>
   <script src="js/effects.js"></script>
   <script src="js/world.js"></script>
   <script src="js/targets.js"></script>
+  <script src="js/character.js"></script>
   <script src="js/player.js"></script>
   <script src="js/weapon.js"></script>
   <script src="js/bots.js"></script>

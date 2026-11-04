@@ -131,9 +131,11 @@ Game.Player = class Player {
   }
 
   moveAxis(axis, delta) {
-    const { radius, height } = Game.Config.player;
+    const { radius, height, stepHeight } = Game.Config.player;
+    // 只有站在地上时才自动上台阶，空中撞到箱子边缘不会"吸"上去
+    const step = axis !== 'y' && this.onGround ? stepHeight : 0;
     return Game.Physics.moveAxis(this.position, axis, delta, radius, height,
-      [this.colliders, this.extraColliders]);
+      [this.colliders, this.extraColliders], step);
   }
 
   getBox() {
@@ -144,13 +146,20 @@ Game.Player = class Player {
     return this._box;
   }
 
+  // 换出生点：spot = { x, y?, z, yaw }
+  setSpawn(spot) {
+    this.spawn.set(spot.x, spot.y || 0, spot.z);
+    this.spawnYaw = spot.yaw || 0;
+  }
+
   respawn() {
     this.position.copy(this.spawn);
     this.velocity.set(0, 0, 0);
-    this.yaw = this.pitch = this.recoilPitch = 0;
+    this.yaw = this.spawnYaw || 0;
+    this.pitch = this.recoilPitch = 0;
   }
 
-  // 开新一局：满血复活
+  // 满血复活（开新一局，或者对决里被击杀后重生）
   reset() {
     this.respawn();
     this.health = Game.Config.player.maxHealth;
