@@ -72,7 +72,8 @@ fps/
     ├── player.js     ★ 视角、移动、跳跃、生命值、重生
     ├── weapon.js     ★ 射线射击、散布、后坐力、伤害、换弹、弹孔、枪模动画
     ├── gunmodel.js   枪模：用基础几何体拼的 AK，木纹和钢件贴图都是 Canvas 画的
-    ├── character.js  ★ NPC 外观：加载模型、动画混合、持枪姿势（简易 IK）、判定盒
+    ├── truck.js      地图里那辆平头货车：驾驶室、货斗、轮子、货物，全是基础几何体 + Canvas 贴图
+    ├── character.js  ★ NPC 外观：加载模型、按位移驱动走/跑动画（不滑步）、腿和上半身分开转、持枪姿势（简易 IK）、判定盒
     ├── bots.js       ★ NPC 脑子：状态机 AI、视野感知、点射、绕障碍；对决 / 波次管理
     ├── world.js      ★ 地图：场地布局、掩体、远景、天空、光照、出生点和巡逻点
     ├── textures.js   程序生成的贴图（沥青、水泥、集装箱、沙袋、铁丝网、天空……）
@@ -96,6 +97,7 @@ fps/
 - **改枪的样子**：`gunmodel.js`，每个零件一行，坐标单位是米；枪在画面里的位置在 `weapon.js` 的 `basePos / baseRot`
 - **改地图**：`world.js` 里 `addBox / addContainer / addBlocker` 摆东西，`spawns / navPoints` 改出生点和巡逻点
 - **改对决规则**：`config.js` 的 `duel`（赢的杀数、重生时间、对手强度）
-- **换 NPC 模型**：见 `assets/LICENSES.md`
+- **换 NPC 模型**：见 `assets/LICENSES.md`。走/跑动画的步幅在加载时自动测量，换了模型不用调参数
+- **改卡车**：`truck.js`，每个零件一行；颜色在 `world.js` 里调用 `Game.Truck.build('#颜色')` 的地方改
 - **显示判定盒**：`config.js` 里 `character.showHitboxes: true`
 - **卡顿**：`config.js` 里把 `graphics.shadowMapSize` 改成 1024

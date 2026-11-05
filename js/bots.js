@@ -310,10 +310,9 @@ Game.Bots = (function () {
     }
 
     syncModel(dt) {
-      const root = this.model.root;
-      root.position.copy(this.pos);
-      root.rotation.y = this.yaw;
-      this.model.setMotion(Math.hypot(this.vel.x, this.vel.z), dt);
+      this.model.root.position.copy(this.pos);
+      // 朝向和速度一起交给模型：它自己决定腿朝哪、上半身扭多少、动画播到哪
+      this.model.setMotion(this.vel.x, this.vel.z, this.yaw, dt);
 
       // 交战时枪口跟着玩家抬高/压低，其他时候平举
       if (this.state === 'combat' && this.mgr.player.alive) {

@@ -99,8 +99,10 @@ Game.Config = {
   // NPC 外观
   character: {
     model: 'assets/models/soldier.glb',  // 加载失败时自动退回方块小人
-    walkAnimSpeed: 1.5,    // 走路动画对应的实际速度（m/s），用来匹配脚步和位移
-    runAnimSpeed: 4.0,
+    walkAnimSpeed: 1.7,    // 走路动画本来的前进速度（m/s）。加载模型时会自动量，这里只是量不出来时的备用值
+    runAnimSpeed: 4.4,
+    walkRunBlend: [2.2, 3.6],  // 速度在这个区间内从走路动画过渡到跑步动画
+    maxTwist: 55,          // 上半身最多能相对腿扭多少度：横移时腿斜着跨、枪照样指着你
     showHitboxes: false,   // 调试用：显示头/身/腿的判定盒
   },
 

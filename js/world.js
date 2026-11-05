@@ -137,15 +137,34 @@ Game.World = (function () {
     sun.shadow.normalBias = 0.02;
     scene.add(sun);
 
-    // 云：挂在远处慢慢飘
-    const cloudTex = T.cloud();
-    for (let i = 0; i < 10; i++) {
-      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex, fog: false, depthWrite: false, opacity: 0.9, transparent: true }));
-      const a = Math.random() * Math.PI * 2, r = 170 + Math.random() * 60;
-      s.position.set(Math.cos(a) * r, 60 + Math.random() * 50, Math.sin(a) * r);
-      s.scale.set(90 + Math.random() * 70, 45 + Math.random() * 30, 1);
+    // 云：积云贴在远处、低仰角的一圈，越低的越偏地平线的暖灰色；高处再挂几条淡淡的卷云
+    const cloudTexes = [0, 1, 2].map((v) => T.cloud(v));
+    const horizonTint = new THREE.Color(0xe9e1d3);
+    const N = 16;
+    for (let i = 0; i < N; i++) {
+      const tex = cloudTexes[i % cloudTexes.length];
+      const big = i % 3 === 0;                                            // 每三朵有一朵大的
+      const elev = THREE.MathUtils.degToRad(big ? 6 + Math.random() * 8 : 9 + Math.random() * 14);   // 仰角 6° ~ 23°
+      const a = (i / N) * Math.PI * 2 + Math.random() * 0.35, r = 205 + Math.random() * 45;
+      const width = big ? 170 + Math.random() * 90 : 80 + Math.random() * 80;
+      const mat = new THREE.SpriteMaterial({ map: tex, fog: false, depthWrite: false, transparent: true, opacity: 0.85 + Math.random() * 0.15 });
+      mat.color.copy(horizonTint).lerp(new THREE.Color(0xffffff), elev / 0.4);   // 低处的云偏暖灰
+      const s = new THREE.Sprite(mat);
+      s.position.set(Math.cos(a) * r, Math.tan(elev) * r, Math.sin(a) * r);
+      s.scale.set(width, width * 0.5, 1);
       scene.add(s);
-      animated.push({ obj: s, angle: a, radius: r, speed: 0.004 + Math.random() * 0.004 });
+      animated.push({ obj: s, angle: a, radius: r, speed: 0.003 + Math.random() * 0.004 });
+    }
+    const cirrusTex = T.cirrus();
+    for (let i = 0; i < 5; i++) {
+      const elev = THREE.MathUtils.degToRad(28 + Math.random() * 22);
+      const a = Math.random() * Math.PI * 2, r = 180 + Math.random() * 40;
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: cirrusTex, fog: false, depthWrite: false, transparent: true, opacity: 0.55, rotation: Math.random() * 0.4 - 0.2 }));
+      s.position.set(Math.cos(a) * r, Math.tan(elev) * r, Math.sin(a) * r);
+      const width = 150 + Math.random() * 80;
+      s.scale.set(width, width * 0.25, 1);
+      scene.add(s);
+      animated.push({ obj: s, angle: a, radius: r, speed: 0.002 + Math.random() * 0.002 });
     }
 
     // 远山：一圈环形剪影
@@ -305,23 +324,14 @@ Game.World = (function () {
     addBox(0.9, 0.9, 0.8, 15, 0.7, 13, mats.wood, { collide: false });
     addBlocker(1.2, 1.6, 1.0, 15, 0, 13);
 
-    // 卡车：驾驶室 + 车斗 + 轮子 + 货物
-    addBox(2.2, 2.2, 2.2, 15.5, 0.6, -7.5, mats.metal);
-    addBox(2.0, 0.8, 1.6, 15.5, 1.3, -7.8, new THREE.MeshStandardMaterial({ color: 0x1a222b, roughness: 0.2, metalness: 0.6 }), { collide: false });
-    addBox(2.2, 0.35, 7.6, 15.5, 0.45, -4.3, mats.metalDark);
-    addBox(2.2, 0.9, 5.2, 15.5, 0.8, -3.2, mats.metal);
-    addBlocker(2.4, 2.8, 7.6, 15.5, 0, -4.3);
-    for (const z of [-7.0, -2.6, -1.4]) for (const x of [14.4, 16.6]) {
-      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.35, 14), mats.rubber);
-      w.rotation.z = Math.PI / 2;
-      w.position.set(x, 0.45, z);
-      w.castShadow = true;
-      scene.add(w);
-      shootables.push(w);
-    }
-    addBox(1.2, 1.2, 1.2, 15.5, 1.7, -2.2, mats.wood, { collide: false });
-    addCylinder(0.3, 0.9, 15.1, 1.7, -4.6, mats.barrelBlue, { collide: false });
-    addBlocker(2.4, 3.0, 2.0, 15.5, 2.0, -2.2);                        // 车斗上的货物统一用一堵空气墙
+    // 卡车（见 truck.js）：车头朝北停在东侧道旁。碰撞用两堵空气墙：车身一堵、货斗上的货物一堵
+    const truck = Game.Truck.build('#2f5d8c');
+    truck.group.position.set(15.5, 0, -4.3);
+    scene.add(truck.group);
+    truck.group.updateMatrixWorld(true);
+    shootables.push(...truck.meshes);
+    addBlocker(2.5, 3.3, 7.7, 15.5, 0, -4.3);
+    addBlocker(2.4, 3.0, 2.0, 15.5, 2.0, -2.2);
 
     // 碎石、杂物：不碰撞，只增加地面细节
     const debrisMat = new THREE.MeshStandardMaterial({ color: 0x5b5955, roughness: 1 });
