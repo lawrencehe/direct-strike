@@ -1,4 +1,4 @@
-# Direct-Strike v0.7
+# Direct-Strike v0.8
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -57,6 +57,9 @@ fps/
 ├── deploy.sh         一键发布到 game.lightup.host
 ├── deploy/           站点容器的 compose 和 Caddyfile
 ├── docs/deploy.md    部署架构、首次接入、回滚
+├── docs/tools.md     本地工具链的安装和用法
+├── tools/            开发工具（验证、模型、图片、骨骼、地图），不发布
+├── assets-src/       未压缩的模型母版，不发布
 ├── CLAUDE.md         给 AI 助手看的项目约定
 ├── css/style.css     HUD 和界面样式
 ├── assets/
@@ -66,6 +69,7 @@ fps/
 ├── vendor/
 │   ├── three.min.js         Three.js r149（3D 渲染库，MIT 协议）
 │   ├── GLTFLoader.js        加载 .glb 模型
+│   ├── meshopt_decoder.js   解压 meshopt 压缩的模型（MIT 协议）
 │   └── SkeletonUtils.js     复制带骨骼的模型（多个 NPC 共用一份模型数据）
 └── js/
     ├── config.js     ★ 所有可调参数（手感、武器、NPC 难度、对决规则、画质……）

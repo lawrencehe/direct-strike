@@ -21,7 +21,7 @@ fps-game 容器（caddy:alpine，只在 Docker 网络 paseo-relay_default 内开
 
 - **80/443 已经被 relay 项目的 Caddy 占了**，而且 relay 不能中断。游戏不另起端口，而是借它的 Caddy 按域名分流，这是 Caddy 的原生能力。
 - **游戏单独一个容器**，加入 relay 的 Docker 网络。这样接入时只需往 Caddyfile 追加几行并热重载，Caddy 容器不用重建，relay 零中断。
-- **站点目录和代码目录分开**。`/home/donkey/fps` 里有 `.git`、`refer/` 草图、文档，不该公开；而且改代码改到一半不该被玩家看到。`deploy.sh` 用 rsync 做一次性同步并排除这些。
+- **站点目录和代码目录分开**。`/home/donkey/fps` 里有 `.git`、`refer/` 草图、文档、开发工具和模型母版，不该公开；而且改代码改到一半不该被玩家看到。`deploy.sh` 用 rsync 做一次性同步并排除这些。
 
 ## 文件
 

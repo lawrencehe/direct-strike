@@ -8,6 +8,12 @@
 - 本地：`./start.sh`（python http.server，自动开浏览器）。不能用 `file://`，.glb 模型加载不了。
 - 线上：https://game.lightup.host，发布用 `./deploy.sh`，细节见 `docs/deploy.md` 和 `/deploy` skill。
 
+## 开发工具
+
+- 工具链在 `tools/`，说明见 `docs/tools.md`，安装用 `tools/setup.sh`。
+- 验证用 `/verify`，模型用 `/glb`，图片用 `/img`，骨骼动画用 `/rig`，地图用 `/map`。改完代码或资源要先跑 `/verify`。
+- 这台机器没有 GPU：截图和报错可信，帧率不可信。
+
 ## 约定
 
 - 中文：注释、文档、提交信息都用中文。提交信息格式 `vX.Y：一句话摘要`，正文列要点，大版本打 tag。

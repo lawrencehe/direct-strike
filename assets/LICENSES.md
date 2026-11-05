@@ -5,6 +5,9 @@
 | `models/soldier.glb` | three.js 仓库 `examples/models/gltf/Soldier.glb`（r149），角色和动画来自 Mixamo | 随 three.js 以 MIT 协议分发，见 `../vendor/three.LICENSE` |
 | `../vendor/GLTFLoader.js` | three.js r147 `examples/js/loaders/GLTFLoader.js` | MIT |
 | `../vendor/SkeletonUtils.js` | three.js r147 `examples/js/utils/SkeletonUtils.js` | MIT |
+| `../vendor/meshopt_decoder.js` | meshoptimizer 1.3.0 `meshopt_decoder.cjs` | MIT |
+
+`assets/models/soldier.glb` 是压缩版（删除了 TPose 动画，网格用 meshopt、贴图用 WebP），未压缩的原始文件在 `assets-src/models/soldier.glb`。
 
 `brand/` 下是项目自己的 logo（由用户提供，原图不入仓库），不是第三方资源。
 

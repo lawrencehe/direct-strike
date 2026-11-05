@@ -1,2 +1,6 @@
 # 创意草图 / 参考图，只在本地用，不入仓库
 refer/
+
+# 本地工具链的依赖和产物，不入仓库
+tools/node_modules/
+tools/out/

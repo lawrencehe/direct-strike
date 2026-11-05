@@ -13,7 +13,7 @@ description: 把游戏发布到 https://game.lightup.host（本机）。用户�
 ./deploy.sh
 ```
 
-它把代码 rsync 到 `/home/donkey/fps-site`（排除 .git、refer、docs、.claude、部署脚本），再 `docker compose up -d` 确保 fps-game 容器在跑。
+它把代码 rsync 到 `/home/donkey/fps-site`（排除 .git、refer、docs、.claude、tools、assets-src、部署脚本），再 `docker compose up -d` 确保 fps-game 容器在跑。
 rsync 完立刻生效，不需要重启任何容器。
 
 ## 发布后验证（每次都做）

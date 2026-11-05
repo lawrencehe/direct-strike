@@ -28,7 +28,7 @@ Game.Character = (function () {
     if (loadPromise) return loadPromise;
     loadPromise = new Promise((resolve) => {
       if (!THREE.GLTFLoader) { resolve(false); return; }
-      new THREE.GLTFLoader().load(cfg().model, (gltf) => {
+      new THREE.GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load(cfg().model, (gltf) => {
         gltf.scene.traverse((o) => {
           if (o.isMesh) {
             o.castShadow = o.receiveShadow = true;
