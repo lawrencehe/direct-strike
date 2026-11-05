@@ -161,7 +161,7 @@ Game.Input = class Input {
   }
 };
 
-Game.Input.STORAGE_KEY = 'fps.keys.v1';
+Game.Input.STORAGE_KEY = 'fps.keys.v1';   // 项目改名前的键名，不要改，否则玩家保存的改键设置会丢失
 
 // 设置界面里显示的动作顺序和中文名
 Game.Input.ACTIONS = [

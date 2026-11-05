@@ -25,4 +25,4 @@
 
 - 不要动 `/home/donkey/paseo-relay/` 的 relay 服务和它的 Caddy 容器（不重启、不重建）。
 - 改 relay 的 Caddyfile 要先问用户，改完只 `caddy reload`。
-- 不要把 `/home/donkey/fps` 整个目录挂进容器或直接作为站点根目录。
+- 不要把 `/home/donkey/direct-strike` 整个目录挂进容器或直接作为站点根目录。

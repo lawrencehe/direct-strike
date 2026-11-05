@@ -52,7 +52,7 @@
 ## 目录结构
 
 ```
-fps/
+direct-strike/
 ├── index.html        页面骨架：画布、HUD、开始界面，按顺序加载脚本
 ├── start.sh / .bat   一键启动本地服务
 ├── deploy.sh         一键发布到 game.lightup.host

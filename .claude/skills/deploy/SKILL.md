@@ -31,7 +31,7 @@ done
 - **不要动 relay 服务**：`/home/donkey/paseo-relay/` 下的 relay 容器和 Caddy 容器都不要重启、重建。
   80/443 归它们，游戏只是借它的 Caddy 按域名分流。
 - 改 `/home/donkey/paseo-relay/Caddyfile` 属于改共享资源，先征得用户同意，改完只用 `caddy reload` 热更新，不要 `docker compose up`。
-- 不要把 `/home/donkey/fps` 直接挂进容器：会暴露 `.git` 和 `refer/`。
+- 不要把 `/home/donkey/direct-strike` 直接挂进容器：会暴露 `.git` 和 `refer/`。
 
 ## 故障排查
 
