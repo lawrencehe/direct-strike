@@ -7,6 +7,9 @@
 // 五个槽位：rifle 主武器、pistol 手枪、frag / flash / smoke 三种投掷物。
 // 枪的参数在 config.js 的 weapons 里，投掷物丢出去之后的事归 grenades.js 管。
 // 切枪分两段：先收（当前武器往下沉），再掏（新武器抬起来），掏好之前不能开火。
+//
+// 投掷物的流程：按下左键 = 拉环，倒计时开始（hold）；松开 = 挥臂（swing），挥到一半出手。
+// 引信从拉环算起，所以攥久了丢出去会在空中炸，攥太久就在手里炸。
 // ============================================================
 Game.Weapon = class Weapon {
   constructor({ scene, camera, weaponCamera, player, audio, hud, effects, shootables, grenades }) {
@@ -45,8 +48,11 @@ Game.Weapon = class Weapon {
     this.pending = null;          // 正在切向哪把
     this.switchT = 0;             // 切枪进度：0 = 就绪；> 0 表示正在收或掏
     this.switchPhase = null;      // 'out' | 'in'
-    this.throwT = 0;              // 投掷动作进行了多久，0 表示没在投
-    this.thrown = false;
+    this.throwState = null;       // 投掷动作：null | 'hold'（攥着）| 'swing'（挥臂）
+    this.holdT = 0;               // 攥了多久
+    this.swingT = 0;              // 挥臂进行了多久
+    this.cookT = 0;               // 拉环后过了多久（引信）
+    this.thrown = false;          // 手雷已经离手
     this.unlimitedThrowables = false;
     this.counts = {};
     this.restock();
@@ -79,24 +85,37 @@ Game.Weapon = class Weapon {
     const ak = Game.GunModel.buildAK();
     const pistol = Game.GunModel.buildPistol();
 
+    // 手：握把的轴线前倾，所以绕 x 轴转；左手托护木时掌心朝上（护木轴线是 z），用基向量直接写朝向
+    const V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const tilt = (a) => new THREE.Quaternion().setFromEuler(new THREE.Euler(a, 0, 0));
+    const cradle = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(0, 1, 0), V(0, 0, -1), V(-1, 0, 0)));
+    const attach = Game.GunModel.attachHand;
+    attach(ak.group, { R: 0.024, pos: V(0, -0.066, 0.117), quat: tilt(-0.37), armDir: V(0.35, -0.6, 0.72) });
+    const akLeft = attach(ak.group, { R: 0.033, pos: V(0, 0.013, -0.235), quat: cradle, mirror: true, armDir: V(-0.5, -0.55, 0.67) });
+    attach(pistol.group, { R: 0.027, pos: V(0, -0.066, 0.075), quat: tilt(-0.18), armDir: V(0.35, -0.6, 0.72) });
+    // 手枪双手持握：左手从另一侧包住握把和右手手指
+    const pistolLeft = attach(pistol.group, { R: 0.037, pos: V(0, -0.082, 0.07), quat: tilt(-0.18), mirror: true, armDir: V(-0.62, -0.5, 0.6) });
+
     this.guns = {
       rifle: {
         cfg: Game.Config.weapons.rifle, ammo: Game.Config.weapons.rifle.magSize,
         model: ak.group, scale: 0.75,
         // 摆在画面右下，枪口略微朝准星方向内收
-        basePos: new THREE.Vector3(0.16, -0.18, -0.40), baseRot: new THREE.Euler(0.0, 0.075, 0.0),
+        basePos: new THREE.Vector3(0.155, -0.15, -0.5), baseRot: new THREE.Euler(0.0, 0.07, 0.0),
         bolt: ak.bolt, boltHome: ak.boltHome, boltKick: 0.07,       // 拉机柄：开枪时往后跳
         mag: ak.mag, magHome: ak.magHome, magDrop: 0.16, magBack: 0.05, magTilt: 0.5,
         flash: makeFlash(0.26, ak.muzzle, ak.group),
+        leftHand: akLeft, leftHome: akLeft.position.clone(), leftGrab: V(0, -0.145, -0.125),   // 换弹时左手去抓弹匣
         kickBack: 0.06, kickUp: 0.05,
       },
       pistol: {
         cfg: Game.Config.weapons.pistol, ammo: Game.Config.weapons.pistol.magSize,
         model: pistol.group, scale: 0.72,
-        basePos: new THREE.Vector3(0.115, -0.115, -0.31), baseRot: new THREE.Euler(0.02, 0.08, 0.0),
+        basePos: new THREE.Vector3(0.105, -0.075, -0.34), baseRot: new THREE.Euler(0.02, 0.07, 0.0),
         bolt: pistol.slide, boltHome: pistol.slideHome, boltKick: 0.036,   // 套筒：开枪时往后坐
         mag: pistol.mag, magHome: pistol.magHome, magDrop: 0.13, magBack: 0.02, magTilt: 0,
         flash: makeFlash(0.17, pistol.muzzle, pistol.group),
+        leftHand: pistolLeft, leftHome: pistolLeft.position.clone(), leftGrab: V(0, -0.15, 0.085),
         kickBack: 0.045, kickUp: 0.14,
       },
     };
@@ -104,9 +123,14 @@ Game.Weapon = class Weapon {
     // 投掷物：拿在手上是一个完整的模型，出手后 grenades.js 再造一个飞出去
     this.throwables = {};
     for (const kind of ['frag', 'flash', 'smoke']) {
+      // 手雷立在手心里：转 90 度让保险握片贴着掌心，拉环朝向镜头
       const g = Game.GunModel.buildGrenade(kind);
+      g.group.rotation.y = Math.PI / 2;
+      const rig = new THREE.Group();
+      rig.add(g.group);
+      Game.GunModel.attachHand(rig, { R: Game.GunModel.GRIP_RADIUS[kind], pos: V(0, 0, 0), armDir: V(0.42, -0.62, 0.66) });
       this.throwables[kind] = {
-        cfg: Game.Config.grenades[kind], model: g.group, scale: 0.8, pin: g.group.getObjectByName('pin'),
+        cfg: Game.Config.grenades[kind], model: rig, grenade: g.group, scale: 0.8, pin: g.group.getObjectByName('pin'),
         basePos: new THREE.Vector3(0.12, -0.105, -0.3), baseRot: new THREE.Euler(0.15, 0.3, -0.25),
       };
     }
@@ -134,7 +158,7 @@ Game.Weapon = class Weapon {
 
   // ---- 切枪 ----
   select(key) {
-    if (this.throwT > 0 || !key) return;
+    if (this.throwState || !key) return;
     const target = this.pending || this.current;
     if (key === target) return;
     if (!this.canEquip(key)) { this.audio.empty(); return; }
@@ -257,34 +281,77 @@ Game.Weapon = class Weapon {
     }
   }
 
-  // 投掷：按下左键开始动作，到 releaseAt 出手，动作做完切回枪
+  // 投掷：按住拉环并开始倒计时，松开挥臂出手，动作做完切回枪
   updateThrow(dt, input, ready) {
     const cfg = Game.Config.grenades;
-    if (this.throwT === 0) {
-      if (ready && input.wasAction('fire') && this.hasThrowable(this.current)) {
-        this.throwT = 1e-4;
+    const kind = this.current;
+    if (!this.throwState) {
+      if (ready && input.wasAction('fire') && this.hasThrowable(kind)) {
+        this.throwState = 'hold';
+        this.holdT = this.swingT = this.cookT = 0;
         this.thrown = false;
         this.audio.pullPin();
-        this.refreshHud();
       }
       return;
     }
-    this.throwT += dt;
-    if (!this.thrown && this.throwT >= cfg.releaseAt) {
-      this.thrown = true;
-      this.grenades.throw(this.current);
-      if (!this.unlimitedThrowables) this.counts[this.current]--;
-      this.refreshHud();
+
+    const fuse = cfg[kind].fuse;
+    if (!this.thrown) {
+      this.cookT += dt;
+      // 攥太久：在手里炸
+      if (this.cookT >= fuse) {
+        this.releaseGrenade();
+        this.finishThrow();
+        this.grenades.explodeInHand(kind);
+        return;
+      }
+      this.hud.setCook(1 - this.cookT / fuse);
     }
-    if (this.throwT >= cfg.throwTime) {
-      // 手里已经空了，不用再做收枪动作，直接掏出上一把枪
-      this.throwT = 0;
-      this.pending = this.lastGun;
-      this.switchPhase = 'out';
-      this.switchT = Game.Config.weapons.switchOut;
-      this.audio.swap();
-      this.refreshHud();
+
+    if (this.throwState === 'hold') {
+      this.holdT += dt;
+      // 点一下也要把拉环动作做完才出手
+      if (this.holdT >= cfg.pullTime && !input.isAction('fire')) {
+        this.throwState = 'swing';
+        this.swingT = 0;
+      }
+      return;
     }
+
+    this.swingT += dt;
+    if (!this.thrown && this.swingT >= cfg.releaseAt) {
+      this.releaseGrenade();
+      this.grenades.throw(kind, fuse - this.cookT);
+    }
+    if (this.swingT >= cfg.swingTime) this.finishThrow();
+  }
+
+  // 手雷离手：扣数量、藏起手里的模型、收起倒计时
+  releaseGrenade() {
+    this.thrown = true;
+    if (!this.unlimitedThrowables) this.counts[this.current]--;
+    this.hud.setCook(null);
+    this.refreshHud();
+  }
+
+  // 手里已经空了，不用再做收枪动作，直接掏出上一把枪
+  finishThrow() {
+    this.throwState = null;
+    this.pending = this.lastGun;
+    this.switchPhase = 'out';
+    this.switchT = Game.Config.weapons.switchOut;
+    this.audio.swap();
+    this.refreshHud();
+  }
+
+  // 玩家死了：拉了环还没丢出去的手雷掉在脚下，引信照走
+  onPlayerDeath() {
+    if (this.throwState && !this.thrown) {
+      const kind = this.current;
+      this.releaseGrenade();
+      this.grenades.throw(kind, Game.Config.grenades[kind].fuse - this.cookT, true);
+    }
+    this.throwState = null;
   }
 
   // 新一局：换弹匣、补投掷物、清空弹孔
@@ -307,9 +374,10 @@ Game.Weapon = class Weapon {
     this.pending = null;
     this.switchPhase = null;
     this.switchT = 0;
-    this.throwT = 0;
+    this.throwState = null;
     this.thrown = false;
     this.reloading = false;
+    this.hud.setCook(null);
     this.lastGun = key === 'rifle' ? 'pistol' : 'rifle';
     this.previous = this.lastGun;
     this.show(key);
@@ -442,7 +510,7 @@ Game.Weapon = class Weapon {
     const swayY = this.sway.y - Math.abs(Math.sin(bob * 0.5)) * 0.01 * moving + crouch * 0.015 - dipSwitch * 0.26;
 
     if (this.guns[this.current]) {
-      // 换弹：枪往下沉并侧倾；弹匣先抽出去（0 → 0.4），空一会儿，再插回来（0.6 → 1）
+      // 换弹：枪口上扬并侧倾；弹匣先抽出去（0 → 0.4），空一会儿，再插回来（0.6 → 1）
       let dip = 0, magOut = 0;
       if (this.reloading) {
         const p = 1 - this.reloadTimer / it.cfg.reloadTime;
@@ -455,18 +523,29 @@ Game.Weapon = class Weapon {
       it.mag.rotation.x = magOut * it.magTilt;
       it.mag.visible = magOut < 0.98;
 
+      // 左手：先伸去抓弹匣，跟着弹匣抽出、插回，最后回到原位
+      let grab = 0;
+      if (this.reloading) {
+        const p = 1 - this.reloadTimer / it.cfg.reloadTime;
+        grab = p < 0.2 ? p / 0.2 : p > 0.85 ? (1 - p) / 0.15 : 1;
+        grab = grab * grab * (3 - 2 * grab);
+      }
+      it.leftHand.position.lerpVectors(it.leftHome, it.leftGrab, grab);
+      it.leftHand.position.y -= magOut * it.magDrop;
+      it.leftHand.position.z -= magOut * it.magBack;
+
       // 拉机柄 / 套筒随后坐往后跳
       it.bolt.position.z = it.boltHome.z + this.kick * it.boltKick;
 
       m.position.set(
         it.basePos.x + swayX,
-        it.basePos.y + swayY - dip * 0.1,
+        it.basePos.y + swayY + dip * 0.03,
         it.basePos.z + this.kick * it.kickBack
       );
       m.rotation.set(
-        it.baseRot.x + this.kick * it.kickUp - dip * 0.45 - dipSwitch * 0.7,
+        it.baseRot.x + this.kick * it.kickUp + dip * 0.16 - dipSwitch * 0.7,
         it.baseRot.y + this.sway.x * 2,
-        it.baseRot.z + dip * 0.35
+        it.baseRot.z - dip * 0.5     // 换弹时枪身朝内侧倾，弹匣和左手转到镜头这边
       );
 
       this.flashTimer -= dt;
@@ -474,23 +553,26 @@ Game.Weapon = class Weapon {
       it.flash.visible = on;
       this.worldFlash.intensity = on ? 2 : 0;
     } else {
-      // 投掷：先往后引（拉环已拔），再向前上方甩出去，出手后模型藏起来
+      // 投掷：拉环时往后上方引，攥着不动；挥臂时向前上方甩出去。手雷离手后手还在，把动作做完
       const cfg = Game.Config.grenades;
       let back = 0, swing = 0;
-      if (this.throwT > 0) {
-        const t = this.throwT;
-        if (t < cfg.releaseAt) back = t / cfg.releaseAt;
-        else { back = 1 - (t - cfg.releaseAt) / (cfg.throwTime - cfg.releaseAt); swing = 1 - back; }
+      if (this.throwState === 'hold') {
+        const p = Math.min(1, this.holdT / cfg.pullTime);
+        back = p * p * (3 - 2 * p);
+      } else if (this.throwState === 'swing') {
+        const p = Math.min(1, this.swingT / cfg.swingTime);
+        back = Math.max(0, 1 - p * 2.5);
+        swing = Math.sin(p * Math.PI * 0.6) / Math.sin(Math.PI * 0.6);
       }
-      if (it.pin) it.pin.visible = this.throwT === 0;
-      m.visible = !this.thrown;
+      if (it.pin) it.pin.visible = !this.throwState;
+      it.grenade.visible = !this.thrown;
       m.position.set(
-        it.basePos.x + swayX,
-        it.basePos.y + swayY + back * 0.05 + swing * 0.2,
-        it.basePos.z + back * 0.12 - swing * 0.35
+        it.basePos.x + swayX - swing * 0.05,
+        it.basePos.y + swayY + back * 0.045 + swing * 0.2,
+        it.basePos.z + back * 0.03 - swing * 0.3
       );
       m.rotation.set(
-        it.baseRot.x - dipSwitch * 0.5 + back * 0.6 - swing * 1.2,
+        it.baseRot.x - dipSwitch * 0.5 + back * 0.5 - swing * 1.1,
         it.baseRot.y + this.sway.x * 2,
         it.baseRot.z
       );

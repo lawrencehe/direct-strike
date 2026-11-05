@@ -10,7 +10,7 @@ Game.Hud = class Hud {
       stats: $('stats'), shots: $('stat-shots'), hits: $('stat-hits'), heads: $('stat-heads'),
       acc: $('stat-acc'), kills: $('stat-kills'),
       ammo: $('ammo'), ammoCur: $('ammo-cur'), ammoMax: $('ammo-max'), weapons: $('weapons'),
-      flashWhite: $('flash-white'),
+      flashWhite: $('flash-white'), cookBar: $('cook-bar'),
       health: $('health'), healthVal: $('health-val'), healthBar: $('health-bar'),
       damageFlash: $('damage-flash'), damageDir: $('damage-dir'),
       wave: $('wave-info'), banner: $('banner'), hint: $('hint'),
@@ -136,6 +136,15 @@ Game.Hud = class Hud {
     this.el.ammoMax.textContent = '';
     this.el.ammo.classList.remove('low');
     this.el.reloadTip.style.display = 'none';
+  }
+
+  // 手雷倒计时：left 是还剩的比例 1 → 0，null 表示隐藏
+  setCook(left) {
+    const on = left !== null;
+    this.el.cookBar.style.display = on ? 'block' : 'none';
+    if (!on) return;
+    this.el.cookBar.firstElementChild.style.width = `${Math.max(0, left) * 100}%`;
+    this.el.cookBar.classList.toggle('danger', left < 0.34);
   }
 
   // 武器栏。slots: [{ action, name, count?, on, empty }]

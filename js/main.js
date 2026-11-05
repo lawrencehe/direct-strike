@@ -104,6 +104,7 @@ function startGame(mapData) {
   // 阵亡：先让镜头倒下，再决定是重生（对决）还是结算（波次）
   player.onDeath = () => {
     audio.death();
+    weapon.onPlayerDeath();   // 手里攥着拉了环的手雷：掉在脚下
     if (mode === 'duel' && bots.onPlayerKilled()) {
       hud.banner('你被击杀了', 1.5);
       respawnTimer = Game.Config.duel.respawnDelay;
@@ -217,6 +218,7 @@ function startGame(mapData) {
   hud.setLoading(true);
   player.update(0, input);
   effects.precompile(renderer, camera);
+  grenades.precompile(renderer, camera);
   frame();
 
   // NPC 模型是异步加载的，加载完才允许进入对战模式

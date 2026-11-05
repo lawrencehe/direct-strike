@@ -52,6 +52,16 @@ html, body {
   display: none;
 }
 
+/* 手雷拉环后的倒计时：快炸了变红 */
+#cook-bar {
+  position: absolute; left: 50%; top: calc(50% + 36px);
+  width: 90px; height: 5px; margin-left: -45px;
+  background: rgba(0, 0, 0, .5); border-radius: 3px; overflow: hidden;
+  display: none;
+}
+#cook-bar i { display: block; height: 100%; width: 100%; background: #fc3; }
+#cook-bar.danger i { background: #f33; }
+
 #stats {
   position: absolute; left: 16px; top: 16px;
   padding: 10px 14px; border-radius: 6px;

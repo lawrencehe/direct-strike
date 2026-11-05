@@ -1,7 +1,7 @@
 // ============================================================
 // 投掷物：手雷、闪光弹、烟雾弹
 //
-// 这里只管"丢出去之后"的事：飞行和反弹、引爆、伤害、致盲、烟团。
+// 这里只管"丢出去之后"的事：飞行和反弹、飞行轨迹、引爆、伤害、致盲、烟团。
 // 手上的模型和投掷动作在 weapon.js 里。
 //
 // 手雷伤害要看有没有掩体：从爆点朝目标打一条视线，被墙挡住就不受伤。
@@ -15,6 +15,7 @@ Game.Grenades = class Grenades {
     this.bots = null;           // 由 main.js 接上（bots 依赖这里判断烟雾，这里依赖 bots 算伤害）
     this.flying = [];
     this.clouds = [];
+    this.trails = [];
     this.raycaster = new THREE.Raycaster();
 
     // 爆炸照亮周围的光。场景里灯的数量一变所有材质都要重新编译，所以一开始就放好，平时亮度 0
@@ -26,7 +27,8 @@ Game.Grenades = class Grenades {
   }
 
   // 出手：从手的位置朝准星略上方丢出去，带上玩家一半的移动速度
-  throw(kind) {
+  // fuse 是引信还剩几秒（拉环后攥了多久已经扣掉了）；drop 表示人死了，手雷掉在脚下
+  throw(kind, fuse = Game.Config.grenades[kind].fuse, drop = false) {
     const cfg = Game.Config.grenades;
     const cam = this.camera;
     const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
@@ -39,6 +41,7 @@ Game.Grenades = class Grenades {
 
     const vel = fwd.clone().addScaledVector(up, cfg.throwUp).normalize().multiplyScalar(cfg.throwSpeed);
     vel.addScaledVector(this.player.velocity, 0.5);
+    if (drop) vel.set(0, 0, 0);
 
     const model = Game.GunModel.buildGrenade(kind).group;
     const pin = model.getObjectByName('pin');
@@ -47,11 +50,23 @@ Game.Grenades = class Grenades {
     model.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     this.scene.add(model);
 
+    const trail = drop ? null : new Trail(this.scene, kind, pos);
+    if (trail) this.trails.push(trail);
+
     this.flying.push({
-      kind, model, pos: pos.clone(), vel,
-      fuse: cfg[kind].fuse,
+      kind, model, pos: pos.clone(), vel, trail,
+      fuse,
       spin: new THREE.Vector3(Math.random() * 12 - 6, Math.random() * 6 - 3, Math.random() * 12 - 6),
     });
+  }
+
+  // 攥太久：就在手边炸
+  explodeInHand(kind) {
+    const cam = this.camera;
+    const pos = cam.position.clone().addScaledVector(new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion), 0.25);
+    if (this.insideBox(pos, this.world.colliders)) pos.copy(cam.position);
+    pos.y -= 0.15;       // detonate 会抬高 0.15
+    this.detonate({ kind, pos, model: new THREE.Group() });
   }
 
   insideBox(p, boxes, r = 0) {
@@ -72,11 +87,20 @@ Game.Grenades = class Grenades {
         g.model.rotation.x += g.spin.x * dt;
         g.model.rotation.y += g.spin.y * dt;
         g.model.rotation.z += g.spin.z * dt;
+        // 飞的时候记录轨迹，落地不怎么动了就不再延长
+        if (g.trail && g.vel.lengthSq() > 2) g.trail.addPoint(g.pos);
         g.fuse -= dt;
         if (g.fuse <= 0) this.detonate(g);
       }
       this.flying = this.flying.filter((g) => !g.done);
     }
+
+    for (const t of this.trails) t.update(dt, this.camera.position);
+    this.trails = this.trails.filter((t) => {
+      if (t.points.length) return true;
+      t.dispose();
+      return false;
+    });
 
     if (this.lightTime > 0) {
       this.lightTime = Math.max(0, this.lightTime - dt);
@@ -279,6 +303,15 @@ Game.Grenades = class Grenades {
     return false;
   }
 
+  // 轨迹的材质第一次用时要编译着色器，提前做掉，免得第一次丢手雷卡一下
+  precompile(renderer, camera) {
+    const t = new Trail(this.scene, 'frag', new THREE.Vector3(0, -50, 0));
+    t.addPoint(new THREE.Vector3(1, -50, 0));
+    t.update(0, camera.position);
+    renderer.compile(this.scene, camera);
+    t.dispose();
+  }
+
   pulseLight(pos, color, peak, seconds) {
     this.light.position.copy(pos);
     this.light.color.setHex(color);
@@ -293,9 +326,90 @@ Game.Grenades = class Grenades {
     this.flying = [];
     this.clouds.forEach((c) => this.removeCloud(c));
     this.clouds = [];
+    this.trails.forEach((t) => t.dispose());
+    this.trails = [];
     this.lightTime = 0;
     this.light.intensity = 0;
   }
 };
 
 const _segDir = new THREE.Vector3(), _rel = new THREE.Vector3();
+
+// 飞行轨迹：一条永远面向镜头的飘带。
+// WebGL 的线条只有 1 像素宽，远一点就看不见了，所以用三角形带自己画，宽度和透明度都能控制。
+// 宽度按到镜头的距离算，屏幕上粗细基本恒定：否则刚出手时离镜头太近，会糊成一大片。
+// 每个采样点有自己的寿命，越老越细越淡，所以飞行时后面的线慢慢消失，落地后整条散掉。
+class Trail {
+  constructor(scene, kind, start) {
+    this.scene = scene;
+    this.points = [];
+    this.color = { frag: [1, 0.86, 0.62], flash: [0.88, 0.95, 1], smoke: [0.78, 0.84, 0.74] }[kind];
+
+    const cap = this.cap = 110;
+    this.positions = new Float32Array(cap * 2 * 3);
+    this.colors = new Float32Array(cap * 2 * 4);
+    const index = [];
+    for (let i = 0; i < cap - 1; i++) {
+      const a = i * 2;
+      index.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(this.colors, 4));
+    geo.setIndex(index);
+    geo.setDrawRange(0, 0);
+    this.mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+      vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
+    }));
+    this.mesh.frustumCulled = false;
+    scene.add(this.mesh);
+    this.addPoint(start);
+  }
+
+  addPoint(p) {
+    const last = this.points[this.points.length - 1];
+    if (last && last.p.distanceToSquared(p) < 0.03) {   // 间隔太小不加点，只把最新的点挪过去
+      if (this.points.length > 1) last.p.copy(p);
+      return;
+    }
+    this.points.push({ p: p.clone(), life: Game.Config.grenades.trailLife });
+    if (this.points.length > this.cap) this.points.shift();
+  }
+
+  update(dt, eye) {
+    const max = Game.Config.grenades.trailLife;
+    for (const q of this.points) q.life -= dt;
+    while (this.points.length && this.points[0].life <= 0) this.points.shift();
+
+    const P = this.points, n = P.length, pos = this.positions, col = this.colors, c = this.color;
+    for (let i = 0; i < n; i++) {
+      const a = P[Math.max(0, i - 1)].p, b = P[Math.min(n - 1, i + 1)].p, q = P[i];
+      _tan.subVectors(b, a);
+      _view.subVectors(eye, q.p);
+      const dist = _view.length();
+      _side.crossVectors(_tan, _view);
+      const len = _side.length();
+      if (len > 1e-6) _side.multiplyScalar(1 / len);
+      const k = q.life / max;
+      const w = THREE.MathUtils.clamp(dist * 0.0026, 0.002, 0.07) * (0.45 + 0.55 * k);   // 半宽（米）
+      const alpha = Math.min(1, k * 1.5) * Math.min(1, dist / 2.5) * 0.7;    // 贴脸的一段淡掉
+      const j = i * 2;
+      pos[j * 3] = q.p.x + _side.x * w; pos[j * 3 + 1] = q.p.y + _side.y * w; pos[j * 3 + 2] = q.p.z + _side.z * w;
+      pos[j * 3 + 3] = q.p.x - _side.x * w; pos[j * 3 + 4] = q.p.y - _side.y * w; pos[j * 3 + 5] = q.p.z - _side.z * w;
+      for (const v of [j, j + 1]) {
+        col[v * 4] = c[0]; col[v * 4 + 1] = c[1]; col[v * 4 + 2] = c[2]; col[v * 4 + 3] = alpha;
+      }
+    }
+    const geo = this.mesh.geometry;
+    geo.attributes.position.needsUpdate = true;
+    geo.attributes.color.needsUpdate = true;
+    geo.setDrawRange(0, Math.max(0, n - 1) * 6);
+  }
+
+  dispose() {
+    this.scene.remove(this.mesh);
+    this.mesh.geometry.dispose();
+    this.mesh.material.dispose();
+  }
+}
+const _tan = new THREE.Vector3(), _view = new THREE.Vector3(), _side = new THREE.Vector3();

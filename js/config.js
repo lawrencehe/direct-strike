@@ -92,29 +92,32 @@ Game.Config = {
     },
   },
 
-  // 投掷物。count 是每条命 / 每波带几个（训练场不限量）；fuse 是出手后几秒引爆
+  // 投掷物。count 是每条命 / 每波带几个（训练场不限量）
+  // fuse 是拉环后几秒引爆：按住左键就开始倒计时，松开才扔出去。攥太久会在手里炸
   grenades: {
     throwSpeed: 15,        // 出手速度 m/s
     throwUp: 0.14,         // 出手时比准星略微上抬
     restitution: 0.38,     // 碰撞反弹系数
     groundFriction: 0.68,  // 落地时水平速度保留多少
-    throwTime: 0.42,       // 投掷动作总时长
-    releaseAt: 0.18,       // 动作开始多久后出手
+    pullTime: 0.2,         // 拉环动作：点一下左键也要做完才出手
+    swingTime: 0.28,       // 挥臂动作总时长
+    releaseAt: 0.07,       // 挥臂开始多久后出手
+    trailLife: 2.2,        // 飞行轨迹保留几秒
 
     frag: {
-      name: '手雷', count: 2, fuse: 2.0,
+      name: '手雷', count: 2, fuse: 3.0,
       radius: 7,           // 爆炸半径；伤害随距离线性衰减，有掩体挡着不受伤
       damage: 150,         // 爆心伤害（2.3 米内必死）
       selfMul: 0.75,       // 炸到自己时伤害乘这个系数
     },
     flash: {
-      name: '闪光', count: 2, fuse: 1.5,
+      name: '闪光', count: 2, fuse: 2.0,
       radius: 20,
       playerBlind: 3.8,    // 玩家正对爆点、距离很近时致盲几秒
       botBlind: 3.2,       // NPC 致盲几秒（期间不开枪、站在原地）
     },
     smoke: {
-      name: '烟雾', count: 1, fuse: 1.2,
+      name: '烟雾', count: 1, fuse: 2.0,
       radius: 3.8,         // 烟团半径：NPC 看不穿，也就不会开枪
       duration: 14,        // 持续几秒
     },

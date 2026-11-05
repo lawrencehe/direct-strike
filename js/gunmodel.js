@@ -441,6 +441,91 @@ Game.GunModel = (function () {
     group.add(pin);
   }
 
+  // 握住时手指绕着的半径（弹体半径 + 一点余量）
+  const GRIP_RADIUS = { frag: 0.0305, flash: 0.0225, smoke: 0.0305 };
+
+  // ---------- 第一人称的手和手臂（枪和投掷物共用） ----------
+  let handMats = null;
+  function getHandMats() {
+    if (handMats) return handMats;
+    const std = (color, roughness, metalness = 0.05, env = 0.25) =>
+      new THREE.MeshStandardMaterial({ color, roughness, metalness, envMapIntensity: env });
+    // 配色对应 NPC 士兵：黑手套、沙色衣服
+    handMats = { glove: std(0x050506, 0.75), knuckle: std(0x0c0c0e, 0.6, 0.1), sleeve: std(0x2c2415, 0.9, 0, 0.2), cuff: std(0x090806, 0.85, 0, 0.2) };
+    return handMats;
+  }
+
+  // 两点之间连一节胶囊
+  const _up = new THREE.Vector3(0, 1, 0);
+  function capsule(parent, a, b, r, mat) {
+    const d = b.clone().sub(a);
+    const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, d.length(), 4, 10), mat);
+    m.position.copy(a).addScaledVector(d, 0.5);
+    m.quaternion.setFromUnitVectors(_up, d.normalize());
+    parent.add(m);
+    return m;
+  }
+
+  // 一只握住竖直圆柱（半径 R，轴是 y，原点在握持中心）的手。
+  // 手背朝 +x，四指从 -z 绕过去，拇指从 +z 压过来；y 正方向是食指一侧。
+  // mirror = true 时是左手（镜像）。外层 group 负责摆放，所以旋转不受镜像影响。
+  function buildHand(R, mirror = false) {
+    const mats = getHandMats();
+    const outer = new THREE.Group();
+    const hand = new THREE.Group();
+    if (mirror) hand.scale.x = -1;
+    outer.add(hand);
+
+    // 绕圆柱的角度：0 在 +x（掌心），π/2 在 -z（远侧），-π/2 在 +z（近侧）
+    const around = (phi, y, r) => new THREE.Vector3(Math.cos(phi) * r, y, -Math.sin(phi) * r);
+
+    // 四根手指：弯法一样，高度不同，小指短一点
+    const fingers = [
+      { y: 0.024, r: 0.0082, end: 2.55 }, { y: 0.007, r: 0.0086, end: 2.7 },
+      { y: -0.01, r: 0.0082, end: 2.6 }, { y: -0.026, r: 0.0072, end: 2.3 },
+    ];
+    for (const f of fingers) {
+      const fr = R + f.r * 0.85;
+      const phis = [0.25, 0.25 + (f.end - 0.25) * 0.42, 0.25 + (f.end - 0.25) * 0.76, f.end];
+      const pts = phis.map((phi) => around(phi, f.y, fr));
+      for (let i = 0; i < 3; i++) capsule(hand, pts[i], pts[i + 1], f.r, i === 0 ? mats.knuckle : mats.glove);
+    }
+
+    // 拇指
+    const t0 = around(-0.62, -0.012, R + 0.016);
+    const t1 = around(-1.25, 0.002, R + 0.0095);
+    const t2 = around(-1.85, 0.018, R + 0.0085);
+    capsule(hand, t0, t1, 0.0102, mats.glove);
+    capsule(hand, t1, t2, 0.009, mats.glove);
+
+    // 手掌：压扁的球，贴在圆柱外侧；掌根连向手腕
+    const palm = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 14), mats.glove);
+    palm.scale.set(0.019, 0.044, 0.034);
+    palm.position.set(R + 0.016, -0.002, 0.004);
+    hand.add(palm);
+    const wrist = new THREE.Vector3(R + 0.04, -0.062, 0.05);
+    capsule(hand, new THREE.Vector3(R + 0.016, -0.022, 0.012), wrist, 0.024, mats.glove);
+
+    outer.userData.wrist = wrist.clone().setX(mirror ? -wrist.x : wrist.x);
+    return outer;
+  }
+
+  // 把手摆到 parent 上，并接一条伸出画面的手臂。
+  // pos、quat、armDir 都是 parent 坐标系；手臂是手的子物体，手移动时（比如换弹抽弹匣）手臂跟着走
+  function attachHand(parent, { R, pos, quat, mirror = false, armDir }) {
+    const mats = getHandMats();
+    const hand = buildHand(R, mirror);
+    hand.position.copy(pos);
+    if (quat) hand.quaternion.copy(quat);
+    parent.add(hand);
+    const dir = armDir.clone().normalize().applyQuaternion(hand.quaternion.clone().invert());
+    const wrist = hand.userData.wrist;
+    const cuffEnd = wrist.clone().addScaledVector(dir, 0.035);
+    capsule(hand, wrist, cuffEnd, 0.03, mats.cuff);
+    capsule(hand, cuffEnd, wrist.clone().addScaledVector(dir, 0.6), 0.036, mats.sleeve);
+    return hand;
+  }
+
   const grenadeCache = {};
 
   // kind: 'frag' 菠萝雷 | 'flash' 闪光弹（灰色、带透气孔）| 'smoke' 烟雾弹（橄榄绿罐、带色环）
@@ -496,5 +581,5 @@ Game.GunModel = (function () {
     return { group: g.clone(true) };
   }
 
-  return { buildAK, buildPistol, buildGrenade, environment };
+  return { buildAK, buildPistol, buildGrenade, attachHand, GRIP_RADIUS, environment };
 })();
