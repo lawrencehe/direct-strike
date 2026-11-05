@@ -13,6 +13,7 @@ Game.Input = class Input {
     this.pressed = new Set();  // 这一帧刚按下的键（只持续一帧）
     this.mouseX = 0;           // 这一帧累计的鼠标移动量
     this.mouseY = 0;
+    this.wheel = 0;            // 这一帧的滚轮方向：1 向下，-1 向上（切枪用）
     this.locked = false;
     this.onLockChange = null;
 
@@ -53,6 +54,9 @@ Game.Input = class Input {
       this.pressed.add(`Mouse${e.button}`);
     });
     document.addEventListener('mouseup', (e) => this.down.delete(`Mouse${e.button}`));
+    document.addEventListener('wheel', (e) => {
+      if (this.locked && e.deltaY) this.wheel = Math.sign(e.deltaY);
+    }, { passive: true });
     document.addEventListener('contextmenu', (e) => { if (this.locked || this.capture) e.preventDefault(); });
 
     document.addEventListener('pointerlockchange', () => {
@@ -90,7 +94,7 @@ Game.Input = class Input {
   }
 
   // 每帧结束时调用
-  endFrame() { this.pressed.clear(); }
+  endFrame() { this.pressed.clear(); this.wheel = 0; }
 
   // ---------- 改键 ----------
   // 开始等待玩家按下一个键；按下后调用 cb(code)，按 Esc 取消则 cb(null)
@@ -167,5 +171,7 @@ Game.Input.STORAGE_KEY = 'fps.keys.v1';   // 项目改名前的键名，不要�
 Game.Input.ACTIONS = [
   ['forward', '前进'], ['back', '后退'], ['left', '左移'], ['right', '右移'],
   ['jump', '跳跃'], ['crouch', '下蹲（按住）'], ['sprint', '奔跑（按住）'],
-  ['fire', '射击'], ['reload', '换弹'], ['resetStats', '重置统计（训练场）'],
+  ['fire', '射击 / 投掷'], ['reload', '换弹'],
+  ['slotRifle', '主武器'], ['slotPistol', '手枪'], ['slotFrag', '手雷'], ['slotFlash', '闪光弹'], ['slotSmoke', '烟雾弹'],
+  ['lastWeapon', '上一把武器'], ['resetStats', '重置统计（训练场）'],
 ];

@@ -68,7 +68,7 @@ Game.Player = class Player {
     this.pitch = Math.max(-limit, Math.min(limit, this.pitch));
 
     // 后坐力逐渐回正
-    this.recoilPitch -= this.recoilPitch * Math.min(1, Game.Config.weapon.recoilRecover * dt);
+    this.recoilPitch -= this.recoilPitch * Math.min(1, Game.Config.weapons.recoilRecover * dt);
 
     // ---- 2. 下蹲 ----
     // 按住就蹲；松开想站起来时，先确认头顶没东西挡着（蹲在集装箱底下不能直接站起来）

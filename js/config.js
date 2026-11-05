@@ -38,28 +38,97 @@ Game.Config = {
     exposure: 1.0,         // 画面整体亮度
   },
 
-  weapon: {
-    fireInterval: 0.1,     // 两发之间的间隔 → 每分钟 600 发
-    magSize: 30,           // 弹匣容量
-    reloadTime: 1.6,       // 换弹时间
+  // 武器。枪的参数按把写，共用的放外面
+  weapons: {
     maxRange: 200,         // 最大射程
+    recoilRecover: 5,      // 停火后枪口回正速度
+    switchOut: 0.12,       // 切枪：收枪用时
+    switchIn: 0.2,         // 切枪：掏枪用时
 
-    // 散布：子弹偏离准星中心的角度
-    baseSpread: 0.002,     // 站立不动时的基础散布
-    moveSpread: 0.025,     // 移动时额外增加（按速度比例）
-    airSpread: 0.08,       // 空中额外增加
-    bloomPerShot: 0.006,   // 连续开火时每发累积的散布
-    bloomMax: 0.04,        // 累积上限
-    bloomRecover: 0.08,    // 每秒恢复多少
-    crouchSpreadMul: 0.6,  // 下蹲时散布乘以这个系数（更准）
+    // 主武器
+    rifle: {
+      name: 'AK',
+      auto: true,            // 按住连发
+      fireInterval: 0.1,     // 两发之间的间隔 → 每分钟 600 发
+      magSize: 30,           // 弹匣容量
+      reloadTime: 1.6,       // 换弹时间
 
-    // 后坐力：每发让枪口往上（和左右随机）跳
-    recoilPitch: 0.012,    // 每发上跳
-    recoilYaw: 0.006,      // 每发左右随机抖动范围
-    recoilRecover: 5,      // 停火后回正速度
+      // 散布：子弹偏离准星中心的角度
+      baseSpread: 0.002,     // 站立不动时的基础散布
+      moveSpread: 0.025,     // 移动时额外增加（按速度比例）
+      airSpread: 0.08,       // 空中额外增加
+      bloomPerShot: 0.006,   // 连续开火时每发累积的散布
+      bloomMax: 0.04,        // 累积上限
+      bloomRecover: 0.08,    // 每秒恢复多少
+      crouchSpreadMul: 0.6,  // 下蹲时散布乘以这个系数（更准）
 
-    // 打中不同部位的伤害（NPC 生命值 100）
-    damage: { head: 100, body: 34, leg: 25 },
+      // 后坐力：每发让枪口往上（和左右随机）跳
+      recoilPitch: 0.012,    // 每发上跳
+      recoilYaw: 0.006,      // 每发左右随机抖动范围
+
+      // 打中不同部位的伤害（NPC 生命值 100）
+      damage: { head: 100, body: 34, leg: 25 },
+      knockback: 1,          // 打死人时的冲击力系数（布娃娃）
+    },
+
+    // 副武器：半自动，一次扣扳机一发。伤害低一些，换弹快
+    pistol: {
+      name: '手枪',
+      auto: false,
+      fireInterval: 0.16,
+      magSize: 15,
+      reloadTime: 1.25,
+      baseSpread: 0.002,
+      moveSpread: 0.018,
+      airSpread: 0.06,
+      bloomPerShot: 0.012,
+      bloomMax: 0.04,
+      bloomRecover: 0.14,
+      crouchSpreadMul: 0.7,
+      recoilPitch: 0.02,
+      recoilYaw: 0.008,
+      damage: { head: 100, body: 26, leg: 18 },
+      knockback: 0.75,
+    },
+  },
+
+  // 投掷物。count 是每条命 / 每波带几个（训练场不限量）；fuse 是出手后几秒引爆
+  grenades: {
+    throwSpeed: 15,        // 出手速度 m/s
+    throwUp: 0.14,         // 出手时比准星略微上抬
+    restitution: 0.38,     // 碰撞反弹系数
+    groundFriction: 0.68,  // 落地时水平速度保留多少
+    throwTime: 0.42,       // 投掷动作总时长
+    releaseAt: 0.18,       // 动作开始多久后出手
+
+    frag: {
+      name: '手雷', count: 2, fuse: 2.0,
+      radius: 7,           // 爆炸半径；伤害随距离线性衰减，有掩体挡着不受伤
+      damage: 150,         // 爆心伤害（2.3 米内必死）
+      selfMul: 0.75,       // 炸到自己时伤害乘这个系数
+    },
+    flash: {
+      name: '闪光', count: 2, fuse: 1.5,
+      radius: 20,
+      playerBlind: 3.8,    // 玩家正对爆点、距离很近时致盲几秒
+      botBlind: 3.2,       // NPC 致盲几秒（期间不开枪、站在原地）
+    },
+    smoke: {
+      name: '烟雾', count: 1, fuse: 1.2,
+      radius: 3.8,         // 烟团半径：NPC 看不穿，也就不会开枪
+      duration: 14,        // 持续几秒
+    },
+  },
+
+  // 布娃娃（NPC 死亡）
+  ragdoll: {
+    gravity: 11,               // 比玩家的重力小一点，人倒下才有分量，不会一下子拍在地上
+    corpseTime: 8,             // 尸体留几秒
+    headPush: [3.4, 4.8],      // 爆头：水平冲击 m/s（打飞的感觉主要调这个）
+    headLift: [1.7, 2.5],      // 爆头：把人掀离地面的速度
+    bodyPush: [1.0, 1.8],      // 打身体：水平冲击
+    blastPush: [3.0, 4.2],     // 爆炸：水平冲击（再乘距离系数）
+    blastLift: [2.0, 2.8],     // 爆炸：向上
   },
 
   targets: {
@@ -124,6 +193,12 @@ Game.Config = {
     sprint:     ['CapsLock'],   // 浏览器里 Ctrl+W 会关标签页、Alt 会弹菜单，所以不用它们
     fire:       ['Mouse0'],
     reload:     ['KeyR'],
+    slotRifle:  ['Digit1'],
+    slotPistol: ['Digit2'],
+    slotFrag:   ['Digit3'],
+    slotFlash:  ['Digit4'],
+    slotSmoke:  ['Digit5'],
+    lastWeapon: ['KeyQ'],       // 切回上一把武器（滚轮也能切枪）
     resetStats: ['KeyT'],
   },
 };

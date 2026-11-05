@@ -56,13 +56,16 @@ function startGame(mapData) {
   const audio = new Game.Audio();
   const hud = new Game.Hud();
   hud.bindKeySettings(input);   // 开始界面的改键表格
-  const effects = new Game.Effects(scene);
+  const effects = new Game.Effects(scene, world.colliders);
   const player = new Game.Player(camera, world.colliders, world.spawn);
 
   // 武器射线能打到的所有物体。内容随模式和 NPC 生死变化，所以用同一个数组原地更新
   const shootables = [];
-  const weapon = new Game.Weapon({ scene, camera, weaponCamera, player, audio, hud, effects, shootables });
+  const grenades = new Game.Grenades({ scene, camera, world, targets, player, audio, hud, effects });
+  const weapon = new Game.Weapon({ scene, camera, weaponCamera, player, audio, hud, effects, shootables, grenades });
   const bots = new Game.Bots.Manager({ scene, camera, world, player, audio, hud, effects });
+  grenades.bots = bots;
+  bots.grenades = grenades;
 
   let mode = null;
   let respawnTimer = 0;   // 对决里玩家阵亡后的重生倒计时
@@ -118,7 +121,7 @@ function startGame(mapData) {
   function respawnPlayer() {
     player.setSpawn(bots.playerSpawn());
     player.reset();
-    weapon.refill();
+    weapon.respawn();
     hud.setHealth(player.health, Game.Config.player.maxHealth);
   }
 
@@ -127,7 +130,9 @@ function startGame(mapData) {
     respawnTimer = 0;
     player.setSpawn(m === 'range' ? world.rangeSpawn : world.spawns[0]);
     player.reset();
+    weapon.unlimitedThrowables = m === 'range';   // 训练场投掷物不限量，方便练习
     weapon.reset();
+    grenades.clear();
     hud.resetStats();
     hud.setMode(m);
     hud.setHealth(player.health, Game.Config.player.maxHealth);
@@ -190,6 +195,7 @@ function startGame(mapData) {
         if (input.wasAction('resetStats')) hud.resetStats();
       }
       bots.update(dt);
+      grenades.update(dt);   // 人死了手雷还在飞
     }
     world.update(dt);
     hud.update(dt, player);
@@ -210,6 +216,7 @@ function startGame(mapData) {
   hud.showOverlay('menu');
   hud.setLoading(true);
   player.update(0, input);
+  effects.precompile(renderer, camera);
   frame();
 
   // NPC 模型是异步加载的，加载完才允许进入对战模式
@@ -218,5 +225,5 @@ function startGame(mapData) {
   });
 
   // 方便在浏览器控制台（F12）里调试，例如输入 game.player.position 查看位置
-  window.game = { scene, camera, renderer, world, targets, input, audio, hud, player, weapon, bots, startMode };
+  window.game = { scene, camera, renderer, world, targets, input, audio, hud, player, weapon, grenades, effects, bots, startMode };
 }

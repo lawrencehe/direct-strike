@@ -187,6 +187,7 @@ Game.Character = (function () {
         }
       });
       this.root.add(model);
+      this.armature = model;
 
       this.bones = {};
       const missing = [];
@@ -314,17 +315,33 @@ Game.Character = (function () {
 
     hitFlash() { this.flash = 1; }
 
-    die() {
+    // hit: { part, point, dir, force, vel, explosion, colliders }，详见 ragdoll.js
+    die(hit = {}) {
       this.dead = true;
       for (const a of Object.values(this.actions)) a.paused = true;
+      this.ragdoll = new Game.Ragdoll.Soldier(this.root, (n) => findBone(this.armature, n), this.rifle, hit);
+      if (!this.ragdoll.ok) this.ragdoll = null;
     }
+
+    // 血从哪流出来（世界坐标）
+    woundPos(out) {
+      if (this.ragdoll) return this.ragdoll.woundPos(out);
+      return out.copy(this.root.position).setY(this.root.position.y + 0.3);
+    }
+    woundSpeed() { return this.ragdoll ? this.ragdoll.woundSpeed() : 0; }
 
     update(dt) {
       if (this.dead) {
         this.deathTime += dt;
-        const p = Math.min(1, this.deathTime / 0.5);
-        this.root.rotation.x = (Math.PI / 2) * p * p;    // 向后倒
-        this.root.position.y -= 0.6 * dt * (p >= 1 ? 1 : 0); // 倒下后慢慢"沉"进地里
+        this.flash = Math.max(0, this.flash - dt * 6);
+        for (const m of this.flashMats) m.emissive.setRGB(this.flash * 0.9, 0, 0);
+        const sinkAt = Game.Config.ragdoll.corpseTime - 1.2;
+        if (this.deathTime > sinkAt) {
+          if (this.ragdoll) this.ragdoll.sleeping = true;   // 骨骼不再动，整个模型慢慢沉进地里后移除
+          this.root.position.y -= 0.5 * dt;
+        } else if (this.ragdoll) {
+          this.ragdoll.update(dt);
+        }
         return;
       }
       this.mixer.update(dt);
@@ -436,13 +453,32 @@ Game.Character = (function () {
 
     getMuzzle(out) { return this.rifle.muzzle.getWorldPosition(out); }
     hitFlash() { this.flash = 1; }
-    die() { this.dead = true; }
+
+    // 备用小人没有骨骼，做不了布娃娃：朝子弹方向整个倒下，爆头 / 爆炸时带一点腾空
+    die(hit = {}) {
+      this.dead = true;
+      this.flash = 0;
+      for (const m of this.flashMats) m.emissive.setRGB(0, 0, 0);
+      const d = hit.dir || new THREE.Vector3(0, 0, 1);
+      const yaw = this.root.rotation.y;
+      this.fallSign = -Math.sin(yaw) * d.x - Math.cos(yaw) * d.z > 0 ? 1 : -1;   // 子弹从背后来就往前扑
+      const big = hit.part === 'head' || hit.explosion;
+      this.fallV = new THREE.Vector3(d.x, 0, d.z).multiplyScalar(big ? 3 : 0.8);
+      this.fallV.y = big ? 2.2 : 0;
+      this.groundY = this.root.position.y;
+    }
+
+    woundPos(out) { return out.copy(this.root.position).setY(this.root.position.y + 0.3); }
+    woundSpeed() { return 0; }
 
     update(dt) {
       if (this.dead) {
         this.deathTime += dt;
         const p = Math.min(1, this.deathTime / 0.45);
-        this.root.rotation.x = (Math.PI / 2) * p * p;
+        this.root.rotation.x = this.fallSign * (Math.PI / 2) * p * p;
+        this.fallV.y -= Game.Config.ragdoll.gravity * dt;
+        this.root.position.addScaledVector(this.fallV, dt);
+        if (this.root.position.y <= this.groundY) { this.root.position.y = this.groundY; this.fallV.set(0, 0, 0); }
         return;
       }
       this.walkPhase += this.speed * dt * 3.2;

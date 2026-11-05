@@ -25,31 +25,33 @@ Game.Audio = class Audio {
     for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
   }
 
-  shot() {
+  // kind：'rifle' 或 'pistol'（手枪更脆、更短，低音也轻）
+  shot(kind = 'rifle') {
     const ctx = this.ctx;
     if (!ctx) return;
     const t = ctx.currentTime;
+    const pistol = kind === 'pistol';
 
     // 噪声部分：低通滤波器从高频快速扫到低频，听起来像"嘭——"
     const src = ctx.createBufferSource();
     src.buffer = this.noise;
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(3500, t);
-    filter.frequency.exponentialRampToValueAtTime(300, t + 0.15);
+    filter.frequency.setValueAtTime(pistol ? 5200 : 3500, t);
+    filter.frequency.exponentialRampToValueAtTime(pistol ? 500 : 300, t + (pistol ? 0.09 : 0.15));
     const g = ctx.createGain();
-    g.gain.setValueAtTime(0.9, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+    g.gain.setValueAtTime(pistol ? 0.7 : 0.9, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + (pistol ? 0.11 : 0.18));
     src.connect(filter).connect(g).connect(this.master);
     src.start(t, Math.random() * 0.5);
     src.stop(t + 0.2);
 
     // 低音部分：140Hz 迅速降到 45Hz，给人"有劲"的感觉
     const osc = ctx.createOscillator();
-    osc.frequency.setValueAtTime(140, t);
-    osc.frequency.exponentialRampToValueAtTime(45, t + 0.1);
+    osc.frequency.setValueAtTime(pistol ? 200 : 140, t);
+    osc.frequency.exponentialRampToValueAtTime(pistol ? 70 : 45, t + 0.1);
     const og = ctx.createGain();
-    og.gain.setValueAtTime(0.8, t);
+    og.gain.setValueAtTime(pistol ? 0.45 : 0.8, t);
     og.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
     osc.connect(og).connect(this.master);
     osc.start(t);
@@ -86,7 +88,44 @@ Game.Audio = class Audio {
   hit()      { this.tone(900, 0.05, 'square', 0.12); }
   headshot() { this.tone(1400, 0.08, 'sine', 0.35); this.tone(2100, 0.14, 'sine', 0.3, 0.05); }
   empty()    { this.click(0, 0.25); }
-  reload()   { this.click(0.05, 0.3); this.click(Game.Config.weapon.reloadTime - 0.25, 0.4); }
+  reload(time) { this.click(0.05, 0.3); this.click(time - 0.25, 0.4); }
+  swap()     { this.click(0, 0.18); this.click(0.1, 0.12); }
+  pullPin()  { this.click(0, 0.22); this.tone(2600, 0.05, 'sine', 0.08, 0.03); }
+  bounce(v)  { this.click(0, Math.min(0.35, 0.05 + v * 0.03)); }
+
+  explosion(distance) {
+    const vol = 1.4 / (1 + distance / 10);
+    this.noiseBurst(1200, 80, 0.9, vol);
+    this.tone(90, 0.7, 'sine', vol * 0.8);
+  }
+  flashBang(distance) {
+    const vol = 1.1 / (1 + distance / 12);
+    this.noiseBurst(7000, 1500, 0.25, vol);
+    this.tone(120, 0.25, 'sine', vol * 0.6);
+  }
+  // 被闪到时的耳鸣
+  ring(seconds, vol) { this.tone(3400, Math.max(0.3, seconds), 'sine', 0.09 * vol); }
+  smokeHiss(distance) { this.noiseBurst(3200, 1400, 2.4, 0.22 / (1 + distance / 12)); }
+
+  // 一段噪声：低通从 f0 扫到 f1，并逐渐衰减
+  noiseBurst(f0, f1, dur, vol) {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(f0, t);
+    filter.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(filter).connect(g).connect(this.master);
+    src.start(t, Math.random() * 0.5);
+    src.stop(t + dur + 0.02);
+  }
 
   tone(freq, dur, type, vol, delay = 0) {
     const ctx = this.ctx;

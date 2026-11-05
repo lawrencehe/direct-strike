@@ -5,7 +5,7 @@
 //   patrol（巡逻）  ：在地图标好的巡逻点之间走，没发现玩家
 //   combat（交战）  ：看见玩家 → 反应一下 → 转身、左右横移、点射
 //   search（搜索）  ：玩家躲起来了 → 跑去最后看见玩家的地方找
-//   dead（阵亡）    ：向后倒下，几秒后消失
+//   dead（阵亡）    ：布娃娃倒下、流血，几秒后消失（见 ragdoll.js）
 //
 // "看见"的判断（感知）有三个条件，全部满足才算看见：
 //   1. 距离够近   2. 在视野角度内（背后看不见）   3. 中间没有墙挡着（射线检测）
@@ -63,6 +63,10 @@ Game.Bots = (function () {
 
       this.deathTimer = 0;
       this.aimPoint = new THREE.Vector3();
+      this.blind = 0;                  // 被闪光弹致盲的剩余时间
+      this.bleedTime = 0;              // 尸体还要流多久的血
+      this.pooled = false;             // 血泊是不是已经开始渗了
+      this.bloodPos = new THREE.Vector3();
 
       this.box = new THREE.Box3();
       this.updateBox();
@@ -81,9 +85,10 @@ Game.Bots = (function () {
     }
 
     // 被玩家打中。返回 null 表示已经死了（打尸体不算）
-    takeDamage(part) {
+    // hit: { part, point, dir, force, explosion } 决定死法和血往哪喷，见 ragdoll.js
+    takeDamage(amount, hit = {}) {
       if (!this.alive) return null;
-      this.health -= Game.Config.weapon.damage[part];
+      this.health -= amount;
       this.model.hitFlash();
 
       // 被打了就警觉：转身找玩家
@@ -98,7 +103,13 @@ Game.Bots = (function () {
       if (this.health <= 0) {
         this.alive = false;
         this.state = 'dead';
-        this.model.die();
+        const head = hit.part === 'head';
+        this.model.flash = 0;   // 闪红是"打中了但没死"的反馈，死的时候看血和动作
+        this.model.die({ ...hit, vel: this.vel, colliders: this.mgr.colliders });
+        if (hit.point && hit.dir) this.mgr.effects.bloodBurst(hit.point, hit.dir, head);
+        this.bleedTime = head ? 2.2 : 1.4;
+        this.bleedRate = head ? 26 : 12;
+        this.poolSize = head ? 0.95 : 0.8;
         this.mgr.onBotKilled(this);
         return { killed: true };
       }
@@ -110,7 +121,8 @@ Game.Bots = (function () {
       if (!this.alive) {
         this.deathTimer += dt;
         this.model.update(dt);
-        return this.deathTimer > 5;
+        this.updateBleeding(dt);
+        return this.deathTimer > Game.Config.ragdoll.corpseTime;
       }
 
       const cfg = Game.Config.bots;
@@ -130,7 +142,11 @@ Game.Bots = (function () {
       // ---- 根据状态决定：往哪走、多快、面朝哪 ----
       let mx = 0, mz = 0, speed = 0, faceYaw = this.yaw;
 
-      if (this.state === 'patrol') {
+      if (this.blind > 0) {
+        // 被闪了：什么都看不见，站在原地晃脑袋，等恢复后再重新发现玩家
+        this.blind -= dt;
+        faceYaw = this.yaw + Math.sin(this.blind * 4) * 0.6;
+      } else if (this.state === 'patrol') {
         if (!this.waypoint || Math.hypot(this.waypoint.x - this.pos.x, this.waypoint.z - this.pos.z) < 1) {
           this.waypoint = this.mgr.nextNavPoint(this.pos);
         }
@@ -184,11 +200,31 @@ Game.Bots = (function () {
       return false;
     }
 
+    // 被闪光弹闪到
+    flash(seconds) {
+      this.blind = Math.max(this.blind, seconds);
+      this.perceiveTimer = 0;
+      this.burstLeft = 0;
+    }
+
+    // 倒地后：伤口流一阵血，身体落稳后地上慢慢渗出一滩
+    updateBleeding(dt) {
+      const pos = this.model.woundPos(this.bloodPos);
+      if (this.bleedTime > 0) {
+        this.bleedTime -= dt;
+        this.mgr.effects.bleed(pos, dt, this.bleedRate);
+      }
+      if (!this.pooled && this.deathTimer > 0.35 && (this.model.woundSpeed() < 1 || this.deathTimer > 1.8)) {
+        this.pooled = true;
+        this.mgr.effects.bloodPool(pos, this.poolSize);
+      }
+    }
+
     perceive(dx, dz, dist) {
       const cfg = Game.Config.bots;
       const player = this.mgr.player;
 
-      let canSee = player.alive && dist < cfg.viewDistance;
+      let canSee = player.alive && dist < cfg.viewDistance && this.blind <= 0;
       if (canSee && this.alertTimer <= 0) {
         // 视野角度：朝向和"指向玩家的方向"的夹角
         const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
@@ -450,7 +486,8 @@ Game.Bots = (function () {
       const dist = dir.length();
       this.raycaster.set(from, dir.normalize());
       this.raycaster.far = dist;
-      return this.raycaster.intersectObjects(this.obstacles, false).length === 0;
+      if (this.raycaster.intersectObjects(this.obstacles, false).length !== 0) return false;
+      return !(this.grenades && this.grenades.blocksSight(from, to));   // 烟雾也挡视线
     }
 
     // NPC 开枪：先看射线有没有被墙挡住，再看有没有穿过玩家的碰撞盒
@@ -525,7 +562,12 @@ Game.Bots = (function () {
 
     update(dt) {
       this.effects.update(dt);
-      if (!this.active || this.phase === 'over') return;   // 分出胜负后 NPC 停下来
+      if (!this.active) return;
+      if (this.phase === 'over') {
+        // 分出胜负后活着的 NPC 停下来，但最后一个死的还要倒完
+        for (const b of this.bots) if (!b.alive) b.update(dt);
+        return;
+      }
 
       for (const b of this.bots) {
         if (b.update(dt)) { b.dispose(); b.remove = true; }

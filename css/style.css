@@ -67,6 +67,22 @@ html, body {
 #ammo.low #ammo-cur { color: #f44; }
 #ammo-max { font-size: 22px; margin-left: 6px; opacity: .7; }
 
+/* 武器栏：弹药数上方一排，当前武器高亮，投掷物用完变暗 */
+#weapons {
+  position: absolute; right: 24px; bottom: 76px;
+  display: flex; gap: 4px; justify-content: flex-end;
+  font-size: 12px; text-shadow: 0 0 3px #000;
+}
+#weapons .slot {
+  min-width: 48px; padding: 3px 7px; border-radius: 4px;
+  background: rgba(0, 0, 0, .4); border: 1px solid transparent;
+  text-align: center; opacity: .72;
+}
+#weapons .slot kbd { font: inherit; display: block; font-size: 10px; opacity: .65; }
+#weapons .slot b { color: #fc3; font-weight: normal; margin-left: 3px; }
+#weapons .slot.on { border-color: #fc3; opacity: 1; background: rgba(0, 0, 0, .6); }
+#weapons .slot.empty { opacity: .3; }
+
 #hint {
   position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
   font-size: 13px; opacity: .6; text-shadow: 0 0 3px #000;
@@ -145,6 +161,9 @@ html, body {
 #health-bar { display: block; height: 100%; width: 100%; background: #4c6; transition: width .15s; }
 #health.low #health-val { color: #f44; }
 #health.low #health-bar { background: #e33; }
+
+/* 闪光弹致盲 */
+#flash-white { position: absolute; inset: 0; opacity: 0; background: #fff; }
 
 /* 受伤时屏幕边缘泛红 */
 #damage-flash {

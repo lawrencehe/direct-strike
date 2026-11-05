@@ -9,7 +9,8 @@ Game.Hud = class Hud {
       crosshair: $('crosshair'), hitmarker: $('hitmarker'), reloadTip: $('reload-tip'),
       stats: $('stats'), shots: $('stat-shots'), hits: $('stat-hits'), heads: $('stat-heads'),
       acc: $('stat-acc'), kills: $('stat-kills'),
-      ammo: $('ammo'), ammoCur: $('ammo-cur'),
+      ammo: $('ammo'), ammoCur: $('ammo-cur'), ammoMax: $('ammo-max'), weapons: $('weapons'),
+      flashWhite: $('flash-white'),
       health: $('health'), healthVal: $('health-val'), healthBar: $('health-bar'),
       damageFlash: $('damage-flash'), damageDir: $('damage-dir'),
       wave: $('wave-info'), banner: $('banner'), hint: $('hint'),
@@ -22,6 +23,10 @@ Game.Hud = class Hud {
     this.bannerTimer = 0;
     this.damageTimer = 0;
     this.damageFrom = null;
+    this.flashTimer = 0;
+    this.flashFade = 1;
+    this.flashPeak = 0;
+    this.slots = [];
     this.resetStats();
   }
 
@@ -60,6 +65,7 @@ Game.Hud = class Hud {
       input.finishCapture(null);
       input.resetBindings();
       this.renderKeys();
+      this.renderSlots();
       if (this.mode) this.setMode(this.mode);   // 刷新底部的按键提示
     });
     this.renderKeys();
@@ -86,6 +92,7 @@ Game.Hud = class Hud {
         input.startCapture((code) => {
           if (code) input.bind(action, code);
           this.renderKeys();
+          this.renderSlots();
           if (this.mode) this.setMode(this.mode);
         });
       });
@@ -106,17 +113,61 @@ Game.Hud = class Hud {
     this.el.health.style.display = battle ? 'block' : 'none';
     this.el.wave.style.display = battle ? 'block' : 'none';
     const key = (a) => this.input ? Game.Input.bindingName(this.input.bindings[a]) : '?';
+    const common = `${key('reload')} 换弹 · ${key('lastWeapon')} / 滚轮 切枪`;
     this.el.hint.textContent = battle
-      ? `${key('reload')} 换弹 · Esc 暂停`
-      : `${key('reload')} 换弹 · ${key('resetStats')} 重置统计 · Esc 暂停`;
+      ? `${common} · Esc 暂停`
+      : `${common} · ${key('resetStats')} 重置统计 · Esc 暂停`;
     this.mode = mode;
     this.damageTimer = this.bannerTimer = 0;
+    this.flashTimer = 0;
+    this.el.flashWhite.style.opacity = 0;
   }
 
   setAmmo(ammo, mag, reloading) {
     this.el.ammoCur.textContent = ammo;
+    this.el.ammoMax.textContent = '/ ∞';
     this.el.ammo.classList.toggle('low', ammo <= mag * 0.2);
     this.el.reloadTip.style.display = reloading ? 'block' : 'none';
+  }
+
+  // 手上拿的是投掷物：只显示还剩几个
+  setThrowable(count) {
+    this.el.ammoCur.textContent = count;
+    this.el.ammoMax.textContent = '';
+    this.el.ammo.classList.remove('low');
+    this.el.reloadTip.style.display = 'none';
+  }
+
+  // 武器栏。slots: [{ action, name, count?, on, empty }]
+  setSlots(slots) {
+    this.slots = slots;
+    this.renderSlots();
+  }
+
+  renderSlots() {
+    const name = (a) => this.input ? Game.Input.bindingName(this.input.bindings[a]) : '';
+    this.el.weapons.innerHTML = this.slots.map((s) => {
+      const cls = `slot${s.on ? ' on' : ''}${s.empty ? ' empty' : ''}`;
+      const count = s.count === undefined ? '' : `<b>${s.count}</b>`;
+      return `<div class="${cls}"><kbd>${name(s.action)}</kbd>${s.name}${count}</div>`;
+    }).join('');
+  }
+
+  // 被闪光弹闪到：强度 0 ~ 1，白屏持续 seconds 秒，最后一段慢慢淡出
+  flash(strength, seconds) {
+    // 还在白屏时又被闪一次，取更强的那个，不要反而变弱
+    if (this.flashPeak * Math.min(1, this.flashTimer / this.flashFade) > strength) return;
+    this.flashPeak = strength;
+    this.flashTimer = seconds;
+    this.flashFade = Math.max(0.4, seconds * 0.55);
+  }
+
+  // 不计入命中率的命中提示（手雷炸到人）
+  showHit(killed) {
+    if (killed) { this.stats.kills++; this.renderStats(); }
+    this.el.hitmarker.classList.remove('head');
+    this.el.hitmarker.classList.toggle('kill', killed);
+    this.hitTimer = killed ? 0.35 : 0.15;
   }
 
   setHealth(hp, max) {
@@ -192,6 +243,11 @@ Game.Hud = class Hud {
   update(dt, player) {
     this.hitTimer -= dt;
     this.el.hitmarker.style.opacity = this.hitTimer > 0 ? 1 : 0;
+
+    if (this.flashTimer > 0) {
+      this.flashTimer = Math.max(0, this.flashTimer - dt);
+      this.el.flashWhite.style.opacity = this.flashPeak * Math.min(1, this.flashTimer / this.flashFade);
+    }
 
     this.bannerTimer -= dt;
     this.el.banner.style.opacity = Math.max(0, Math.min(1, this.bannerTimer * 2));

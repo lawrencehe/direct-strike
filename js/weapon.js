@@ -1,21 +1,25 @@
 // ============================================================
-// 武器：射线检测（hitscan）射击、散布、后坐力、换弹、枪口火焰、弹孔
+// 武器：切枪、射线检测（hitscan）射击、散布、后坐力、换弹、枪口火焰、弹孔、投掷动作
 //
 // hitscan 的意思是：子弹没有飞行时间，开枪的瞬间从眼睛发出一条射线，
 // 射线第一个碰到的物体就是被打中的物体。CS 的步枪就是这么做的。
+//
+// 五个槽位：rifle 主武器、pistol 手枪、frag / flash / smoke 三种投掷物。
+// 枪的参数在 config.js 的 weapons 里，投掷物丢出去之后的事归 grenades.js 管。
+// 切枪分两段：先收（当前武器往下沉），再掏（新武器抬起来），掏好之前不能开火。
 // ============================================================
 Game.Weapon = class Weapon {
-  constructor({ scene, camera, weaponCamera, player, audio, hud, effects, shootables }) {
+  constructor({ scene, camera, weaponCamera, player, audio, hud, effects, shootables, grenades }) {
     this.scene = scene;
     this.camera = camera;
+    this.weaponCamera = weaponCamera;
     this.player = player;
     this.audio = audio;
     this.hud = hud;
     this.effects = effects;
     this.shootables = shootables;
+    this.grenades = grenades;
 
-    const cfg = Game.Config.weapon;
-    this.ammo = cfg.magSize;
     this.cooldown = 0;
     this.reloading = false;
     this.reloadTimer = 0;
@@ -25,7 +29,7 @@ Game.Weapon = class Weapon {
     this.sway = new THREE.Vector2();
 
     this.raycaster = new THREE.Raycaster();
-    this.raycaster.far = cfg.maxRange;
+    this.raycaster.far = Game.Config.weapons.maxRange;
 
     this.decals = [];
     this.decalGeo = new THREE.CircleGeometry(0.035, 10);
@@ -33,112 +37,327 @@ Game.Weapon = class Weapon {
       color: 0x151515, polygonOffset: true, polygonOffsetFactor: -4,
     });
 
-    this.buildModel(weaponCamera);
+    this.buildModels();
+
+    this.current = 'rifle';
+    this.lastGun = 'pistol';      // 投掷完 / 按"上一把武器"时切回去
+    this.previous = 'pistol';
+    this.pending = null;          // 正在切向哪把
+    this.switchT = 0;             // 切枪进度：0 = 就绪；> 0 表示正在收或掏
+    this.switchPhase = null;      // 'out' | 'in'
+    this.throwT = 0;              // 投掷动作进行了多久，0 表示没在投
+    this.thrown = false;
+    this.unlimitedThrowables = false;
+    this.counts = {};
+    this.restock();
+    this.show('rifle');
 
     // 开枪瞬间照亮周围环境的光
     this.worldFlash = new THREE.PointLight(0xffc070, 0, 10);
     scene.add(this.worldFlash);
 
-    hud.setAmmo(this.ammo, cfg.magSize, false);
+    this.refreshHud();
   }
 
   // 枪模在 gunmodel.js 里拼好，这里只负责摆位置、挂枪口火焰
-  buildModel(weaponCamera) {
+  buildModels() {
+    const cam = this.weaponCamera;
+    const makeFlash = (size, at, parent) => {
+      const flash = new THREE.Mesh(
+        new THREE.PlaneGeometry(size, size),
+        new THREE.MeshBasicMaterial({
+          map: Game.Effects.flashTexture(), transparent: true,
+          blending: THREE.AdditiveBlending, depthWrite: false,
+        })
+      );
+      flash.position.copy(at);
+      flash.visible = false;
+      parent.add(flash);
+      return flash;
+    };
+
     const ak = Game.GunModel.buildAK();
-    const gun = ak.group;
-    this.bolt = ak.bolt;           // 拉机柄：开枪时往后跳
-    this.boltHome = ak.boltHome;
-    this.mag = ak.mag;             // 弹匣：换弹时抽出再插回
-    this.magHome = ak.magHome;
+    const pistol = Game.GunModel.buildPistol();
 
-    // 枪口火焰：一张发光的星形贴图
-    this.flash = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.26, 0.26),
-      new THREE.MeshBasicMaterial({
-        map: Game.Effects.flashTexture(), transparent: true,
-        blending: THREE.AdditiveBlending, depthWrite: false,
-      })
-    );
-    this.flash.position.copy(ak.muzzle);
-    this.flash.visible = false;
-    gun.add(this.flash);
+    this.guns = {
+      rifle: {
+        cfg: Game.Config.weapons.rifle, ammo: Game.Config.weapons.rifle.magSize,
+        model: ak.group, scale: 0.75,
+        // 摆在画面右下，枪口略微朝准星方向内收
+        basePos: new THREE.Vector3(0.16, -0.18, -0.40), baseRot: new THREE.Euler(0.0, 0.075, 0.0),
+        bolt: ak.bolt, boltHome: ak.boltHome, boltKick: 0.07,       // 拉机柄：开枪时往后跳
+        mag: ak.mag, magHome: ak.magHome, magDrop: 0.16, magBack: 0.05, magTilt: 0.5,
+        flash: makeFlash(0.26, ak.muzzle, ak.group),
+        kickBack: 0.06, kickUp: 0.05,
+      },
+      pistol: {
+        cfg: Game.Config.weapons.pistol, ammo: Game.Config.weapons.pistol.magSize,
+        model: pistol.group, scale: 0.72,
+        basePos: new THREE.Vector3(0.115, -0.115, -0.31), baseRot: new THREE.Euler(0.02, 0.08, 0.0),
+        bolt: pistol.slide, boltHome: pistol.slideHome, boltKick: 0.036,   // 套筒：开枪时往后坐
+        mag: pistol.mag, magHome: pistol.magHome, magDrop: 0.13, magBack: 0.02, magTilt: 0,
+        flash: makeFlash(0.17, pistol.muzzle, pistol.group),
+        kickBack: 0.045, kickUp: 0.14,
+      },
+    };
 
-    // 摆在画面右下，枪口略微朝准星方向内收
-    this.basePos = new THREE.Vector3(0.16, -0.18, -0.40);
-    this.baseRot = new THREE.Euler(0.0, 0.075, 0.0);
-    gun.position.copy(this.basePos);
-    gun.rotation.copy(this.baseRot);
-    gun.scale.setScalar(0.75);
-    weaponCamera.add(gun);
-    this.model = gun;
+    // 投掷物：拿在手上是一个完整的模型，出手后 grenades.js 再造一个飞出去
+    this.throwables = {};
+    for (const kind of ['frag', 'flash', 'smoke']) {
+      const g = Game.GunModel.buildGrenade(kind);
+      this.throwables[kind] = {
+        cfg: Game.Config.grenades[kind], model: g.group, scale: 0.8, pin: g.group.getObjectByName('pin'),
+        basePos: new THREE.Vector3(0.12, -0.105, -0.3), baseRot: new THREE.Euler(0.15, 0.3, -0.25),
+      };
+    }
+
+    for (const it of [...Object.values(this.guns), ...Object.values(this.throwables)]) {
+      it.model.scale.setScalar(it.scale);
+      it.model.position.copy(it.basePos);    // 第一次 animate 之前（比如菜单背景）也要摆在正确位置
+      it.model.rotation.copy(it.baseRot);
+      it.model.visible = false;
+      cam.add(it.model);
+    }
   }
+
+  isGun(key) { return key === 'rifle' || key === 'pistol'; }
+  item(key) { return this.guns[key] || this.throwables[key]; }
+
+  show(key) {
+    for (const it of [...Object.values(this.guns), ...Object.values(this.throwables)]) it.model.visible = false;
+    this.item(key).model.visible = true;
+  }
+
+  // 投掷物还有没有
+  hasThrowable(kind) { return this.unlimitedThrowables || this.counts[kind] > 0; }
+  canEquip(key) { return this.isGun(key) || this.hasThrowable(key); }
+
+  // ---- 切枪 ----
+  select(key) {
+    if (this.throwT > 0 || !key) return;
+    const target = this.pending || this.current;
+    if (key === target) return;
+    if (!this.canEquip(key)) { this.audio.empty(); return; }
+
+    // 换弹被打断：子弹数不变，换回来要重新换
+    if (this.reloading) { this.reloading = false; this.reloadTimer = 0; }
+    this.flashTimer = 0;
+
+    this.pending = key;
+    if (this.switchPhase !== 'out') {
+      this.switchPhase = 'out';
+      this.switchT = 0;
+    }
+    this.audio.swap();
+    this.refreshHud();
+  }
+
+  // 滚轮：跳过用完的投掷物
+  cycle(dir) {
+    const order = Game.Weapon.ORDER;
+    let i = order.indexOf(this.pending || this.current);
+    for (let n = 0; n < order.length; n++) {
+      i = (i + dir + order.length) % order.length;
+      if (this.canEquip(order[i])) { this.select(order[i]); return; }
+    }
+  }
+
+  updateSwitch(dt) {
+    if (!this.switchPhase) return;
+    const c = Game.Config.weapons;
+    this.switchT += dt;
+    if (this.switchPhase === 'out' && this.switchT >= c.switchOut) {
+      if (this.pending !== this.current) {
+        if (this.isGun(this.current)) this.lastGun = this.current;
+        this.previous = this.current;
+        this.current = this.pending;
+      }
+      this.pending = null;
+      this.thrown = false;
+      this.show(this.current);
+      this.bloom = 0;
+      this.switchPhase = 'in';
+      this.switchT = 0;
+      this.refreshHud();
+    } else if (this.switchPhase === 'in' && this.switchT >= c.switchIn) {
+      this.switchPhase = null;
+      this.switchT = 0;
+    }
+  }
+
+  // 切枪造成的下沉量 0 ~ 1
+  switchDip() {
+    const c = Game.Config.weapons;
+    if (this.switchPhase === 'out') return Math.min(1, this.switchT / c.switchOut);
+    if (this.switchPhase === 'in') return 1 - Math.min(1, this.switchT / c.switchIn);
+    return 0;
+  }
+
+  // ---- 每帧 ----
 
   // 当前散布 = 基础 + 移动 + 空中 + 连射累积
   currentSpread() {
-    const cfg = Game.Config.weapon;
+    const gun = this.guns[this.current];
+    if (!gun) return 0.008;      // 拿着手雷时准星收拢
+    const cfg = gun.cfg;
     const p = this.player;
     const moveRatio = Math.min(1, p.horizontalSpeed() / Game.Config.player.walkSpeed);
     const spread = cfg.baseSpread + cfg.moveSpread * moveRatio + (p.onGround ? 0 : cfg.airSpread) + this.bloom;
     return spread * (1 - (1 - cfg.crouchSpreadMul) * p.crouchT);   // 蹲下更准
   }
 
+  readInput(input) {
+    const map = { slotRifle: 'rifle', slotPistol: 'pistol', slotFrag: 'frag', slotFlash: 'flash', slotSmoke: 'smoke' };
+    for (const [action, key] of Object.entries(map)) {
+      if (input.wasAction(action)) this.select(key);
+    }
+    if (input.wasAction('lastWeapon')) this.select(this.previous);
+    if (input.wheel) this.cycle(input.wheel);
+  }
+
   update(dt, input) {
-    const cfg = Game.Config.weapon;
     this.cooldown -= dt;
-    this.bloom = Math.max(0, this.bloom - cfg.bloomRecover * dt);
+    const gun = this.guns[this.current];
+    if (gun) this.bloom = Math.max(0, this.bloom - gun.cfg.bloomRecover * dt);
 
-    if (this.reloading) {
-      this.reloadTimer -= dt;
-      if (this.reloadTimer <= 0) {
-        this.reloading = false;
-        this.ammo = cfg.magSize;
-        this.hud.setAmmo(this.ammo, cfg.magSize, false);
-      }
-    }
+    this.readInput(input);
+    this.updateSwitch(dt);
 
-    if (input.wasAction('reload')) this.startReload();
-
-    if (input.isAction('fire') && !this.reloading && this.cooldown <= 0) {
-      if (this.ammo > 0) {
-        this.fire();
-      } else {
-        if (input.wasAction('fire')) this.audio.empty();
-        this.startReload();  // 打空了自动换弹
-      }
-    }
+    const ready = !this.switchPhase;
+    if (gun) this.updateGun(dt, input, gun, ready);
+    else this.updateThrow(dt, input, ready);
 
     this.animate(dt);
     this.hud.setSpread(this.currentSpread());
   }
 
-  // 换弹匣、清空弹孔（开新一局时）
+  updateGun(dt, input, gun, ready) {
+    const cfg = gun.cfg;
+    if (this.reloading) {
+      this.reloadTimer -= dt;
+      if (this.reloadTimer <= 0) {
+        this.reloading = false;
+        gun.ammo = cfg.magSize;
+        this.refreshHud();
+      }
+    }
+    if (!ready) return;
+
+    if (input.wasAction('reload')) this.startReload();
+
+    // 全自动按住连发；半自动每次扣扳机只打一发
+    const wantFire = cfg.auto ? input.isAction('fire') : input.wasAction('fire');
+    if (wantFire && !this.reloading && this.cooldown <= 0) {
+      if (gun.ammo > 0) {
+        this.fire(gun);
+      } else {
+        if (input.wasAction('fire')) this.audio.empty();
+        this.startReload();  // 打空了自动换弹
+      }
+    }
+  }
+
+  // 投掷：按下左键开始动作，到 releaseAt 出手，动作做完切回枪
+  updateThrow(dt, input, ready) {
+    const cfg = Game.Config.grenades;
+    if (this.throwT === 0) {
+      if (ready && input.wasAction('fire') && this.hasThrowable(this.current)) {
+        this.throwT = 1e-4;
+        this.thrown = false;
+        this.audio.pullPin();
+        this.refreshHud();
+      }
+      return;
+    }
+    this.throwT += dt;
+    if (!this.thrown && this.throwT >= cfg.releaseAt) {
+      this.thrown = true;
+      this.grenades.throw(this.current);
+      if (!this.unlimitedThrowables) this.counts[this.current]--;
+      this.refreshHud();
+    }
+    if (this.throwT >= cfg.throwTime) {
+      // 手里已经空了，不用再做收枪动作，直接掏出上一把枪
+      this.throwT = 0;
+      this.pending = this.lastGun;
+      this.switchPhase = 'out';
+      this.switchT = Game.Config.weapons.switchOut;
+      this.audio.swap();
+      this.refreshHud();
+    }
+  }
+
+  // 新一局：换弹匣、补投掷物、清空弹孔
   reset() {
+    this.equipNow('rifle');
     this.refill();
     this.bloom = 0;
     this.decals.forEach((d) => d.removeFromParent());
     this.decals = [];
   }
 
-  // 补满子弹（波次之间）
-  refill() {
-    const cfg = Game.Config.weapon;
-    this.ammo = cfg.magSize;
+  // 重生：拿回主武器，子弹和投掷物补满
+  respawn() {
+    this.equipNow('rifle');
+    this.refill();
+  }
+
+  equipNow(key) {
+    this.current = key;
+    this.pending = null;
+    this.switchPhase = null;
+    this.switchT = 0;
+    this.throwT = 0;
+    this.thrown = false;
     this.reloading = false;
-    this.hud.setAmmo(this.ammo, cfg.magSize, false);
+    this.lastGun = key === 'rifle' ? 'pistol' : 'rifle';
+    this.previous = this.lastGun;
+    this.show(key);
+  }
+
+  restock() {
+    for (const kind of Object.keys(this.throwables)) this.counts[kind] = Game.Config.grenades[kind].count;
+  }
+
+  // 补满子弹和投掷物（波次之间、重生）
+  refill() {
+    for (const g of Object.values(this.guns)) g.ammo = g.cfg.magSize;
+    this.restock();
+    this.reloading = false;
+    this.refreshHud();
   }
 
   startReload() {
-    const cfg = Game.Config.weapon;
-    if (this.reloading || this.ammo === cfg.magSize) return;
+    const gun = this.guns[this.current];
+    if (!gun || this.reloading || gun.ammo === gun.cfg.magSize) return;
     this.reloading = true;
-    this.reloadTimer = cfg.reloadTime;
-    this.audio.reload();
-    this.hud.setAmmo(this.ammo, cfg.magSize, true);
+    this.reloadTimer = gun.cfg.reloadTime;
+    this.audio.reload(gun.cfg.reloadTime);
+    this.refreshHud();
   }
 
-  fire() {
-    const cfg = Game.Config.weapon;
-    this.ammo--;
+  refreshHud() {
+    const gun = this.guns[this.current];
+    if (gun) {
+      this.hud.setAmmo(gun.ammo, gun.cfg.magSize, this.reloading);
+    } else {
+      this.hud.setThrowable(this.unlimitedThrowables ? '∞' : this.counts[this.current]);
+    }
+    const shown = this.pending || this.current;
+    this.hud.setSlots(Game.Weapon.ORDER.map((key) => {
+      const it = this.item(key);
+      const out = { action: Game.Weapon.ACTIONS[key], name: it.cfg.name, on: key === shown };
+      if (!this.isGun(key)) {
+        out.count = this.unlimitedThrowables ? '∞' : this.counts[key];
+        out.empty = !this.hasThrowable(key);
+      }
+      return out;
+    }));
+  }
+
+  fire(gun) {
+    const cfg = gun.cfg;
+    gun.ammo--;
     this.cooldown = cfg.fireInterval;
 
     // 1. 在准星周围的散布圆里随机取一个方向
@@ -163,25 +382,28 @@ Game.Weapon = class Weapon {
         this.hud.recordHit(head, false);
         head ? this.audio.headshot() : this.audio.hit();
       } else if (info.bot && info.part) {
-        const result = info.bot.takeDamage(info.part);
+        const result = info.bot.takeDamage(cfg.damage[info.part], {
+          part: info.part, point: hit.point.clone(), dir: dir.clone(), force: cfg.knockback,
+        });
         if (result) {
           this.hud.recordHit(head, result.killed);
           if (result.killed) this.audio.kill(head);
-          else head ? this.audio.headshot() : this.audio.hit();
+          else {
+            head ? this.audio.headshot() : this.audio.hit();
+            this.effects.bloodHit(hit.point, dir);   // 打死时的喷血由 NPC 自己触发
+          }
         }
       }
-      // 打中人：冒一团血雾；打中别的：留弹孔
-      if (info.bot) { if (this.effects) this.effects.bloodPuff(hit.point); }
-      else this.addDecal(hit);
+      if (!info.bot) this.addDecal(hit);   // 打中人冒血，打中别的留弹孔
     }
 
     // 3. 后坐力和效果
     this.player.addRecoil(cfg.recoilPitch, (Math.random() - 0.5) * cfg.recoilYaw);
     this.kick = 1;
     this.flashTimer = 0.04;
-    this.flash.rotation.z = Math.random() * Math.PI;
-    this.audio.shot();
-    this.hud.setAmmo(this.ammo, cfg.magSize, false);
+    gun.flash.rotation.z = Math.random() * Math.PI;
+    this.audio.shot(this.current);
+    this.refreshHud();
   }
 
   // 弹孔：一个小黑圆片，贴在被打中的表面上，朝向表面法线
@@ -199,7 +421,7 @@ Game.Weapon = class Weapon {
     if (this.decals.length > 80) this.decals.shift().removeFromParent();
   }
 
-  // 枪模动画：开枪后坐、换弹下沉、转视角时的惯性晃动、走路晃动
+  // 枪模动画：开枪后坐、换弹下沉、切枪、投掷、转视角时的惯性晃动、走路晃动
   animate(dt) {
     this.kick -= this.kick * Math.min(1, dt * 18);
 
@@ -211,42 +433,73 @@ Game.Weapon = class Weapon {
 
     const bob = this.player.bobPhase;
     const moving = Math.min(1, this.player.horizontalSpeed() / Game.Config.player.walkSpeed) * (this.player.onGround ? 1 : 0);
+    const crouch = this.player.crouchT;   // 下蹲时枪稍微抬高靠近一点
+    const dipSwitch = this.switchDip();
 
-    // 换弹：枪往下沉并侧倾；弹匣先抽出去（0 → 0.4），空一会儿，再插回来（0.6 → 1）
-    let dip = 0, magOut = 0;
-    if (this.reloading) {
-      const p = 1 - this.reloadTimer / Game.Config.weapon.reloadTime;
-      dip = Math.sin(p * Math.PI);
-      if (p < 0.4) magOut = p / 0.4;
-      else if (p < 0.6) magOut = 1;
-      else magOut = 1 - (p - 0.6) / 0.4;
+    const it = this.item(this.current);
+    const m = it.model;
+    const swayX = this.sway.x + Math.cos(bob * 0.5) * 0.012 * moving - crouch * 0.02;
+    const swayY = this.sway.y - Math.abs(Math.sin(bob * 0.5)) * 0.01 * moving + crouch * 0.015 - dipSwitch * 0.26;
+
+    if (this.guns[this.current]) {
+      // 换弹：枪往下沉并侧倾；弹匣先抽出去（0 → 0.4），空一会儿，再插回来（0.6 → 1）
+      let dip = 0, magOut = 0;
+      if (this.reloading) {
+        const p = 1 - this.reloadTimer / it.cfg.reloadTime;
+        dip = Math.sin(p * Math.PI);
+        if (p < 0.4) magOut = p / 0.4;
+        else if (p < 0.6) magOut = 1;
+        else magOut = 1 - (p - 0.6) / 0.4;
+      }
+      it.mag.position.set(it.magHome.x, it.magHome.y - magOut * it.magDrop, it.magHome.z - magOut * it.magBack);
+      it.mag.rotation.x = magOut * it.magTilt;
+      it.mag.visible = magOut < 0.98;
+
+      // 拉机柄 / 套筒随后坐往后跳
+      it.bolt.position.z = it.boltHome.z + this.kick * it.boltKick;
+
+      m.position.set(
+        it.basePos.x + swayX,
+        it.basePos.y + swayY - dip * 0.1,
+        it.basePos.z + this.kick * it.kickBack
+      );
+      m.rotation.set(
+        it.baseRot.x + this.kick * it.kickUp - dip * 0.45 - dipSwitch * 0.7,
+        it.baseRot.y + this.sway.x * 2,
+        it.baseRot.z + dip * 0.35
+      );
+
+      this.flashTimer -= dt;
+      const on = this.flashTimer > 0;
+      it.flash.visible = on;
+      this.worldFlash.intensity = on ? 2 : 0;
+    } else {
+      // 投掷：先往后引（拉环已拔），再向前上方甩出去，出手后模型藏起来
+      const cfg = Game.Config.grenades;
+      let back = 0, swing = 0;
+      if (this.throwT > 0) {
+        const t = this.throwT;
+        if (t < cfg.releaseAt) back = t / cfg.releaseAt;
+        else { back = 1 - (t - cfg.releaseAt) / (cfg.throwTime - cfg.releaseAt); swing = 1 - back; }
+      }
+      if (it.pin) it.pin.visible = this.throwT === 0;
+      m.visible = !this.thrown;
+      m.position.set(
+        it.basePos.x + swayX,
+        it.basePos.y + swayY + back * 0.05 + swing * 0.2,
+        it.basePos.z + back * 0.12 - swing * 0.35
+      );
+      m.rotation.set(
+        it.baseRot.x - dipSwitch * 0.5 + back * 0.6 - swing * 1.2,
+        it.baseRot.y + this.sway.x * 2,
+        it.baseRot.z
+      );
+      this.worldFlash.intensity = 0;
     }
-    this.mag.position.set(this.magHome.x, this.magHome.y - magOut * 0.16, this.magHome.z - magOut * 0.05);
-    this.mag.rotation.x = magOut * 0.5;
-    this.mag.visible = magOut < 0.98;
-
-    // 拉机柄随后坐往后跳
-    this.bolt.position.z = this.boltHome.z + this.kick * 0.07;
-
-    // 下蹲时枪稍微抬高靠近一点
-    const crouch = this.player.crouchT;
-
-    const m = this.model;
-    m.position.set(
-      this.basePos.x + this.sway.x + Math.cos(bob * 0.5) * 0.012 * moving - crouch * 0.02,
-      this.basePos.y + this.sway.y - Math.abs(Math.sin(bob * 0.5)) * 0.01 * moving - dip * 0.1 + crouch * 0.015,
-      this.basePos.z + this.kick * 0.06
-    );
-    m.rotation.set(
-      this.baseRot.x + this.kick * 0.05 - dip * 0.45,
-      this.baseRot.y + this.sway.x * 2,
-      this.baseRot.z + dip * 0.35
-    );
-
-    this.flashTimer -= dt;
-    const on = this.flashTimer > 0;
-    this.flash.visible = on;
-    this.worldFlash.intensity = on ? 2 : 0;
     this.worldFlash.position.copy(this.camera.position);
   }
 };
+
+// 滚轮切换的顺序，和按键动作的对应关系
+Game.Weapon.ORDER = ['rifle', 'pistol', 'frag', 'flash', 'smoke'];
+Game.Weapon.ACTIONS = { rifle: 'slotRifle', pistol: 'slotPistol', frag: 'slotFrag', flash: 'slotFlash', smoke: 'slotSmoke' };
