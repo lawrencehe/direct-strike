@@ -1,4 +1,4 @@
-# 靶场 FPS
+# Direct-Strike
 
 纯浏览器的第一人称射击游戏：three.js r149，无构建步骤，无后端，脚本按 `index.html` 里的顺序直接加载。
 代码结构和各文件职责见 `README.md`，所有可调参数在 `js/config.js`。

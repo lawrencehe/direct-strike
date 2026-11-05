@@ -80,11 +80,13 @@ html, body {
 }
 #overlay.hidden { display: none; }
 .panel {
-  width: 340px; padding: 28px 32px; border-radius: 10px;
+  width: 340px; max-height: 100vh; overflow-y: auto; padding: 28px 32px; border-radius: 10px;
   background: rgba(20, 26, 34, .95); border: 1px solid #334;
   text-align: center;
 }
-.panel h1 { font-size: 32px; letter-spacing: 4px; }
+/* logo 是白底图（黑色的 D 放在深色面板上会看不见），所以保留白底做成卡片 */
+.panel .logo { display: block; margin: 0 auto 10px; width: 100px; height: auto; border-radius: 6px; }
+.panel h1 { font-size: 26px; letter-spacing: 1px; }
 .panel h1 small { font-size: 14px; opacity: .6; letter-spacing: 0; }
 .panel p { margin: 6px 0 18px; opacity: .7; }
 .keys-head {

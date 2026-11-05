@@ -6,6 +6,8 @@
 | `../vendor/GLTFLoader.js` | three.js r147 `examples/js/loaders/GLTFLoader.js` | MIT |
 | `../vendor/SkeletonUtils.js` | three.js r147 `examples/js/utils/SkeletonUtils.js` | MIT |
 
+`brand/` 下是项目自己的 logo（由用户提供，原图不入仓库），不是第三方资源。
+
 其余贴图、音效全部由代码实时生成（`js/textures.js`、`js/audio.js`），没有外部文件。
 
 ## 换模型

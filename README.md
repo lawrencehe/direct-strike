@@ -1,4 +1,6 @@
-# 靶场 v0.5
+# Direct-Strike v0.7
+
+![Direct-Strike](assets/brand/logo.png)
 
 一个纯浏览器运行的第一人称射击游戏。不需要安装任何东西，也不需要联网。
 
@@ -58,6 +60,7 @@ fps/
 ├── CLAUDE.md         给 AI 助手看的项目约定
 ├── css/style.css     HUD 和界面样式
 ├── assets/
+│   ├── brand/               logo、网站图标、分享预览图
 │   ├── models/soldier.glb   NPC 模型（Mixamo 骨骼，带待机/走/跑动画）
 │   └── LICENSES.md          第三方资源的来源和协议，以及怎么换模型
 ├── vendor/
