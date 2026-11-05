@@ -28,7 +28,7 @@ Blender 读不了 meshopt 压缩过的文件，所以母版不能省。
 
 ```bash
 node tools/verify.mjs                                 # 验证游戏
-node tools/map-check.mjs                              # 检查地图，生成俯视图
+node tools/map-check.mjs [--map 文件]                 # 检查地图，生成俯视图（格式见 docs/maps.md）
 node tools/glb.mjs info 文件.glb                       # 查看模型
 node tools/glb.mjs optimize 输入.glb 输出.glb --drop TPose
 node tools/glb.mjs attach 模型.glb 枪.glb 输出.glb --bone RightHand

@@ -2,7 +2,8 @@
 // 地图检查：从运行中的游戏读取真实的碰撞盒和点位（不依赖地图怎么写），输出校验结果和俯视图。
 // 检查：出生点/巡逻点是否卡住或走不到、碰撞盒是否明显互相穿插（穿插只提示，不算失败）。
 // 连通性按玩家碰撞盒和 stepHeight 算步行可达，含台阶和高台，不算跳跃。
-//   node tools/map-check.mjs        有问题时退出码为 1
+//   node tools/map-check.mjs [--map maps/新地图.json]        有问题时退出码为 1
+// 不传 --map 时检查 config.js 当前使用的地图。
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -10,7 +11,19 @@ import { openGame, OUT } from './lib/game-page.mjs';
 
 const dir = path.join(OUT, 'map');
 fs.mkdirSync(dir, { recursive: true });
-const { page, problems, close } = await openGame({ width: 640, height: 360 });
+const mi = process.argv.indexOf('--map');
+const mapFile = mi >= 0 ? path.resolve(process.argv[mi + 1]) : undefined;
+// 必填字段先查一遍，错误信息比游戏启动失败更好懂
+if (mapFile) {
+  const d = JSON.parse(fs.readFileSync(mapFile, 'utf8'));
+  const need = ['yard', 'bounds', 'shadowRange', 'pads', 'puddles', 'stains', 'debris', 'fences', 'objects', 'backdrop', 'spawns', 'navPoints', 'rangeSpawn', 'targets'];
+  const lack = need.filter((k) => d[k] === undefined);
+  if (lack.length) { console.error(`错误: 地图缺少字段 ${lack.join(', ')}`); process.exit(2); }
+}
+let opened;
+try { opened = await openGame({ width: 640, height: 360, mapFile }); }
+catch (e) { console.error(`错误: ${e.message}`); process.exit(2); }
+const { page, problems, close } = opened;
 const m = await page.evaluate(() => {
   const w = game.world, P = Game.Config.player;
   return {
@@ -58,6 +71,10 @@ const points = [
   ...m.nav.map((n, i) => ({ name: `nav${i}`, x: n.x, z: n.z, kind: 'nav' })),
 ];
 const issues = [];
+// 对决和波次依赖这个约定：spawns[0] 是玩家，z<0 的是 NPC 一侧，spawns[3] 是 NPC 的兜底位置
+if (m.spawns.length < 4) issues.push(`出生点只有 ${m.spawns.length} 个，至少要 4 个`);
+if (!m.spawns.some((s) => s.z < 0)) issues.push('没有 z<0 的出生点，NPC 没地方出生');
+if (m.nav.length < 2) issues.push(`巡逻点只有 ${m.nav.length} 个，NPC 没法巡逻`);
 // 点位不一定落在网格上，所以看周围一圈：能到达就算连通
 function reached(p) {
   const i = Math.round((p.x - x0) / G), j = Math.round((p.z - z0) / G);

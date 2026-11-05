@@ -7,7 +7,18 @@
 //   duel   1v1 对决：和一个 NPC 互相击杀，先到 N 杀获胜
 //   waves  波次：一波波的敌人，看能撑到第几波
 // ============================================================
-(function () {
+// 地图文件是异步加载的，加载完才开始创建游戏对象
+// 地图文件有问题时把原因显示在开始界面上，不要留一个什么都点不动的页面
+Game.World.loadMap(Game.Config.map).then(startGame).catch((err) => {
+  console.error(err);
+  window.gameError = err.message;
+  const el = document.getElementById('loading');
+  // 浏览器不允许 file:// 页面读取地图文件
+  el.textContent = location.protocol === 'file:' ? '不能直接打开 index.html，请用 start.sh 启动' : err.message;
+  el.style.display = 'block';
+});
+
+function startGame(mapData) {
   const canvas = document.getElementById('game');
 
   // ---- 渲染器 ----
@@ -39,7 +50,7 @@
   weaponScene.add(weaponSun);
 
   // ---- 游戏对象 ----
-  const world = Game.World.build(scene);
+  const world = Game.World.build(scene, mapData);
   const targets = Game.Targets.create(scene, world.targetLayout);
   const input = new Game.Input(canvas);
   const audio = new Game.Audio();
@@ -208,4 +219,4 @@
 
   // 方便在浏览器控制台（F12）里调试，例如输入 game.player.position 查看位置
   window.game = { scene, camera, renderer, world, targets, input, audio, hud, player, weapon, bots, startMode };
-})();
+}

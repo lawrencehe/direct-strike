@@ -19,12 +19,12 @@ rsync 完立刻生效，不需要重启任何容器。
 ## 发布后验证（每次都做）
 
 ```bash
-for u in / /js/main.js /assets/models/soldier.glb /refer/ak.png /.git/HEAD; do
+for u in / /js/main.js /maps/yard.json /assets/models/soldier.glb /refer/ak.png /.git/HEAD; do
   printf '%-28s ' "$u"; curl -s -o /dev/null -w '%{http_code}\n' "https://game.lightup.host$u"
 done
 ```
 
-预期：前三个 200，`/refer/` 和 `/.git/` 必须 404。任何一个不对，先别告诉用户"已上线"。
+预期：前四个 200，`/refer/` 和 `/.git/` 必须 404。任何一个不对，先别告诉用户"已上线"。
 
 ## 红线
 

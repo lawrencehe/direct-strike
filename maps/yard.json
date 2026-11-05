@@ -1,0 +1,132 @@
+{
+  "name": "废弃集装箱堆场",
+
+  "yard": { "w": 37, "d": 49 },
+  "bounds": { "minX": -17.5, "maxX": 17.5, "minZ": -23.5, "maxZ": 23.5 },
+  "shadowRange": 34,
+
+  "pads": [
+    { "x": 0, "z": 14, "w": 14, "d": 7 },
+    { "x": 0, "z": -14, "w": 14, "d": 7 }
+  ],
+  "puddles": [
+    { "x": -3, "z": -18, "w": 2.4, "d": 1.4, "rot": 0.4 },
+    { "x": 12.5, "z": 19.5, "w": 1.8, "d": 1.1, "rot": -0.3 },
+    { "x": -14.5, "z": 11, "w": 1.5, "d": 1.0, "rot": 1.0 }
+  ],
+  "stains": [
+    { "x": 15.5, "z": -10.5, "r": 1.6 },
+    { "x": -15, "z": -16, "r": 1.2 },
+    { "x": 2, "z": 7, "r": 1.0 },
+    { "x": -10, "z": 18, "r": 0.8 }
+  ],
+  "debris": 60,
+
+  "fences": [
+    { "len": 37, "x": 0, "z": -24.25, "alongX": true },
+    { "len": 37, "x": 0, "z": 24.25, "alongX": true },
+    { "len": 49, "x": -18.25, "z": 0, "alongX": false },
+    { "len": 49, "x": 18.25, "z": 0, "alongX": false }
+  ],
+
+  "objects": [
+    { "type": "lampPost", "x": -17, "z": -23 },
+    { "type": "lampPost", "x": 17, "z": -23 },
+    { "type": "lampPost", "x": -17, "z": 23 },
+    { "type": "lampPost", "x": 17, "z": 23 },
+
+    { "type": "box", "size": [10, 1.2, 6], "pos": [0, 0, 0], "material": "concrete", "note": "中央高台" },
+    { "type": "box", "size": [0.5, 0.3, 3], "pos": [-6.25, 0, 0], "material": "concreteDark", "note": "西侧台阶" },
+    { "type": "box", "size": [0.5, 0.3, 3], "pos": [6.25, 0, 0], "material": "concreteDark", "note": "东侧台阶" },
+    { "type": "box", "size": [0.5, 0.6, 3], "pos": [-5.75, 0, 0], "material": "concreteDark" },
+    { "type": "box", "size": [0.5, 0.6, 3], "pos": [5.75, 0, 0], "material": "concreteDark" },
+    { "type": "box", "size": [0.5, 0.9, 3], "pos": [-5.25, 0, 0], "material": "concreteDark" },
+    { "type": "box", "size": [0.5, 0.9, 3], "pos": [5.25, 0, 0], "material": "concreteDark" },
+    { "type": "box", "size": [4, 0.9, 0.6], "pos": [0, 1.2, -2.7], "material": "sandbag", "note": "高台沙袋" },
+    { "type": "box", "size": [4, 0.9, 0.6], "pos": [0, 1.2, 2.7], "material": "sandbag" },
+
+    { "type": "container", "x": -9, "y": 0, "z": 14, "alongZ": false, "color": "#8c3b2a", "label": "MSCU 482913", "note": "南排" },
+    { "type": "container", "x": 9, "y": 0, "z": 14, "alongZ": false, "color": "#2f5f8f", "label": "TCLU 771204" },
+    { "type": "container", "x": 9.6, "y": 2.6, "z": 14.2, "alongZ": false, "color": "#6f7378", "label": "CMAU 309557", "note": "叠放" },
+    { "type": "container", "x": -11.5, "y": 0, "z": 0, "alongZ": false, "color": "#3e6b3a", "label": "OOLU 115878", "note": "中排" },
+    { "type": "container", "x": 11.5, "y": 0, "z": 0, "alongZ": false, "color": "#b8912a", "label": "HLXU 640021" },
+    { "type": "container", "x": -9, "y": 0, "z": -14, "alongZ": true, "color": "#2f5f8f", "label": "TCLU 905311", "note": "北排" },
+    { "type": "container", "x": 9, "y": 0, "z": -14, "alongZ": true, "color": "#8c3b2a", "label": "MSCU 207466" },
+    { "type": "container", "x": 9, "y": 2.6, "z": -14, "alongZ": true, "color": "#3e6b3a", "label": "OOLU 558120", "note": "叠放" },
+
+    { "type": "jersey", "x": -4, "z": 8, "alongX": true },
+    { "type": "jersey", "x": 4, "z": 8, "alongX": true },
+    { "type": "jersey", "x": -4, "z": -8, "alongX": true },
+    { "type": "jersey", "x": 4, "z": -8, "alongX": true },
+    { "type": "box", "size": [3, 0.9, 0.6], "pos": [0, 0, 14], "material": "sandbag", "note": "南排中间" },
+    { "type": "box", "size": [0.6, 0.9, 3], "pos": [-15.5, 0, -8], "material": "sandbag", "note": "西道" },
+    { "type": "box", "size": [0.6, 0.9, 3], "pos": [15.5, 0, 8], "material": "sandbag", "note": "东道" },
+
+    { "type": "barrel", "x": -15.5, "z": 6, "material": "barrelRed" },
+    { "type": "barrel", "x": -16.2, "z": 6.7, "material": "barrelBlue" },
+    { "type": "barrel", "x": -14.9, "z": 6.8, "material": "barrelGrey" },
+    { "type": "barrel", "x": 3.2, "z": -19.5, "material": "barrelGrey" },
+    { "type": "barrel", "x": 3.9, "z": -20.1, "material": "barrelRed" },
+    { "type": "barrel", "x": -12.5, "z": -20, "material": "barrelBlue" },
+    { "type": "barrelLying", "x": -14.2, "z": 7.6 },
+
+    { "type": "tires", "x": -16, "z": 16 },
+    { "type": "cableReel", "x": -15, "z": -17 },
+    { "type": "palletStack", "x": 15, "z": 13 },
+    { "type": "truck", "x": 15.5, "z": -4.3, "color": "#2f5d8c" }
+  ],
+
+  "backdrop": {
+    "buildings": [
+      { "w": 30, "h": 10, "d": 20, "x": -40, "z": -60, "style": 0 },
+      { "w": 40, "h": 12, "d": 18, "x": 35, "z": -70, "style": 1 },
+      { "w": 25, "h": 9, "d": 40, "x": 70, "z": -10, "style": 2 },
+      { "w": 30, "h": 8, "d": 35, "x": -75, "z": 10, "style": 1 },
+      { "w": 35, "h": 11, "d": 20, "x": -30, "z": 65, "style": 2 },
+      { "w": 28, "h": 9, "d": 22, "x": 45, "z": 60, "style": 0 },
+      { "w": 60, "h": 14, "d": 20, "x": 0, "z": -95, "style": 1 },
+      { "w": 20, "h": 7, "d": 20, "x": 80, "z": 40, "style": 2 },
+      { "w": 22, "h": 8, "d": 30, "x": -85, "z": -40, "style": 0 }
+    ],
+    "cranes": [
+      { "x": -55, "z": -30 },
+      { "x": 60, "z": 25 }
+    ],
+    "waterTowers": [
+      { "x": 55, "z": -45 }
+    ]
+  },
+
+  "spawns": [
+    { "x": 0, "z": 21, "yaw": 0 },
+    { "x": -14, "z": 21, "yaw": 0.35 },
+    { "x": 14, "z": 21, "yaw": -0.35 },
+    { "x": 0, "z": -21, "yaw": 3.141592653589793 },
+    { "x": -14, "z": -21, "yaw": 2.791592653589793 },
+    { "x": 14, "z": -21, "yaw": 3.4915926535897934 },
+    { "x": -16, "z": -3, "yaw": -1.5707963267948966 },
+    { "x": 16, "z": 3, "yaw": 1.5707963267948966 }
+  ],
+
+  "navPoints": [
+    { "x": -9, "z": 16.5 }, { "x": -9, "z": 11.5 }, { "x": 9, "z": 16.5 }, { "x": 9, "z": 11.5 },
+    { "x": -2.5, "z": 16 }, { "x": 2.5, "z": 12 },
+    { "x": -4, "z": 9.3 }, { "x": 4, "z": 9.3 }, { "x": -4, "z": -9.3 }, { "x": 4, "z": -9.3 },
+    { "x": -11.5, "z": 2.6 }, { "x": -11.5, "z": -2.6 }, { "x": 11.5, "z": 2.6 }, { "x": 11.5, "z": -2.6 },
+    { "x": -9, "z": -18.5 }, { "x": -9, "z": -9.5 }, { "x": 9, "z": -18.5 }, { "x": 9, "z": -9.5 },
+    { "x": -16.5, "z": 3 }, { "x": -16.5, "z": -11 }, { "x": 16, "z": 11 }, { "x": 16, "z": -11 },
+    { "x": 0, "z": 0 }, { "x": 0, "z": -21 }, { "x": 0, "z": 21 },
+    { "x": -15, "z": 19 }, { "x": 13, "z": 20 }, { "x": -13, "z": -21 }, { "x": 13, "z": -21 }
+  ],
+
+  "rangeSpawn": { "x": 0, "y": 1.2, "z": 1.0, "yaw": 0 },
+  "targets": [
+    { "x": -6, "z": -7 }, { "x": -2, "z": -7 }, { "x": 2, "z": -7 }, { "x": 6, "z": -7 },
+    { "x": -5, "z": -12, "move": { "range": 2, "speed": 1.2 } },
+    { "x": 0, "z": -12 },
+    { "x": 5, "z": -12, "move": { "range": 2, "speed": 0.9 } },
+    { "x": -6, "z": -20 },
+    { "x": 0, "z": -20, "move": { "range": 5, "speed": 0.7 } },
+    { "x": 6, "z": -20 }
+  ]
+}

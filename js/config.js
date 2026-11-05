@@ -6,6 +6,8 @@
 window.Game = window.Game || {};
 
 Game.Config = {
+  map: 'yard',             // 使用哪张地图，对应 maps/<名字>.json
+
   view: {
     fov: 75,               // 视野角度（度）。越大看得越广，但边缘会变形
     weaponFov: 60,         // 枪模单独使用的视野，避免枪被拉伸

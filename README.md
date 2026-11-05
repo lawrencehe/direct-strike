@@ -1,4 +1,4 @@
-# Direct-Strike v0.8
+# Direct-Strike v0.9
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -17,6 +17,7 @@
 ## 怎么运行
 
 **运行 `start.sh`（Windows 用 `start.bat`）**，它会启动一个本地服务并自动打开浏览器。
+不能直接双击打开 `index.html`，浏览器不允许这样读取地图和模型文件。
 手动的话：在本目录打开终端，运行 `python -m http.server 8000`，然后访问 `http://localhost:8000`。
 
 > 为什么不能直接双击 `index.html`？浏览器禁止 `file://` 页面加载 `.glb` 模型文件。
@@ -45,8 +46,8 @@
 ## 地图
 
 一座废弃的集装箱堆场，36 × 48 米。南北两头是出生点，中间一座带台阶的高台，
-两侧各有一排集装箱和一条侧道。所有掩体、出生点、NPC 巡逻点、靶子位置都在 `js/world.js` 里，
-贴图全部由 `js/textures.js` 用 Canvas 画出来。
+两侧各有一排集装箱和一条侧道。所有掩体、出生点、NPC 巡逻点、靶子位置都在 `maps/yard.json` 里，
+格式说明见 `docs/maps.md`，贴图全部由 `js/textures.js` 用 Canvas 画出来。
 
 ## 目录结构
 
@@ -58,6 +59,8 @@ fps/
 ├── deploy/           站点容器的 compose 和 Caddyfile
 ├── docs/deploy.md    部署架构、首次接入、回滚
 ├── docs/tools.md     本地工具链的安装和用法
+├── docs/maps.md      地图文件格式、怎么改地图、怎么加新地图
+├── maps/yard.json    ★ 地图数据：掩体、出生点、巡逻点、靶子
 ├── tools/            开发工具（验证、模型、图片、骨骼、地图），不发布
 ├── assets-src/       未压缩的模型母版，不发布
 ├── CLAUDE.md         给 AI 助手看的项目约定
@@ -82,7 +85,7 @@ fps/
     ├── truck.js      地图里那辆平头货车：驾驶室、货斗、轮子、货物，全是基础几何体 + Canvas 贴图
     ├── character.js  ★ NPC 外观：加载模型、按位移驱动走/跑动画（不滑步）、腿和上半身分开转、持枪姿势（简易 IK）、判定盒
     ├── bots.js       ★ NPC 脑子：状态机 AI、视野感知、点射、绕障碍；对决 / 波次管理
-    ├── world.js      ★ 地图：场地布局、掩体、远景、天空、光照、出生点和巡逻点
+    ├── world.js      ★ 场景构建器：把地图数据变成 3D 场景；各种物体的造型、天空、光照
     ├── textures.js   程序生成的贴图（沥青、水泥、集装箱、沙袋、铁丝网、天空……）
     ├── targets.js    靶子（状态机：立着 → 倒下 → 立起）
     ├── effects.js    曳光、枪口火光、血雾
@@ -96,15 +99,15 @@ fps/
 
 1. `config.js`：先看看有哪些参数
 2. `main.js`：理解游戏循环"输入 → 更新 → 渲染"和三种模式怎么切换
-3. `world.js`：地图是怎么一块块摆出来的，改这里就能改地图
+3. `maps/yard.json` → `world.js`：地图数据怎么变成场景，改数据就能改地图
 4. `bots.js` → `character.js`：NPC 怎么思考、怎么动
 
 ## 想改点什么？
 
 - **改枪的样子**：`gunmodel.js`，每个零件一行，坐标单位是米；枪在画面里的位置在 `weapon.js` 的 `basePos / baseRot`
-- **改地图**：`world.js` 里 `addBox / addContainer / addBlocker` 摆东西，`spawns / navPoints` 改出生点和巡逻点
+- **改地图**：改 `maps/yard.json`，格式见 `docs/maps.md`；要加新种类的物体再改 `world.js` 的 `builders`
 - **改对决规则**：`config.js` 的 `duel`（赢的杀数、重生时间、对手强度）
 - **换 NPC 模型**：见 `assets/LICENSES.md`。走/跑动画的步幅在加载时自动测量，换了模型不用调参数
-- **改卡车**：`truck.js`，每个零件一行；颜色在 `world.js` 里调用 `Game.Truck.build('#颜色')` 的地方改
+- **改卡车**：`truck.js`，每个零件一行；颜色在 `maps/yard.json` 的 truck 对象里改
 - **显示判定盒**：`config.js` 里 `character.showHitboxes: true`
 - **卡顿**：`config.js` 里把 `graphics.shadowMapSize` 改成 1024
