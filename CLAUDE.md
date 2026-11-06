@@ -16,6 +16,7 @@
 | `docs/tools.md` | 工具链安装和用法、开发机限制 |
 | `docs/maps.md` | 地图格式 |
 | `docs/deploy.md` | 线上架构、发布、回滚 |
+| `docs/art-sources.md` | 美术参考图、CC0 模型和材质的来源，授权规则 |
 
 ## 运行
 
@@ -37,6 +38,7 @@
 - 发版时版本号改两处：`README.md` 标题和 `index.html` 的 `<small>vX.Y</small>`。
 - `refer/` 是用户的创意草图，已 gitignore，不要删、不要提交；用户说"看图"就是指这里，动手前先看图。
 - 项目方向：1v1 对战框架优先，创意玩法由用户自己加，不要擅自扩展玩法。
+- **枪械、人物、地图一律用 Blender 建模导出 glb，不再用 JS 几何体或 Canvas 画贴图。** 建模脚本和母版放 `assets-src/`，先渲染预览图给用户确认再接进游戏。特效和 UI 除外。详见 `docs/decisions.md`。
 - 新资源加地图时按地图拆分、按需加载，首次下载体积保持小。资源只用 CC0 / MIT，登记在 `assets/LICENSES.md`。
 - 可调数值放进 `js/config.js`，带中文注释。
 
