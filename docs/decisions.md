@@ -29,7 +29,8 @@
 - **工具链走命令行**（Playwright、gltf-transform、Blender 无头模式），Claude Code 通过 `.claude/skills/` 调用，见 `tools.md`。
 - **线上**（2026-11-04）：https://game.lightup.host，跑在开发机上，借用 paseo-relay 项目的 Caddy 按域名分流。
   relay 是另一个在线服务，不能中断，所以游戏不单独占 80/443。细节见 `deploy.md`。
-- **只有一个人开发，所有改动直接进 `main`**（2026-11-06），见 `workflow.md`。
+- **分支开发完一律并入 `main`，从 `main` 部署；分支不删除，保留历史**（2026-11-06），见 `workflow.md`。
+  起因：v0.10、v0.11 都从功能分支部署过，线上一度比 `main` 新，从 `main` 部署就会回退。
 
 ## 参考图
 
