@@ -69,7 +69,7 @@ NPC 死亡是实时物理（布娃娃）：爆头会被打飞，打身体有踉�
 direct-strike/
 ├── index.html        页面骨架：画布、HUD、开始界面，按顺序加载脚本
 ├── start.sh / .bat   一键启动本地服务
-├── deploy.sh         一键发布到 game.lightup.host
+├── deploy.sh         一键发布到 game.lightup.host（提交推送部署一条龙用 tools/ship.sh）
 ├── deploy/           站点容器的 compose 和 Caddyfile
 ├── docs/             开发文档，索引见 docs/README.md
 │   ├── workflow.md       开发流程：分支、提交、版本号、验证、发布

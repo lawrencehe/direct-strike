@@ -1,6 +1,6 @@
 # 本地工具链
 
-开发工具都在 `tools/`，不会发布到线上。Claude Code 通过 `/verify`、`/glb`、`/img`、`/rig`、`/map` 这五个 Skill 调用，也可以直接在终端运行。
+开发工具都在 `tools/`，不会发布到线上。Claude Code 通过 `/verify`、`/ship`、`/glb`、`/img`、`/rig`、`/map` 这些 Skill 调用，也可以直接在终端运行。
 
 ## 安装
 
@@ -28,6 +28,7 @@ Blender 读不了 meshopt 压缩过的文件，所以母版不能省。
 
 ```bash
 node tools/verify.mjs                                 # 验证游戏
+tools/ship.sh -v v0.13 -m 提交信息文件                 # 提交、并入 main、推送、部署（见 docs/workflow.md）
 node tools/map-check.mjs [--map 文件]                 # 检查地图，生成俯视图（格式见 docs/maps.md）
 node tools/glb.mjs info 文件.glb                       # 查看模型
 node tools/glb.mjs optimize 输入.glb 输出.glb --drop TPose

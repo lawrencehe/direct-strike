@@ -42,6 +42,16 @@ v0.11：手雷按住拉环、飞行轨迹，枪和投掷物都加上手
 4. 提交；在分支上开发的，合并进 `main`。推送 `main`（和分支）。
 5. 需要上线就在 `main` 上跑 `./deploy.sh`，再按 `deploy.md` 的"验证"一节检查。
 
+第 2、4、5 步可以用一条命令完成（Claude Code 里是 `/ship`）：
+
+```bash
+tools/ship.sh -v v0.13 -m 提交信息文件     # 发新版本
+tools/ship.sh -m 提交信息文件              # 沿用当前版本
+tools/ship.sh -m 提交信息文件 --no-deploy  # 只推送不部署
+```
+
+它会改版本号、跑 verify（只改文档时跳过）、提交、推送分支并合并进 `main`、推送 `main`、从 `main` 部署、检查线上，最后回到原分支。参数见脚本开头。
+
 ## 不能做的事
 
 - 不要动 `/home/donkey/paseo-relay/` 的 relay 服务和它的 Caddy 容器（不重启、不重建）。

@@ -22,7 +22,7 @@ AI 助手（Claude Code）的约定在根目录的 `CLAUDE.md`，它也指向这
 | [deploy.md](deploy.md) | 线上架构、发布、回滚、首次接入 |
 | [../assets/LICENSES.md](../assets/LICENSES.md) | 第三方资源的来源和协议、怎么换 NPC 模型 |
 | `../js/config.js` | 所有可调参数，每项都有中文注释 |
-| `../.claude/skills/*/SKILL.md` | `/verify`、`/deploy`、`/glb`、`/img`、`/rig`、`/map` 这些命令的详细步骤 |
+| `../.claude/skills/*/SKILL.md` | `/verify`、`/ship`、`/deploy`、`/glb`、`/img`、`/rig`、`/map` 这些命令的详细步骤 |
 
 ## 维护规则
 
