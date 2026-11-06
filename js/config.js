@@ -165,7 +165,8 @@ Game.Config = {
 
   // 1v1 对决
   duel: {
-    winScore: 10,          // 先打到几杀获胜
+    winScore: 5,           // 先打到几杀获胜（默认值；玩家在开始界面选过的存在浏览器里，优先于这里）
+    winScoreOptions: [3, 5, 10],   // 开始界面可选的杀数
     respawnDelay: 3,       // 被击杀后几秒重生
     botSkill: 0.5,         // 对手强度 0 ~ 1（影响反应、准度、转身）
   },

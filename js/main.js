@@ -56,6 +56,7 @@ function startGame(mapData) {
   const audio = new Game.Audio();
   const hud = new Game.Hud();
   hud.bindKeySettings(input);   // 开始界面的改键表格
+  hud.bindDuelLength();         // 开始界面的对决杀数选项
   const effects = new Game.Effects(scene, world.colliders);
   const player = new Game.Player(camera, world.colliders, world.spawn);
 

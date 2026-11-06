@@ -401,6 +401,7 @@ Game.Bots = (function () {
       this.active = true;
       this.mode = mode;
       if (mode === 'duel') {
+        this.winScore = Game.Config.duel.winScore;   // 开局时定下，暂停时改选项只影响下一局
         this.phase = 'fighting';
         this.spawnBot(Game.Config.duel.botSkill, this.player.position);
         this.updateHud();
@@ -522,7 +523,7 @@ Game.Bots = (function () {
         this.score.player++;
         this.updateHud();
         this.hud.banner('击杀！', 1.2);
-        if (this.score.player >= Game.Config.duel.winScore) {
+        if (this.score.player >= this.winScore) {
           this.phase = 'over';
           if (this.onDuelEnd) this.onDuelEnd('win');
         } else {
@@ -538,7 +539,7 @@ Game.Bots = (function () {
       if (this.mode !== 'duel' || this.phase === 'over') return false;
       this.score.bot++;
       this.updateHud();
-      if (this.score.bot >= Game.Config.duel.winScore) {
+      if (this.score.bot >= this.winScore) {
         this.phase = 'over';
         if (this.onDuelEnd) this.onDuelEnd('lose');
         return false;
@@ -554,7 +555,7 @@ Game.Bots = (function () {
 
     updateHud() {
       if (this.mode === 'duel') {
-        this.hud.setScore(this.score.player, this.score.bot, Game.Config.duel.winScore);
+        this.hud.setScore(this.score.player, this.score.bot, this.winScore);
       } else {
         this.hud.setWave(this.wave, this.bots.filter((b) => b.alive).length, this.total);
       }

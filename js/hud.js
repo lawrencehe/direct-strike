@@ -16,7 +16,7 @@ Game.Hud = class Hud {
       wave: $('wave-info'), banner: $('banner'), hint: $('hint'),
       overlay: $('overlay'), overlaySub: $('overlay-sub'), result: $('overlay-result'),
       resume: $('btn-resume'), loading: $('loading'),
-      keys: $('keys'), keysReset: $('btn-keys-reset'),
+      keys: $('keys'), keysReset: $('btn-keys-reset'), duelLen: $('duel-len'),
       modeBtns: [$('btn-duel'), $('btn-waves')],
     };
     this.hitTimer = 0;
@@ -54,6 +54,34 @@ Game.Hud = class Hud {
   hideOverlay() {
     this.el.overlay.classList.add('hidden');
     if (this.input && this.input.capture) this.input.finishCapture(null);   // 改到一半就开始游戏：取消
+  }
+
+  // ---------- 对决杀数 ----------
+  // 开始界面里选"先到几杀获胜"，存在浏览器里，下次打开还在。选了只影响下一局对决
+  bindDuelLength() {
+    const KEY = 'direct-strike.duelWinScore';
+    const cfg = Game.Config.duel;
+    try {
+      const saved = Number(localStorage.getItem(KEY));
+      if (cfg.winScoreOptions.includes(saved)) cfg.winScore = saved;
+    } catch (e) { /* 隐私模式下可能不可用 */ }
+    const render = () => {
+      this.el.duelLen.innerHTML = '';
+      for (const n of cfg.winScoreOptions) {
+        const b = document.createElement('a');
+        b.href = '#';
+        b.textContent = n;
+        if (n === cfg.winScore) b.className = 'on';
+        b.addEventListener('click', (e) => {
+          e.preventDefault();
+          cfg.winScore = n;
+          try { localStorage.setItem(KEY, String(n)); } catch (err) { /* 忽略 */ }
+          render();
+        });
+        this.el.duelLen.appendChild(b);
+      }
+    };
+    render();
   }
 
   // ---------- 改键界面 ----------
