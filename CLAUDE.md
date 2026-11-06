@@ -1,7 +1,21 @@
 # Direct-Strike
 
 纯浏览器的第一人称射击游戏：three.js r149，无构建步骤，无后端，脚本按 `index.html` 里的顺序直接加载。
-代码结构和各文件职责见 `README.md`，所有可调参数在 `js/config.js`。
+玩法、目录和每个文件的职责见 `README.md`，所有可调参数在 `js/config.js`。
+
+## 文档索引
+
+开发文档在 `docs/`，总索引是 `docs/README.md`。动手前按任务查：
+
+| 文档 | 内容 |
+|---|---|
+| `docs/workflow.md` | 分支、提交信息、版本号、验证、发布的完整流程 |
+| `docs/architecture.md` | 加载顺序、对象关系、游戏循环、两套场景、**已知的坑** |
+| `docs/decisions.md` | 项目方向和做过的决定（为什么是现在这样） |
+| `docs/testing.md` | `/verify` 和写逐帧推进的测试脚本 |
+| `docs/tools.md` | 工具链安装和用法、开发机限制 |
+| `docs/maps.md` | 地图格式 |
+| `docs/deploy.md` | 线上架构、发布、回滚 |
 
 ## 运行
 
@@ -10,16 +24,25 @@
 
 ## 开发工具
 
-- 工具链在 `tools/`，说明见 `docs/tools.md`，安装用 `tools/setup.sh`。
-- 验证用 `/verify`，模型用 `/glb`，图片用 `/img`，骨骼动画用 `/rig`，地图用 `/map`。改完代码或资源要先跑 `/verify`。
+- 工具链在 `tools/`，安装用 `tools/setup.sh`。
+- 验证用 `/verify`，模型用 `/glb`，图片用 `/img`，骨骼动画用 `/rig`，地图用 `/map`，发布用 `/deploy`。
+- 改完代码或资源要先跑 `/verify`，玩法逻辑的改动再写针对性测试（`docs/testing.md`）。
 - 这台机器没有 GPU：截图和报错可信，帧率不可信。
 
 ## 约定
 
+- **分支：所有改动直接进 `main`，不开功能分支。** 先推送 `main` 再部署，线上版本必须在 `main` 里。
 - 中文：注释、文档、提交信息都用中文。提交信息格式 `vX.Y：一句话摘要`，正文列要点，大版本打 tag。
-- `refer/` 是用户的创意草图，已 gitignore，不要删、不要提交；用户说"看图"就是指这里。
+- 发版时版本号改两处：`README.md` 标题和 `index.html` 的 `<small>vX.Y</small>`。
+- `refer/` 是用户的创意草图，已 gitignore，不要删、不要提交；用户说"看图"就是指这里，动手前先看图。
 - 项目方向：1v1 对战框架优先，创意玩法由用户自己加，不要擅自扩展玩法。
-- 新资源加地图时按地图拆分、按需加载，首次下载体积保持小。
+- 新资源加地图时按地图拆分、按需加载，首次下载体积保持小。资源只用 CC0 / MIT，登记在 `assets/LICENSES.md`。
+- 可调数值放进 `js/config.js`，带中文注释。
+
+## 项目知识放在仓库里
+
+对项目的理解、决策、踩过的坑，写进 `CLAUDE.md` 或 `docs/`（并在 `docs/README.md` 登记），**不要写进 AI 助手的私有记忆**。
+这样其他开发者和他们的 AI 助手拉下仓库就能接手。改了代码结构要同步 `README.md` 和 `docs/architecture.md`。
 
 ## 红线
 

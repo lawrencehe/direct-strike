@@ -71,9 +71,14 @@ direct-strike/
 ├── start.sh / .bat   一键启动本地服务
 ├── deploy.sh         一键发布到 game.lightup.host
 ├── deploy/           站点容器的 compose 和 Caddyfile
-├── docs/deploy.md    部署架构、首次接入、回滚
-├── docs/tools.md     本地工具链的安装和用法
-├── docs/maps.md      地图文件格式、怎么改地图、怎么加新地图
+├── docs/             开发文档，索引见 docs/README.md
+│   ├── workflow.md       开发流程：分支、提交、版本号、验证、发布
+│   ├── architecture.md   代码怎么拼在一起、游戏循环、已知的坑
+│   ├── decisions.md      项目方向和做过的决定
+│   ├── testing.md        冒烟验证和写测试脚本
+│   ├── tools.md          本地工具链的安装和用法
+│   ├── maps.md           地图文件格式、怎么改地图、怎么加新地图
+│   └── deploy.md         部署架构、首次接入、回滚
 ├── maps/yard.json    ★ 地图数据：掩体、出生点、巡逻点、靶子
 ├── tools/            开发工具（验证、模型、图片、骨骼、地图），不发布
 ├── assets-src/       未压缩的模型母版，不发布
@@ -112,6 +117,8 @@ direct-strike/
 带 ★ 的文件是 FPS 的核心，建议优先阅读。
 
 ## 建议的阅读顺序
+
+想参与开发的话，先读 `docs/README.md`（文档索引）和 `docs/workflow.md`（开发流程），然后看代码：
 
 1. `config.js`：先看看有哪些参数
 2. `main.js`：理解游戏循环"输入 → 更新 → 渲染"和三种模式怎么切换

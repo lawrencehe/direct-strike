@@ -55,6 +55,8 @@ node tools/verify.mjs
 
 ## 这台机器的限制
 
+开发机是 GCP 实例：4 核 32G，x86_64，无 GPU、无显示器。
+
 - **没有 GPU。** WebGL 靠 SwiftShader 软件渲染，帧率只有个位数，启动可达 40 秒，这些都不代表玩家体验。手感和真实帧率要在有显卡的电脑上测。
 - **指针锁定没有真实测试。** 工具直接把 `game.input.locked` 设为真。
 - **Ubuntu 26.10** 不在 Playwright 官方支持列表里，目前实测能用，升级 Playwright 后要留意。
