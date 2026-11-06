@@ -5,12 +5,13 @@
 //                               [--quality 80] [--level medium|high] [--no-meshopt] [--no-webp] [--no-resample]
 //   node tools/glb.mjs attach 模型.glb 道具.glb 输出.glb --bone RightHand [--offset x,y,z] [--rot x,y,z] [--scale s]
 //       把道具挂到骨骼上。offset 单位是米、rot 单位是度，都在骨骼局部坐标系里；scale 是道具的真实缩放（不受骨架缩放影响）。
+// 材质是 SpecularGlossiness 时自动转成 metal/rough。
 // 优化时保留所有骨骼和叶子节点，不做减面（减面用 rig.sh decimate，需要人眼验收）。
 import fs from 'node:fs';
 import path from 'node:path';
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { dedup, mergeDocuments, meshopt, prune, resample, textureCompress, unpartition } from '@gltf-transform/functions';
+import { dedup, mergeDocuments, meshopt, metalRough, prune, resample, textureCompress, unpartition } from '@gltf-transform/functions';
 import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer';
 import sharp from 'sharp';
 
@@ -60,6 +61,8 @@ if (cmd === 'info' && input) {
   for (const d of drop) if (!names.includes(d)) throw new Error(`没有名为 ${d} 的动画，现有：${names.join(', ')}`);
   doc.getRoot().listAnimations().filter((a) => drop.includes(a.getName())).forEach((a) => a.dispose());
   const steps = [dedup(), prune({ keepLeaves: true, keepAttributes: true })];
+  // three.js r147 起不再支持 KHR_materials_pbrSpecularGlossiness（Sketchfab 老模型常见），转成 metal/rough
+  if (doc.getRoot().listExtensionsUsed().some((e) => e.extensionName === 'KHR_materials_pbrSpecularGlossiness')) steps.unshift(metalRough());
   if (!flag('no-resample')) steps.push(resample());
   if (!flag('no-webp')) {
     const size = Number(opt('texture-size', 0));

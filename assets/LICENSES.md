@@ -2,7 +2,7 @@
 
 | 文件 | 来源 | 协议 |
 |---|---|---|
-| `models/gun/ak47.glb` | "[Ak47](https://sketchfab.com/3d-models/ak47-831519a097d84e079fd8bc4b15e5b57d)"，作者 [wburton](https://sketchfab.com/wburton95)，来自 Sketchfab | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。**有改动**：拆成枪身、弹匣、拉机柄三个部件，删除备用弹匣、子弹、骨骼和动画，调整尺寸和朝向，贴图转 WebP |
+| `models/gun/ak47.glb` | "[Ak47](https://sketchfab.com/3d-models/ak47-831519a097d84e079fd8bc4b15e5b57d)"，来自 Sketchfab | [CC0]。**有改动**：拆成枪身、弹匣、拉机柄三个部件，删除备用弹匣、子弹、骨骼和动画，调整尺寸和朝向，贴图转 WebP |
 | `models/human/init_soldier.glb` | three.js 仓库 `examples/models/gltf/Soldier.glb`（r149），角色和动画来自 Mixamo | 随 three.js 以 MIT 协议分发，见 `../vendor/three.LICENSE` |
 | `../vendor/GLTFLoader.js` | three.js r147 `examples/js/loaders/GLTFLoader.js` | MIT |
 | `../vendor/SkeletonUtils.js` | three.js r147 `examples/js/utils/SkeletonUtils.js` | MIT |
