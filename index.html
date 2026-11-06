@@ -55,7 +55,7 @@
   <div id="overlay">
     <div class="panel">
       <img class="logo" src="assets/brand/logo.png" alt="" width="200" height="110">
-      <h1>Direct-Strike <small>v0.12</small></h1>
+      <h1>Direct-Strike <small>v0.13</small></h1>
       <p id="overlay-sub">选择模式开始</p>
       <div id="overlay-result"></div>
       <!-- 按键表由 hud.js 根据当前绑定生成，点击按键名可以改键 -->
@@ -72,7 +72,10 @@
       </div>
       <!-- 对决的获胜杀数，选项由 hud.js 按 config.duel.winScoreOptions 生成 -->
       <div class="duel-len"><span>1v1 先到</span><span id="duel-len"></span><span>杀获胜</span></div>
-      <div id="loading"></div>
+      <!-- 地图和枪模加载完之前显示"加载中"，之后由 hud.js 接管 -->
+      <div id="loading" style="display:block">加载中…</div>
+      <!-- CC BY 授权的素材要求署名，署名清单在 assets/LICENSES.md -->
+      <a class="credits" href="assets/LICENSES.md" target="_blank" rel="noopener">素材来源与署名</a>
     </div>
   </div>
 

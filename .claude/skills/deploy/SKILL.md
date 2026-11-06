@@ -19,7 +19,7 @@ rsync 完立刻生效，不需要重启任何容器。
 ## 发布后验证（每次都做）
 
 ```bash
-for u in / /js/main.js /maps/yard.json /assets/models/soldier.glb /refer/ak.png /.git/HEAD; do
+for u in / /js/main.js /maps/yard.json /assets/models/human/init_soldier.glb /refer/ak.png /.git/HEAD; do
   printf '%-28s ' "$u"; curl -s -o /dev/null -w '%{http_code}\n' "https://game.lightup.host$u"
 done
 ```

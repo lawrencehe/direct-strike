@@ -5,11 +5,14 @@
 ## 授权规则（先看）
 
 - **参考图**（照片、线稿、别人的作品截图）只是用来看的，不进游戏，**不受授权限制**。放进 `refer/`，不提交。
-- **进游戏的素材**（模型、贴图、HDRI）**只能用 CC0 或 MIT**，来源登记在 `assets/LICENSES.md`。
+- **进游戏的素材**（模型、贴图、HDRI）**用 CC0、MIT 或 CC BY 4.0**，来源登记在 `assets/LICENSES.md`。
+  - CC BY 要署名：作者名、原作链接、授权名称、做过哪些修改，写进 `LICENSES.md` 的表格（开始界面的"素材来源与署名"链接指向它）。
+  - 下载的 glb 里通常带着这些信息（Sketchfab 导出的文件里有 author、license、source 字段）。
 - 不能用的：
-  - CC BY、CC BY-SA、CC BY-NC 等需要署名或限制商用的授权
+  - CC BY-NC（禁止商用）、CC BY-ND（禁止修改）、CC BY-SA（改了要用同样授权发布）
   - Fab（Epic）、TurboSquid、CGTrader、Unity / Unreal 商店的商用授权
-  - 来源不明、"网上下载的"、游戏里提取（ripped）的模型
+  - 来源不明、"网上下载的"、游戏里提取（ripped）的模型。Sketchfab 上有人把商业游戏的模型提取出来标成 CC BY，
+    这种授权无效：看作者主页是不是一系列原创作品，描述里有没有 "ripped""from game" 之类的字样
 - 下载前在素材页面上确认授权，截图或记下链接，方便登记。
 
 ## 一、找参考图（挑枪、定比例、看细节）
@@ -23,14 +26,14 @@
 | 厂商官网（Kalashnikov、Glock、SIG Sauer 等） | 官方产品图和尺寸参数 |
 | [ArtStation](https://www.artstation.com)（搜 weapon / FPS weapon） | 专业游戏美术的作品，用来定质感、磨损程度、配色风格 |
 
-## 二、找现成模型（必须 CC0）
+## 二、找现成模型（CC0 或 CC BY）
 
-写实又是 CC0 的枪模型很少，找不到很正常，找不到就由 Claude 照参考图建模。
+写实的枪模型大多是 CC BY，CC0 的很少。找不到合适的，就由 Claude 照参考图建模。
 
 | 网站 | 怎么用 | 说明 |
 |---|---|---|
-| [Sketchfab](https://sketchfab.com) | 搜索后在 License 筛选里只勾 **CC0 / Public Domain**，再勾 Downloadable | 写实模型最多的地方，但大部分是 CC BY，不能用 |
-| [BlenderKit](https://www.blenderkit.com) | 授权筛选只选 **CC0** | Blender 素材库，质量较稳定 |
+| [Sketchfab](https://sketchfab.com) | 搜索后在 License 筛选里勾 **CC0** 和 **CC Attribution**（就是 CC BY），再勾 Downloadable | 写实模型最多的地方。现在的 AK 就是从这里找的 |
+| [BlenderKit](https://www.blenderkit.com) | 授权筛选选 **CC0** | Blender 素材库，质量较稳定 |
 | [OpenGameArt](https://opengameart.org) | 授权筛选选 CC0 | 质量参差不齐 |
 | [Quaternius](https://quaternius.com) | 全部 CC0 | 低多边形卡通风格，不够写实，只能参考造型 |
 | [Kenney](https://kenney.nl) | 全部 CC0 | 卡通风格，适合当占位 |
@@ -55,6 +58,6 @@ PBR 材质一般包含 5 张贴图：颜色（Color / Albedo）、法线（Norma
 2. 俯视图或正面图：有就放
 3. 几张细节特写：机匣、枪口、握把、弹匣、准星
 4. 一张质感参考：想要的新旧程度和颜色，比如"黑色烤漆带磨损""木托""沙色"
-5. 找到的 CC0 模型或材质：把链接和授权截图一起给 Claude
+5. 找到的模型或材质：把链接给 Claude，下载的文件放进 `assets/models/` 下对应的目录（如 `gun/`）也行，Claude 会挪到 `assets-src/` 当母版
 
 然后告诉 Claude 型号和想要的感觉。先只定一把主武器，把"建模 → 预览图确认 → 导出 → 接进游戏"整条流程跑通，再做其他的。

@@ -44,7 +44,8 @@ export async function openGame({ width = 1280, height = 720, url, mapFile } = {}
   const t0 = Date.now();
   if (mapFile) await page.route('**/maps/*.json', (r) => r.fulfill({ body: fs.readFileSync(mapFile), contentType: 'application/json' }));
   await page.goto(url || `http://127.0.0.1:${port}/`, { waitUntil: 'commit', timeout: 180000 });
-  await page.waitForFunction(() => window.game || window.gameError, null, { timeout: 180000 });
+  // 注意：页面里有 <canvas id="game">，浏览器会自动把它挂成 window.game，所以要等真正的游戏对象（有 startMode）
+  await page.waitForFunction(() => (window.game && window.game.startMode) || window.gameError, null, { timeout: 180000 });
   const startError = await page.evaluate(() => window.gameError);
   if (startError) { await browser.close(); if (server) server.close(); throw new Error(startError); }
   const startupSeconds = +((Date.now() - t0) / 1000).toFixed(1);

@@ -16,13 +16,16 @@
   不引入打包工具和框架，打开文件就能读懂。
 - **本地运行用 `start.sh`（python http.server）**，不支持双击 `index.html`：浏览器禁止 `file://` 加载 glb 模型。
   直接双击时 NPC 会退化成方块小人（BlockModel），游戏仍能玩。
-- **资源只用 CC0 / MIT**，来源登记在 `assets/LICENSES.md`。音效尽量用代码生成（`audio.js`），不增加下载体积。
+- **资源用 CC0 / MIT / CC BY 4.0**，来源登记在 `assets/LICENSES.md`。（2026-11-06 加入 CC BY：写实的枪模型大多是 CC BY，只用 CC0 几乎找不到）
+  CC BY 要署名：`LICENSES.md` 里写作者、原作链接、授权、做过哪些修改，开始界面底部的"素材来源与署名"链接指向它。
+  不用 CC BY-NC（禁止商用）、CC BY-ND（禁止修改）、CC BY-SA（改了要用同样授权发布）。音效尽量用代码生成（`audio.js`），不增加下载体积。
 - ~~枪模、手、手雷、卡车都用基础几何体拼，贴图用 Canvas 画~~（2026-11-06 废止，见下一条）。
 - **枪械、人物、地图一律用 Blender 建模，导出 glb**（2026-11-06）。不再用 JS 几何体拼模型、Canvas 画贴图。
   起因：几何体加 Canvas 贴图做出来的手臂和枪很假，调参数也救不回来。逼真度靠真实建模和 PBR 材质（颜色、法线、粗糙度、金属度、AO）。
   - 做法：Python 脚本驱动 Blender 无头模式建模、做材质、烘焙，渲染预览图给负责人确认后再导出。
     建模脚本和 `.blend` 母版放 `assets-src/`，可重复生成；产物经 `/glb` 压缩后放 `assets/`。
-  - 外部素材（Poly Haven、ambientCG 的材质，CC0 模型）可以作为起点，照样只用 CC0 / MIT。
+  - 外部素材（Poly Haven、ambientCG 的材质，CC0 / CC BY 模型）可以作为起点，授权规则见上面一条。
+    下载的原始文件也放 `assets-src/` 当母版，加工脚本从它开始。第一个例子：`assets-src/models/gun/ak47.py`。
   - JS 只负责加载模型和玩法逻辑。现有的 `gunmodel.js`、`textures.js` 等代码生成的模型和贴图逐个替换，替换前照常可用。
   - 例外：枪口火焰、弹孔、血迹、粒子这类运行时特效，以及 UI，仍然用代码做。
   - 地图的碰撞盒、出生点、巡逻点怎么从 Blender 里出，做第一张 Blender 地图时定，定了补到 `maps.md`。

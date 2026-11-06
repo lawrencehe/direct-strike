@@ -65,7 +65,7 @@ Game.Weapon = class Weapon {
     this.refreshHud();
   }
 
-  // 枪模在 gunmodel.js 里拼好，这里只负责摆位置、挂枪口火焰
+  // 枪模由 gunmodel.js 提供（AK 是 glb，手枪是几何体），这里只负责摆位置、挂手、挂枪口火焰
   buildModels() {
     const cam = this.weaponCamera;
     const makeFlash = (size, at, parent) => {
@@ -90,8 +90,8 @@ Game.Weapon = class Weapon {
     const tilt = (a) => new THREE.Quaternion().setFromEuler(new THREE.Euler(a, 0, 0));
     const cradle = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(0, 1, 0), V(0, 0, -1), V(-1, 0, 0)));
     const attach = Game.GunModel.attachHand;
-    attach(ak.group, { R: 0.024, pos: V(0, -0.066, 0.117), quat: tilt(-0.37), armDir: V(0.35, -0.6, 0.72) });
-    const akLeft = attach(ak.group, { R: 0.033, pos: V(0, 0.013, -0.235), quat: cradle, mirror: true, armDir: V(-0.5, -0.55, 0.67) });
+    attach(ak.group, { R: 0.024, pos: V(0, -0.052, 0.13), quat: tilt(-0.25), armDir: V(0.35, -0.6, 0.72) });
+    const akLeft = attach(ak.group, { R: 0.036, pos: V(0, 0.022, -0.215), quat: cradle, mirror: true, armDir: V(-0.5, -0.55, 0.67) });
     attach(pistol.group, { R: 0.027, pos: V(0, -0.066, 0.075), quat: tilt(-0.18), armDir: V(0.35, -0.6, 0.72) });
     // 手枪双手持握：左手从另一侧包住握把和右手手指
     const pistolLeft = attach(pistol.group, { R: 0.037, pos: V(0, -0.082, 0.07), quat: tilt(-0.18), mirror: true, armDir: V(-0.62, -0.5, 0.6) });
@@ -105,7 +105,7 @@ Game.Weapon = class Weapon {
         bolt: ak.bolt, boltHome: ak.boltHome, boltKick: 0.07,       // 拉机柄：开枪时往后跳
         mag: ak.mag, magHome: ak.magHome, magDrop: 0.16, magBack: 0.05, magTilt: 0.5,
         flash: makeFlash(0.26, ak.muzzle, ak.group),
-        leftHand: akLeft, leftHome: akLeft.position.clone(), leftGrab: V(0, -0.145, -0.125),   // 换弹时左手去抓弹匣
+        leftHand: akLeft, leftHome: akLeft.position.clone(), leftGrab: V(0, -0.13, -0.095),   // 换弹时左手去抓弹匣
         kickBack: 0.06, kickUp: 0.05,
       },
       pistol: {

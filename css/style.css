@@ -158,6 +158,8 @@ html, body {
 #duel-len a:hover { background: #344056; }
 #duel-len a.on { background: #a43; border-color: #c65; color: #fff; }
 #loading { margin-top: 12px; font-size: 13px; opacity: .7; display: none; }
+.credits { display: block; margin-top: 14px; font-size: 12px; color: #9cf; opacity: .55; text-decoration: none; }
+.credits:hover { opacity: 1; text-decoration: underline; }
 #wave-info b.me { color: #6f6; }
 #wave-info b.enemy { color: #f66; }
 #overlay-result {

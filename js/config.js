@@ -48,6 +48,7 @@ Game.Config = {
     // 主武器
     rifle: {
       name: 'AK',
+      model: 'assets/models/gun/ak47.glb',   // 枪模（Blender 加工，见 assets-src/models/gun/ak47.py）
       auto: true,            // 按住连发
       fireInterval: 0.1,     // 两发之间的间隔 → 每分钟 600 发
       magSize: 30,           // 弹匣容量
@@ -173,7 +174,7 @@ Game.Config = {
 
   // NPC 外观
   character: {
-    model: 'assets/models/soldier.glb',  // 加载失败时自动退回方块小人
+    model: 'assets/models/human/init_soldier.glb',  // 加载失败时自动退回方块小人
     walkAnimSpeed: 1.7,    // 走路动画本来的前进速度（m/s）。加载模型时会自动量，这里只是量不出来时的备用值
     runAnimSpeed: 4.4,
     walkRunBlend: [2.2, 3.6],  // 速度在这个区间内从走路动画过渡到跑步动画

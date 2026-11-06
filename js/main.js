@@ -7,9 +7,9 @@
 //   duel   1v1 对决：和一个 NPC 互相击杀，先到 N 杀获胜
 //   waves  波次：一波波的敌人，看能撑到第几波
 // ============================================================
-// 地图文件是异步加载的，加载完才开始创建游戏对象
-// 地图文件有问题时把原因显示在开始界面上，不要留一个什么都点不动的页面
-Game.World.loadMap(Game.Config.map).then(startGame).catch((err) => {
+// 地图文件和枪模是异步加载的，都加载完才开始创建游戏对象
+// 有问题时把原因显示在开始界面上，不要留一个什么都点不动的页面
+Promise.all([Game.World.loadMap(Game.Config.map), Game.GunModel.loadAK()]).then(([mapData]) => startGame(mapData)).catch((err) => {
   console.error(err);
   window.gameError = err.message;
   const el = document.getElementById('loading');

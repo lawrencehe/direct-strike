@@ -7,7 +7,8 @@
 - 没有构建步骤，也没有模块系统。`index.html` 按顺序加载 `vendor/` 和 `js/` 下的脚本，每个文件往全局 `Game` 上挂一个东西
   （`Game.Config`、`Game.Player`、`Game.Weapon`……）。**后加载的可以用先加载的，反过来不行**，新文件要插到正确位置。
 - 顺序：`config → physics → audio → input → textures → effects → truck → world → targets → ragdoll → character → player → gunmodel → grenades → weapon → bots → hud → main`。
-- `main.js` 先异步加载 `maps/<config.map>.json`，加载完调用 `startGame` 创建所有对象。NPC 模型 `soldier.glb` 也是异步加载，加载完才能进对战模式。
+- `main.js` 先异步加载 `maps/<config.map>.json` 和 AK 枪模（`GunModel.loadAK`），两个都加载完才调用 `startGame` 创建所有对象；
+  任何一个失败，错误显示在开始界面上。NPC 模型 `soldier.glb` 也是异步加载，加载完才能进对战模式。
 - 浏览器控制台里的 `window.game` 能拿到所有对象（`game.player`、`game.weapon`、`game.bots`……），调试和测试脚本都靠它。
 
 ## 对象关系
@@ -66,4 +67,8 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 - **枪模在第一帧之前就要摆好位置**，否则开始界面背后会看到一把巨大的枪：`weapon.js` 的 `buildModels` 里按 `basePos / baseRot` 初始化。
 - **死亡的 NPC 还要继续更新**（布娃娃、血泊、尸体下沉），包括对决结束后的 `phase === 'over'`。
 - **受击闪红**：NPC 死亡前要把 `model.flash` 清零，否则尸体会一直发红。
+- **`window.game` 在开局前是那个 `<canvas id="game">`**（浏览器会把带 id 的元素挂到 `window` 上）。
+  测试脚本判断游戏是否就绪要看 `window.game.startMode`，不能只看 `window.game`，`tools/lib/game-page.mjs` 就是这么等的。
+- **glb 枪模换了要重新对手的位置。** 手还是代码拼的，握把、护木的位置写在 `weapon.js` 的 `buildModels` 里；
+  换模型后用侧视截图（把枪转 90 度）检查手有没有握在握把和护木上。
 - **同色集装箱共用贴图**，只显示第一个的编号，见 `maps.md`。

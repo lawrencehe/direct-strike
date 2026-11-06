@@ -71,7 +71,7 @@ git push -q origin main && echo "✓ 推送 main $(git rev-parse --short HEAD)"
 if [ $DEPLOY = 1 ]; then
   ./deploy.sh >/dev/null 2>&1 || { [ "$BR" != main ] && git checkout -q "$BR"; die "deploy.sh 失败，手动运行 ./deploy.sh 看报错"; }
   BAD=""
-  for u in / /js/main.js /maps/yard.json /assets/models/soldier.glb; do
+  for u in / /js/main.js /maps/yard.json /assets/models/human/init_soldier.glb; do
     c=$(curl -s -o /dev/null -w '%{http_code}' "$SITE$u"); [ "$c" = 200 ] || BAD="$BAD $u=$c"
   done
   for u in /refer/ak.png /.git/HEAD /docs/README.md; do

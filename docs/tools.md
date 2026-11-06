@@ -46,11 +46,11 @@ tools/img.sh png 输入.png 输出.png
 2. 把 FBX 放到本机，运行：
 
 ```bash
-tools/rig.sh add-anim assets-src/models/soldier.glb 动画.fbx --name Jump -o tools/out/a.glb
+tools/rig.sh add-anim assets-src/models/human/init_soldier.glb 动画.fbx --name Jump -o tools/out/a.glb
 node tools/glb.mjs optimize tools/out/a.glb tools/out/b.glb --drop TPose
 node tools/glb-view.mjs preview tools/out/b.glb --clip Jump --time 0.3 --angle 200
-cp tools/out/a.glb assets-src/models/soldier.glb
-cp tools/out/b.glb assets/models/soldier.glb
+cp tools/out/a.glb assets-src/models/human/init_soldier.glb
+cp tools/out/b.glb assets/models/human/init_soldier.glb
 node tools/verify.mjs
 ```
 
