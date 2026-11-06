@@ -148,7 +148,7 @@ function startGame(mapData) {
   const play = (m) => {
     audio.init();
     if (m) startMode(m);
-    input.lock();
+    input.lock(Game.Config.view.fullscreen);
   };
   document.getElementById('btn-range').addEventListener('click', () => play('range'));
   document.getElementById('btn-duel').addEventListener('click', () => play('duel'));

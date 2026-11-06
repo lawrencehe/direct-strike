@@ -66,7 +66,17 @@ Game.Input = class Input {
     });
   }
 
-  lock() { this.element.requestPointerLock(); }
+  // 锁定鼠标；fullscreen=true 时顺带进入全屏。
+  // 两个请求都必须在同一次点击里同步发出（浏览器要求"用户手势"）。
+  // 全屏挂在整个页面上而不是 canvas，这样 HUD 和菜单也在全屏里。
+  lock(fullscreen) {
+    const root = document.documentElement;
+    if (fullscreen && !document.fullscreenElement && root.requestFullscreen) {
+      root.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});   // 被拒绝就照常窗口玩
+    }
+    const r = this.element.requestPointerLock();
+    if (r && r.catch) r.catch(() => {});
+  }
 
   // 按物理键查询（一般不用，优先用下面按动作查询的）
   isDown(code)     { return this.down.has(code); }

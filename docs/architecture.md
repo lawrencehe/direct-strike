@@ -67,6 +67,8 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 - **枪模在第一帧之前就要摆好位置**，否则开始界面背后会看到一把巨大的枪：`weapon.js` 的 `buildModels` 里按 `basePos / baseRot` 初始化。
 - **死亡的 NPC 还要继续更新**（布娃娃、血泊、尸体下沉），包括对决结束后的 `phase === 'over'`。
 - **受击闪红**：NPC 死亡前要把 `model.flash` 清零，否则尸体会一直发红。
+- **全屏和指针锁定都要用户手势。** `input.lock(fullscreen)` 在按钮的 click 里同步发出两个请求，中间不能 `await`，否则第二个会被拒。
+  全屏挂在 `document.documentElement` 上（不是 canvas），否则 HUD 和菜单不在全屏里。按 Esc 会同时退出全屏和锁定，点"继续"再进。
 - **`window.game` 在开局前是那个 `<canvas id="game">`**（浏览器会把带 id 的元素挂到 `window` 上）。
   测试脚本判断游戏是否就绪要看 `window.game.startMode`，不能只看 `window.game`，`tools/lib/game-page.mjs` 就是这么等的。
 - **glb 枪模换了要重新对手的位置。** 手臂是 `arm.glb`（蒙皮模型），握把、护木的位置写在 `weapon.js` 的 `buildModels` 里（`arms.hand(...)`）；
