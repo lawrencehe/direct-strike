@@ -1,5 +1,5 @@
 // ============================================================
-// 枪模：AK 加载 Blender 加工的 glb 模型；手枪、手雷、手还是用基础几何体拼的（之后逐个换成 glb）
+// 枪模：AK 和第一人称手臂加载 glb 模型；手枪、手雷还是用基础几何体拼的（之后逐个换成 glb）
 //
 // 坐标约定（枪自己的局部坐标）：-z 是枪口方向，+z 朝射手，+y 向上，+x 是枪的右侧。
 // 单位是米，尺寸大致按真枪（全长约 0.9 米）。weapon.js 负责把它缩放、摆到画面右下角。
@@ -323,85 +323,180 @@ Game.GunModel = (function () {
   const GRIP_RADIUS = { frag: 0.0305, flash: 0.0225, smoke: 0.0305 };
 
   // ---------- 第一人称的手和手臂（枪和投掷物共用） ----------
-  let handMats = null;
-  function getHandMats() {
-    if (handMats) return handMats;
-    const std = (color, roughness, metalness = 0.05, env = 0.25) =>
-      new THREE.MeshStandardMaterial({ color, roughness, metalness, envMapIntensity: env });
-    // 配色对应 NPC 士兵：黑手套、沙色衣服
-    handMats = { glove: std(0x050506, 0.75), knuckle: std(0x0c0c0e, 0.6, 0.1), sleeve: std(0x2c2415, 0.9, 0, 0.2), cuff: std(0x090806, 0.85, 0, 0.2) };
-    return handMats;
+  // 模型 arm.glb（CC0）：一个蒙皮网格里有左右两条手臂，骨骼是 X_arm 上臂 → X_elbow 小臂 → X_wrist 手 → 五根手指各 4 节，
+  // X 是 L / R。每把武器 clone 一份挂在枪的 group 下，用不到的那条手臂缩成一个点藏起来。
+  //
+  // 手的摆法是"握住一根竖直圆柱"（握持坐标系）：圆柱轴是 y，原点在握持中心，y 正方向是食指一侧；
+  // 右手掌心贴在 +x 一侧（左手在 -x），四指从 -z 绕过去，拇指从 +z 压过来。
+  // 每帧 solve()：手腕骨骼对齐到握持坐标系，小臂、上臂沿 armDir 伸出画面（不做肘部弯曲，手臂是直的）。
+  // 手指在第一次 solve 时逐节弯到贴住圆柱，之后不再变：手指是手腕的子骨骼，会跟着手走。
+  let armAsset = null, armRest = null;
+  function loadArms() {
+    return new Promise((resolve, reject) => {
+      new THREE.GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load(Game.Config.weapons.arms.model,
+        (gltf) => { armAsset = gltf.scene; armRest = measureArms(armAsset); resolve(); },
+        undefined,
+        (err) => reject(new Error('手臂模型加载失败：' + (err.message || err))));
+    });
   }
 
-  // 两点之间连一节胶囊
-  const _up = new THREE.Vector3(0, 1, 0);
-  function capsule(parent, a, b, r, mat) {
-    const d = b.clone().sub(a);
-    const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, d.length(), 4, 10), mat);
-    m.position.copy(a).addScaledVector(d, 0.5);
-    m.quaternion.setFromUnitVectors(_up, d.normalize());
-    parent.add(m);
-    return m;
+  const FINGERS = ['point', 'middle', 'ring', 'pink'];
+  // 骨骼名形如 L_wrist_03、R_middle2_035
+  function armBone(root, side, part) {
+    let found = null;
+    root.traverse((o) => { if (!found && o.isBone && o.name.startsWith(`${side}_${part}_`)) found = o; });
+    return found;
   }
 
-  // 一只握住竖直圆柱（半径 R，轴是 y，原点在握持中心）的手。
-  // 手背朝 +x，四指从 -z 绕过去，拇指从 +z 压过来；y 正方向是食指一侧。
-  // mirror = true 时是左手（镜像）。外层 group 负责摆放，所以旋转不受镜像影响。
-  function buildHand(R, mirror = false) {
-    const mats = getHandMats();
-    const outer = new THREE.Group();
-    const hand = new THREE.Group();
-    if (mirror) hand.scale.x = -1;
-    outer.add(hand);
+  // 由两个方向（第一个精确、第二个取垂直分量）建一个正交基，返回对应的旋转
+  const _m4 = new THREE.Matrix4();
+  function basisQuat(first, second) {
+    const a = first.clone().normalize();
+    const b = second.clone().addScaledVector(a, -second.dot(a)).normalize();
+    const c = new THREE.Vector3().crossVectors(a, b);
+    return new THREE.Quaternion().setFromRotationMatrix(_m4.makeBasis(a, b, c));
+  }
 
-    // 绕圆柱的角度：0 在 +x（掌心），π/2 在 -z（远侧），-π/2 在 +z（近侧）
-    const around = (phi, y, r) => new THREE.Vector3(Math.cos(phi) * r, y, -Math.sin(phi) * r);
+  // 量出静止姿势（模型自身坐标）下每条手臂的关键数据
+  function measureArms(root) {
+    root.updateMatrixWorld(true);
+    const pos = (o) => new THREE.Vector3().setFromMatrixPosition(o.matrixWorld);
+    const quat = (o) => { const q = new THREE.Quaternion(); o.matrixWorld.decompose(new THREE.Vector3(), q, new THREE.Vector3()); return q; };
+    const rest = {};
+    for (const side of ['L', 'R']) {
+      const S = armBone(root, side, 'arm'), E = armBone(root, side, 'elbow'), W = armBone(root, side, 'wrist');
+      const sp = pos(S), ep = pos(E), wp = pos(W), mp = pos(armBone(root, side, 'middle1'));
+      const f = mp.clone().sub(wp).normalize();                                                  // 手指方向
+      const across = pos(armBone(root, side, 'point1')).sub(pos(armBone(root, side, 'pink1')));  // 小指 → 食指
+      // 掌心法线：右手是 across × f，左手相反（手性不同）
+      const n = new THREE.Vector3().crossVectors(f, across).multiplyScalar(side === 'R' ? -1 : 1).normalize();
+      rest[side] = {
+        handLen: mp.distanceTo(wp), foreLen: wp.distanceTo(ep), upperLen: ep.distanceTo(sp),
+        // 握持点：手腕到中指根的 85% 处，也就是掌心靠近指根的位置
+        anchor: wp.clone().lerp(mp, 0.85), wrist: wp, elbow: ep, shoulder: sp, n,
+        qS: quat(S), qE: quat(E), qW: quat(W),
+        hand: basisQuat(across, n),                       // 手的朝向：(食指方向, 掌心法线, ...)
+        fore: basisQuat(wp.clone().sub(ep), n),           // 小臂的朝向：(小臂方向, 掌心法线, ...)
+        upper: basisQuat(ep.clone().sub(sp), n),
+      };
+    }
+    return rest;
+  }
 
-    // 四根手指：弯法一样，高度不同，小指短一点
-    const fingers = [
-      { y: 0.024, r: 0.0082, end: 2.55 }, { y: 0.007, r: 0.0086, end: 2.7 },
-      { y: -0.01, r: 0.0082, end: 2.6 }, { y: -0.026, r: 0.0072, end: 2.3 },
-    ];
-    for (const f of fingers) {
-      const fr = R + f.r * 0.85;
-      const phis = [0.25, 0.25 + (f.end - 0.25) * 0.42, 0.25 + (f.end - 0.25) * 0.76, f.end];
-      const pts = phis.map((phi) => around(phi, f.y, fr));
-      for (let i = 0; i < 3; i++) capsule(hand, pts[i], pts[i + 1], f.r, i === 0 ? mats.knuckle : mats.glove);
+  const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
+  const _s = new THREE.Vector3(), _mw = new THREE.Matrix4();
+
+  // 把骨骼摆到世界坐标的 pos / quat（缩放 k），换算成相对父骨骼的局部变换
+  function setBoneWorld(bone, pos, quat, k) {
+    _mw.compose(pos, quat, _s.setScalar(k));
+    bone.matrix.copy(bone.parent.matrixWorld).invert().multiply(_mw);
+    bone.matrix.decompose(bone.position, bone.quaternion, bone.scale);
+    bone.updateMatrixWorld(true);
+  }
+
+  // 一节手指绕世界轴 axis（过它自己的关节）转 θ
+  function rotateBoneWorld(bone, q0, axis, theta) {
+    bone.parent.getWorldQuaternion(_q2);
+    _q.setFromAxisAngle(axis, theta);
+    bone.quaternion.copy(_q2).invert().multiply(_q).multiply(_q2).multiply(q0);
+    bone.updateMatrixWorld(true);
+  }
+
+  // 手指逐节弯：每节从 θ = -0.6 往大扫，子关节第一次进到圆柱（半径 r，过 origin、方向 axisDir）以内就停
+  function curlChain(bones, axis, origin, axisDir, r) {
+    const dist = (o) => {
+      o.getWorldPosition(_v);
+      _v.sub(origin);
+      return _v.addScaledVector(axisDir, -_v.dot(axisDir)).length();
+    };
+    for (let i = 0; i < bones.length - 1; i++) {
+      const b = bones[i], child = bones[i + 1], q0 = b.quaternion.clone();
+      let best = 0, bestErr = Infinity, prev = null, hit = null;
+      for (let t = -0.6; t <= 1.9; t += 0.02) {
+        rotateBoneWorld(b, q0, axis, t);
+        const d = dist(child);
+        if (prev !== null && prev > r && d <= r) { hit = t - 0.02 * (r - d) / (prev - d); break; }
+        if (Math.abs(d - r) < bestErr) { bestErr = Math.abs(d - r); best = t; }
+        prev = d;
+      }
+      rotateBoneWorld(b, q0, axis, hit !== null ? hit : best);
+    }
+  }
+
+  // 给 parent 挂一套手臂。返回的 hand() 加一只手、拿到它的握持坐标系（Object3D，可以移动，比如换弹时左手去抓弹匣）；
+  // solve() 让手臂跟上，weapon.js 每帧对当前武器调一次
+  function buildArms(parent) {
+    const cfg = Game.Config.weapons.arms;
+    const model = THREE.SkeletonUtils.clone(armAsset);
+    model.traverse((o) => { if (o.isSkinnedMesh) o.frustumCulled = false; });   // 包围球是静止姿势的，摆过之后不准
+    const scale = cfg.handLength / armRest.R.handLen;
+    model.scale.setScalar(scale);
+    parent.add(model);
+    const hands = {};
+
+    function hand(side, { R, pos, quat, armDir }) {
+      const target = new THREE.Object3D();
+      target.position.copy(pos);
+      if (quat) target.quaternion.copy(quat);
+      parent.add(target);
+      const b = (part) => armBone(model, side, part);
+      hands[side] = {
+        target, R, armDir: armDir.clone().normalize(), curled: false,
+        S: b('arm'), E: b('elbow'), W: b('wrist'),
+        fingers: FINGERS.map((f) => [1, 2, 3, 4].map((i) => b(f + i))),
+        thumb: [1, 2, 3, 4].map((i) => b('thumb' + i)),
+      };
+      return target;
     }
 
-    // 拇指
-    const t0 = around(-0.62, -0.012, R + 0.016);
-    const t1 = around(-1.25, 0.002, R + 0.0095);
-    const t2 = around(-1.85, 0.018, R + 0.0085);
-    capsule(hand, t0, t1, 0.0102, mats.glove);
-    capsule(hand, t1, t2, 0.009, mats.glove);
+    const tq = new THREE.Quaternion(), pq = new THREE.Quaternion(), rel = new THREE.Quaternion();
+    const anchor = new THREE.Vector3(), wrist = new THREE.Vector3(), elbow = new THREE.Vector3(), shoulder = new THREE.Vector3();
+    const dir = new THREE.Vector3(), nW = new THREE.Vector3(), up = new THREE.Vector3();
+    let hidden = false;
 
-    // 手掌：压扁的球，贴在圆柱外侧；掌根连向手腕
-    const palm = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 14), mats.glove);
-    palm.scale.set(0.019, 0.044, 0.034);
-    palm.position.set(R + 0.016, -0.002, 0.004);
-    hand.add(palm);
-    const wrist = new THREE.Vector3(R + 0.04, -0.062, 0.05);
-    capsule(hand, new THREE.Vector3(R + 0.016, -0.022, 0.012), wrist, 0.024, mats.glove);
+    function solve() {
+      if (!hidden) {
+        // 用不到的手臂缩成一个点
+        for (const side of ['L', 'R']) if (!hands[side]) armBone(model, side, 'arm').scale.setScalar(1e-4);
+        hidden = true;
+      }
+      parent.updateWorldMatrix(true, true);
+      parent.getWorldQuaternion(pq);
+      const k = parent.getWorldScale(_s).x * scale;
+      for (const side of ['L', 'R']) {
+        const h = hands[side];
+        if (!h) continue;
+        const rest = armRest[side], right = side === 'R';
+        // 手：握持坐标系里食指方向 = +y，掌心法线 = 朝向圆柱轴（右手 -x、左手 +x）
+        h.target.getWorldQuaternion(tq);
+        const handTarget = basisQuat(_v.set(0, 1, 0), _v2.set(right ? -1 : 1, 0, 0));
+        rel.copy(tq).multiply(handTarget).multiply(_q.copy(rest.hand).invert());   // 模型坐标 → 世界的旋转
+        h.target.localToWorld(anchor.set((right ? 1 : -1) * (h.R + cfg.palmGap), 0, 0));
+        wrist.copy(rest.wrist).sub(rest.anchor).multiplyScalar(k).applyQuaternion(rel).add(anchor);
+        // 小臂、上臂：沿 armDir 伸出去，绕自身的扭转跟手掌对齐，避免手腕拧成麻花
+        dir.copy(h.armDir).applyQuaternion(pq);
+        elbow.copy(wrist).addScaledVector(dir, rest.foreLen * k);
+        shoulder.copy(elbow).addScaledVector(dir, rest.upperLen * k);
+        nW.copy(rest.n).applyQuaternion(rel);
+        const aim = basisQuat(up.copy(dir).negate(), nW);
+        setBoneWorld(h.S, shoulder, _q2.copy(aim).multiply(_q.copy(rest.upper).invert()).multiply(rest.qS), k);
+        setBoneWorld(h.E, elbow, _q2.copy(aim).multiply(_q.copy(rest.fore).invert()).multiply(rest.qE), k);
+        setBoneWorld(h.W, wrist, _q2.copy(rel).multiply(rest.qW), k);
 
-    outer.userData.wrist = wrist.clone().setX(mirror ? -wrist.x : wrist.x);
-    return outer;
-  }
+        if (!h.curled) {
+          // 四指绕圆柱轴往远侧（-z）卷，拇指反方向
+          h.curled = true;
+          const origin = h.target.getWorldPosition(new THREE.Vector3());
+          const axisDir = new THREE.Vector3(0, 1, 0).applyQuaternion(tq);
+          const r = (h.R + cfg.fingerRadius) * parent.getWorldScale(_s).x;
+          const fingerAxis = axisDir.clone().multiplyScalar(right ? 1 : -1);
+          for (const chain of h.fingers) curlChain(chain, fingerAxis, origin, axisDir, r);
+          curlChain(h.thumb, fingerAxis.clone().negate(), origin, axisDir, r);
+        }
+      }
+    }
 
-  // 把手摆到 parent 上，并接一条伸出画面的手臂。
-  // pos、quat、armDir 都是 parent 坐标系；手臂是手的子物体，手移动时（比如换弹抽弹匣）手臂跟着走
-  function attachHand(parent, { R, pos, quat, mirror = false, armDir }) {
-    const mats = getHandMats();
-    const hand = buildHand(R, mirror);
-    hand.position.copy(pos);
-    if (quat) hand.quaternion.copy(quat);
-    parent.add(hand);
-    const dir = armDir.clone().normalize().applyQuaternion(hand.quaternion.clone().invert());
-    const wrist = hand.userData.wrist;
-    const cuffEnd = wrist.clone().addScaledVector(dir, 0.035);
-    capsule(hand, wrist, cuffEnd, 0.03, mats.cuff);
-    capsule(hand, cuffEnd, wrist.clone().addScaledVector(dir, 0.6), 0.036, mats.sleeve);
-    return hand;
+    return { hand, solve };
   }
 
   const grenadeCache = {};
@@ -459,5 +554,5 @@ Game.GunModel = (function () {
     return { group: g.clone(true) };
   }
 
-  return { loadAK, buildAK, buildPistol, buildGrenade, attachHand, GRIP_RADIUS, environment };
+  return { loadAK, loadArms, buildAK, buildPistol, buildGrenade, buildArms, GRIP_RADIUS, environment };
 })();

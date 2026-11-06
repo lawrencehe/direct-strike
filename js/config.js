@@ -45,6 +45,14 @@ Game.Config = {
     switchOut: 0.12,       // 切枪：收枪用时
     switchIn: 0.2,         // 切枪：掏枪用时
 
+    // 第一人称手臂（所有武器共用一套模型，每把武器各摆一份）
+    arms: {
+      model: 'assets/models/human/arm.glb',   // CC0，见 assets/LICENSES.md
+      handLength: 0.1,       // 手腕到中指根的长度（米），模型按这个缩放
+      palmGap: 0.012,        // 掌心离握把表面的距离（手掌厚度的一半）
+      fingerRadius: 0.009,   // 手指半径：弯手指时让指节贴着"握把半径 + 这个值"的圆
+    },
+
     // 主武器
     rifle: {
       name: 'AK',

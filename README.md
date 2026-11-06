@@ -1,4 +1,4 @@
-# Direct-Strike v0.13
+# Direct-Strike v0.14
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -87,6 +87,7 @@ direct-strike/
 ├── assets/
 │   ├── brand/               logo、网站图标、分享预览图
 │   ├── models/human/init_soldier.glb  NPC 模型（Mixamo 骨骼，带待机/走/跑动画）
+│   ├── models/human/arm.glb           第一人称手臂（蒙皮模型，CC0）
 │   ├── models/gun/ak47.glb            AK 枪模（Blender 加工，CC BY 4.0，署名见 LICENSES.md）
 │   └── LICENSES.md          第三方资源的来源和协议，以及怎么换模型
 ├── vendor/
@@ -102,7 +103,7 @@ direct-strike/
     ├── player.js     ★ 视角、移动、跳跃、生命值、重生
     ├── weapon.js     ★ 切枪、射线射击、散布、后坐力、伤害、换弹、弹孔、投掷动作、枪模动画
     ├── grenades.js   投掷物丢出去之后的事：反弹、爆炸伤害、致盲、烟团
-    ├── gunmodel.js   枪模：AK 加载 glb；手枪、手雷、手还是基础几何体 + Canvas 贴图（逐步换成 glb）
+    ├── gunmodel.js   枪模和手臂：AK、手臂加载 glb；手枪、手雷还是基础几何体 + Canvas 贴图（逐步换成 glb）
     ├── truck.js      地图里那辆平头货车：驾驶室、货斗、轮子、货物，全是基础几何体 + Canvas 贴图
     ├── ragdoll.js    布娃娃：NPC 死亡时的物理（Verlet 质点 + 约束），不同死法的冲量都在这里
     ├── character.js  ★ NPC 外观：加载模型、按位移驱动走/跑动画（不滑步）、腿和上半身分开转、持枪姿势（简易 IK）、判定盒
@@ -129,7 +130,7 @@ direct-strike/
 ## 想改点什么？
 
 - **改枪的样子**：AK 是 glb 模型，加工脚本在 `assets-src/models/gun/ak47.py`（Blender）；手枪还在 `gunmodel.js`，每个零件一行，坐标单位是米；枪在画面里的位置在 `weapon.js` 的 `basePos / baseRot`
-- **改手和手臂**：造型在 `gunmodel.js` 的 `buildHand / attachHand`，握在枪上的位置在 `weapon.js` 的 `buildModels`
+- **改手和手臂**：模型是 `assets/models/human/arm.glb`，摆法和手指弯曲在 `gunmodel.js` 的 `buildArms`，握在枪上的位置在 `weapon.js` 的 `buildModels`，尺寸在 `config.js` 的 `weapons.arms`
 - **改武器手感和伤害**：`config.js` 的 `weapons`（枪）和 `grenades`（投掷物）
 - **改死亡效果**：`config.js` 的 `ragdoll`（爆头打飞的力度、尸体留多久）
 - **改地图**：改 `maps/yard.json`，格式见 `docs/maps.md`；要加新种类的物体再改 `world.js` 的 `builders`

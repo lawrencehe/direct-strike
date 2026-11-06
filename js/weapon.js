@@ -65,7 +65,7 @@ Game.Weapon = class Weapon {
     this.refreshHud();
   }
 
-  // 枪模由 gunmodel.js 提供（AK 是 glb，手枪是几何体），这里只负责摆位置、挂手、挂枪口火焰
+  // 枪模和手臂由 gunmodel.js 提供（AK、手臂是 glb，手枪是几何体），这里只负责摆位置、摆手、挂枪口火焰
   buildModels() {
     const cam = this.weaponCamera;
     const makeFlash = (size, at, parent) => {
@@ -85,21 +85,22 @@ Game.Weapon = class Weapon {
     const ak = Game.GunModel.buildAK();
     const pistol = Game.GunModel.buildPistol();
 
-    // 手：握把的轴线前倾，所以绕 x 轴转；左手托护木时掌心朝上（护木轴线是 z），用基向量直接写朝向
+    // 手（握持坐标系见 gunmodel.js 的 buildArms）：握把的轴线前倾，所以绕 x 轴转；左手托护木时掌心朝上（护木轴线是 z），用基向量直接写朝向
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
     const tilt = (a) => new THREE.Quaternion().setFromEuler(new THREE.Euler(a, 0, 0));
     const cradle = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(0, 1, 0), V(0, 0, -1), V(-1, 0, 0)));
-    const attach = Game.GunModel.attachHand;
-    attach(ak.group, { R: 0.024, pos: V(0, -0.052, 0.13), quat: tilt(-0.25), armDir: V(0.35, -0.6, 0.72) });
-    const akLeft = attach(ak.group, { R: 0.036, pos: V(0, 0.022, -0.215), quat: cradle, mirror: true, armDir: V(-0.5, -0.55, 0.67) });
-    attach(pistol.group, { R: 0.027, pos: V(0, -0.066, 0.075), quat: tilt(-0.18), armDir: V(0.35, -0.6, 0.72) });
+    const akArms = Game.GunModel.buildArms(ak.group);
+    akArms.hand('R', { R: 0.024, pos: V(0, -0.052, 0.13), quat: tilt(-0.25), armDir: V(0.35, -0.6, 0.72) });
+    const akLeft = akArms.hand('L', { R: 0.036, pos: V(0, 0.022, -0.215), quat: cradle, armDir: V(-0.5, -0.55, 0.67) });
+    const pistolArms = Game.GunModel.buildArms(pistol.group);
+    pistolArms.hand('R', { R: 0.027, pos: V(0, -0.066, 0.075), quat: tilt(-0.18), armDir: V(0.35, -0.6, 0.72) });
     // 手枪双手持握：左手从另一侧包住握把和右手手指
-    const pistolLeft = attach(pistol.group, { R: 0.037, pos: V(0, -0.082, 0.07), quat: tilt(-0.18), mirror: true, armDir: V(-0.62, -0.5, 0.6) });
+    const pistolLeft = pistolArms.hand('L', { R: 0.037, pos: V(0, -0.082, 0.07), quat: tilt(-0.18), armDir: V(-0.62, -0.5, 0.6) });
 
     this.guns = {
       rifle: {
         cfg: Game.Config.weapons.rifle, ammo: Game.Config.weapons.rifle.magSize,
-        model: ak.group, scale: 0.75,
+        model: ak.group, scale: 0.75, arms: akArms,
         // 摆在画面右下，枪口略微朝准星方向内收
         basePos: new THREE.Vector3(0.155, -0.15, -0.5), baseRot: new THREE.Euler(0.0, 0.07, 0.0),
         bolt: ak.bolt, boltHome: ak.boltHome, boltKick: 0.07,       // 拉机柄：开枪时往后跳
@@ -110,7 +111,7 @@ Game.Weapon = class Weapon {
       },
       pistol: {
         cfg: Game.Config.weapons.pistol, ammo: Game.Config.weapons.pistol.magSize,
-        model: pistol.group, scale: 0.72,
+        model: pistol.group, scale: 0.72, arms: pistolArms,
         basePos: new THREE.Vector3(0.105, -0.075, -0.34), baseRot: new THREE.Euler(0.02, 0.07, 0.0),
         bolt: pistol.slide, boltHome: pistol.slideHome, boltKick: 0.036,   // 套筒：开枪时往后坐
         mag: pistol.mag, magHome: pistol.magHome, magDrop: 0.13, magBack: 0.02, magTilt: 0,
@@ -128,9 +129,10 @@ Game.Weapon = class Weapon {
       g.group.rotation.y = Math.PI / 2;
       const rig = new THREE.Group();
       rig.add(g.group);
-      Game.GunModel.attachHand(rig, { R: Game.GunModel.GRIP_RADIUS[kind], pos: V(0, 0, 0), armDir: V(0.42, -0.62, 0.66) });
+      const arms = Game.GunModel.buildArms(rig);
+      arms.hand('R', { R: Game.GunModel.GRIP_RADIUS[kind], pos: V(0, 0, 0), armDir: V(0.42, -0.62, 0.66) });
       this.throwables[kind] = {
-        cfg: Game.Config.grenades[kind], model: rig, grenade: g.group, scale: 0.8, pin: g.group.getObjectByName('pin'),
+        cfg: Game.Config.grenades[kind], model: rig, arms, grenade: g.group, scale: 0.8, pin: g.group.getObjectByName('pin'),
         basePos: new THREE.Vector3(0.12, -0.105, -0.3), baseRot: new THREE.Euler(0.15, 0.3, -0.25),
       };
     }
@@ -141,6 +143,7 @@ Game.Weapon = class Weapon {
       it.model.rotation.copy(it.baseRot);
       it.model.visible = false;
       cam.add(it.model);
+      it.arms.solve();
     }
   }
 
@@ -579,6 +582,7 @@ Game.Weapon = class Weapon {
       this.worldFlash.intensity = 0;
     }
     this.worldFlash.position.copy(this.camera.position);
+    it.arms.solve();   // 枪动完了再让手臂跟上
   }
 };
 

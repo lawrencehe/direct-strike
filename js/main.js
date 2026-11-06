@@ -9,7 +9,7 @@
 // ============================================================
 // 地图文件和枪模是异步加载的，都加载完才开始创建游戏对象
 // 有问题时把原因显示在开始界面上，不要留一个什么都点不动的页面
-Promise.all([Game.World.loadMap(Game.Config.map), Game.GunModel.loadAK()]).then(([mapData]) => startGame(mapData)).catch((err) => {
+Promise.all([Game.World.loadMap(Game.Config.map), Game.GunModel.loadAK(), Game.GunModel.loadArms()]).then(([mapData]) => startGame(mapData)).catch((err) => {
   console.error(err);
   window.gameError = err.message;
   const el = document.getElementById('loading');

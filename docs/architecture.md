@@ -7,7 +7,7 @@
 - 没有构建步骤，也没有模块系统。`index.html` 按顺序加载 `vendor/` 和 `js/` 下的脚本，每个文件往全局 `Game` 上挂一个东西
   （`Game.Config`、`Game.Player`、`Game.Weapon`……）。**后加载的可以用先加载的，反过来不行**，新文件要插到正确位置。
 - 顺序：`config → physics → audio → input → textures → effects → truck → world → targets → ragdoll → character → player → gunmodel → grenades → weapon → bots → hud → main`。
-- `main.js` 先异步加载 `maps/<config.map>.json` 和 AK 枪模（`GunModel.loadAK`），两个都加载完才调用 `startGame` 创建所有对象；
+- `main.js` 先异步加载 `maps/<config.map>.json`、AK 枪模（`GunModel.loadAK`）和第一人称手臂（`GunModel.loadArms`），都加载完才调用 `startGame` 创建所有对象；
   任何一个失败，错误显示在开始界面上。NPC 模型 `soldier.glb` 也是异步加载，加载完才能进对战模式。
 - 浏览器控制台里的 `window.game` 能拿到所有对象（`game.player`、`game.weapon`、`game.bots`……），调试和测试脚本都靠它。
 
@@ -69,6 +69,9 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 - **受击闪红**：NPC 死亡前要把 `model.flash` 清零，否则尸体会一直发红。
 - **`window.game` 在开局前是那个 `<canvas id="game">`**（浏览器会把带 id 的元素挂到 `window` 上）。
   测试脚本判断游戏是否就绪要看 `window.game.startMode`，不能只看 `window.game`，`tools/lib/game-page.mjs` 就是这么等的。
-- **glb 枪模换了要重新对手的位置。** 手还是代码拼的，握把、护木的位置写在 `weapon.js` 的 `buildModels` 里；
+- **glb 枪模换了要重新对手的位置。** 手臂是 `arm.glb`（蒙皮模型），握把、护木的位置写在 `weapon.js` 的 `buildModels` 里（`arms.hand(...)`）；
   换模型后用侧视截图（把枪转 90 度）检查手有没有握在握把和护木上。
+- **手臂每帧要 `solve()`。** `gunmodel.js` 的 `buildArms` 按握持坐标系摆手腕骨骼、沿 `armDir` 摆小臂和上臂，手指只在第一次 solve 时自动弯到贴住握把。
+  `weapon.js` 在 `animate` 末尾对当前武器调一次；在别处移动了枪或手的目标点，要在渲染前再调一次，否则手臂慢一帧。
+  蒙皮网格关了视锥剔除（静止姿势的包围球不准）。
 - **同色集装箱共用贴图**，只显示第一个的编号，见 `maps.md`。
