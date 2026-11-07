@@ -12,7 +12,7 @@
 
 `assets/models/human/init_soldier.glb` 是压缩版（删除了 TPose 动画，网格用 meshopt、贴图用 WebP），未压缩的原始文件在 `assets-src/models/human/init_soldier.glb`。
 
-`assets/models/human/ukrainian-soldier.glb` 由 `assets-src/models/human/ukrainian-soldier/build.sh` 从原始下载 `assets-src/models/human/ukrainian-soldier-download.glb` 生成（原始 FBX 和贴图也在该目录）。
+`assets/models/human/ukrainian-soldier.glb` 由 `assets-src/models/human/ukrainian-soldier/build.sh` 从原始下载 `assets-src/models/human/ukrainian-soldier-download.glb` 生成（原始 FBX 和贴图在 `ukrainian-soldier/` 下）。原始文件体积大，不入仓库，只保留在开发机上。
 
 `assets/models/human/arm.glb` 由原始文件 `assets-src/models/human/arm-sketchfab.glb` 用 `tools/glb.mjs optimize --texture-size 1024` 压缩而成。
 
