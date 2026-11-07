@@ -1,7 +1,8 @@
 // ============================================================
 // NPC 的外观：加载 glTF 士兵模型、播放动画、摆持枪姿势、挂判定盒
 //
-// 模型来自 three.js 自带的 Soldier.glb（Mixamo 骨骼），只有待机/走/跑三个动画。
+// 模型是 ukrainian-soldier.glb（Mixamo 骨骼），待机/走/跑三个动画是从 init_soldier.glb 移植过来的，
+// 加工流程见 assets-src/models/human/ukrainian-soldier/build.sh。
 // 持枪姿势不是动画，而是每帧把手臂骨骼"掰"向枪上的握把位置（一个很简单的 IK）。
 // 这样换成别的 Mixamo 骨骼模型时，不需要重做持枪动画。
 //

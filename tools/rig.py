@@ -62,8 +62,8 @@ def add_anim(a):
     src_objs = import_file(a.anim)        # 注意：FBX 导入器会把场景帧率改成 FBX 的帧率
     src_fps = scene.render.fps / scene.render.fps_base
     src = main_armature(src_objs)
-    new_actions = [x for x in bpy.data.actions if x not in keep_actions]
-    if a.clip: new_actions = [x for x in new_actions if x.name.startswith(a.clip)]
+    imported_actions = [x for x in bpy.data.actions if x not in keep_actions]
+    new_actions = [x for x in imported_actions if x.name.startswith(a.clip)] if a.clip else imported_actions
     if not new_actions: fail(f'来源文件没有可用动画（--clip={a.clip}）')
     action = max(new_actions, key=lambda x: x.frame_range[1] - x.frame_range[0])
     src.animation_data_create()
@@ -156,7 +156,9 @@ def add_anim(a):
     if prev_action is not None and prev_slot is not None: tgt.animation_data.action_slot = prev_slot
 
     # 删掉来源文件带进来的东西，不让它们进入输出
-    for x in new_actions: bpy.data.actions.remove(x)
+    # （--clip 没选中的来源动画也要删，否则会被一起导出）
+    for x in imported_actions: bpy.data.actions.remove(x)
+    new.name = a.name   # 来源的同名动画删掉后再改一次，去掉 Blender 加的 .001 后缀
     for o in src_objs: bpy.data.objects.remove(o, do_unlink=True)
     scene.render.fps, scene.render.fps_base = round(dst_fps), 1.0
     dur = (f1 - f0) / src_fps

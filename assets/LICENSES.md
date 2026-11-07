@@ -4,12 +4,15 @@
 |---|---|---|
 | `models/gun/ak47.glb` | "[Ak47](https://sketchfab.com/3d-models/ak47-831519a097d84e079fd8bc4b15e5b57d)"，来自 Sketchfab | [CC0]。**有改动**：拆成枪身、弹匣、拉机柄三个部件，删除备用弹匣、子弹、骨骼和动画，调整尺寸和朝向，贴图转 WebP |
 | `models/human/arm.glb` | 第一人称手臂（袖子 + 半指手套），作者 H.John，来自 Sketchfab（模型文件内标注作者和 CC0） | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：材质由 SpecularGlossiness 转为 metal/rough，贴图缩到 1024 并转 WebP |
+| `models/human/ukrainian-soldier.glb` | 乌克兰士兵，**来源链接待补**（模型文件内标注作者 H.John、CC0） | CC0（待确认）。有改动：转 180° 朝向，从 init_soldier.glb 移植 Idle/Walk/Run 动画，透明贴图合进颜色贴图、BLEND 改 MASK，贴图缩到 1024 并转 WebP |
 | `models/human/init_soldier.glb` | three.js 仓库 `examples/models/gltf/Soldier.glb`（r149），角色和动画来自 Mixamo | 随 three.js 以 MIT 协议分发，见 `../vendor/three.LICENSE` |
 | `../vendor/GLTFLoader.js` | three.js r147 `examples/js/loaders/GLTFLoader.js` | MIT |
 | `../vendor/SkeletonUtils.js` | three.js r147 `examples/js/utils/SkeletonUtils.js` | MIT |
 | `../vendor/meshopt_decoder.js` | meshoptimizer 1.3.0 `meshopt_decoder.cjs` | MIT |
 
 `assets/models/human/init_soldier.glb` 是压缩版（删除了 TPose 动画，网格用 meshopt、贴图用 WebP），未压缩的原始文件在 `assets-src/models/human/init_soldier.glb`。
+
+`assets/models/human/ukrainian-soldier.glb` 由 `assets-src/models/human/ukrainian-soldier/build.sh` 从原始下载 `assets-src/models/human/ukrainian-soldier-download.glb` 生成（原始 FBX 和贴图也在该目录）。
 
 `assets/models/human/arm.glb` 由原始文件 `assets-src/models/human/arm-sketchfab.glb` 用 `tools/glb.mjs optimize --texture-size 1024` 压缩而成。
 
@@ -27,7 +30,7 @@ CC BY 授权要求署名：作者、原作链接、授权名称、是否修改�
 ## 换模型
 
 `js/character.js` 只假设模型是 Mixamo 骨骼（骨头名以 `mixamorig:` 开头），且带 `Idle` / `Walk` / `Run` 三个动画。
-任何从 Mixamo 导出、再转成 glb 的角色都可以直接替换 `models/human/init_soldier.glb`，或者改 `config.js` 里的 `character.model` 路径。
+任何从 Mixamo 导出、再转成 glb 的角色都可以直接替换 `models/human/ukrainian-soldier.glb`，或者改 `config.js` 里的 `character.model` 路径。
 
 推荐的免费来源：
 - Mixamo（https://www.mixamo.com）：免费角色和动作，可下载 FBX，用 Blender 转 glb

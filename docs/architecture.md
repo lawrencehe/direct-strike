@@ -77,3 +77,6 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
   `weapon.js` 在 `animate` 末尾对当前武器调一次；在别处移动了枪或手的目标点，要在渲染前再调一次，否则手臂慢一帧。
   蒙皮网格关了视锥剔除（静止姿势的包围球不准）。
 - **同色集装箱共用贴图**，只显示第一个的编号，见 `maps.md`。
+- **换 NPC 模型先看朝向和材质。** 下载来的模型可能面朝反方向（左手在 +X），`rig.sh add-anim` 会报"静止姿态相差 ~180°"，
+  先转 180° 再移植动画；Sketchfab 类导出常把所有材质设成 `BLEND`、法线强度 0、透明度放在单独贴图里，要改成 `MASK`。
+  例子见 `assets-src/models/human/ukrainian-soldier/build.sh`。

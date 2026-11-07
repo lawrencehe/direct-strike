@@ -1,4 +1,4 @@
-# Direct-Strike v0.15
+# Direct-Strike v0.16
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -86,7 +86,8 @@ direct-strike/
 ├── css/style.css     HUD 和界面样式
 ├── assets/
 │   ├── brand/               logo、网站图标、分享预览图
-│   ├── models/human/init_soldier.glb  NPC 模型（Mixamo 骨骼，带待机/走/跑动画）
+│   ├── models/human/ukrainian-soldier.glb  NPC 模型（Mixamo 骨骼，带待机/走/跑动画）
+│   ├── models/human/init_soldier.glb  旧 NPC 模型，现在只作为动画来源
 │   ├── models/human/arm.glb           第一人称手臂（蒙皮模型，CC0）
 │   ├── models/gun/ak47.glb            AK 枪模（Blender 加工，CC BY 4.0，署名见 LICENSES.md）
 │   └── LICENSES.md          第三方资源的来源和协议，以及怎么换模型

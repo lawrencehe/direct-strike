@@ -16,6 +16,7 @@
 | `docs/tools.md` | 工具链安装和用法、开发机限制 |
 | `docs/maps.md` | 地图格式 |
 | `docs/deploy.md` | 线上架构、发布、回滚 |
+| `docs/game-references.md` | 可参考的开源游戏：联网、手感数值、1v1 地图（只参考设计，不抄代码和素材） |
 | `docs/art-sources.md` | 美术参考图、CC0 模型和材质的来源，授权规则 |
 
 ## 运行

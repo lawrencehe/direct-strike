@@ -4,3 +4,9 @@ refer/
 # 本地工具链的依赖和产物，不入仓库
 tools/node_modules/
 tools/out/
+
+# 体积大的原始下载和中间母版，只在本机保留；可由 build.sh 重新生成的不入仓库
+assets-src/models/human/ukrainian-soldier-download.glb
+assets-src/models/human/ukrainian-soldier.glb
+assets-src/models/human/ukrainian-soldier/source/
+assets-src/models/human/ukrainian-soldier/textures/

@@ -54,6 +54,10 @@ cp tools/out/b.glb assets/models/human/init_soldier.glb
 node tools/verify.mjs
 ```
 
+现在游戏里的 NPC 是 `ukrainian-soldier.glb`，它的动画是从 `init_soldier.glb` 移植的。给它加动画后要重跑
+`assets-src/models/human/ukrainian-soldier/build.sh`（脚本里加一行 `add-anim`）。
+`add-anim` 的来源也可以是另一个同骨架的 glb，用 `--clip` 选其中一段动画。
+
 ## 这台机器的限制
 
 开发机是 GCP 实例：4 核 32G，x86_64，无 GPU、无显示器。

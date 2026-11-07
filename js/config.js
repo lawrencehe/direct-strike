@@ -183,7 +183,7 @@ Game.Config = {
 
   // NPC 外观
   character: {
-    model: 'assets/models/human/init_soldier.glb',  // 加载失败时自动退回方块小人
+    model: 'assets/models/human/ukrainian-soldier.glb',  // CC0，见 assets/LICENSES.md；加载失败时自动退回方块小人
     walkAnimSpeed: 1.7,    // 走路动画本来的前进速度（m/s）。加载模型时会自动量，这里只是量不出来时的备用值
     runAnimSpeed: 4.4,
     walkRunBlend: [2.2, 3.6],  // 速度在这个区间内从走路动画过渡到跑步动画
