@@ -102,7 +102,7 @@ Game.Config = {
     },
   },
 
-  // 投掷物。count 是每条命 / 每波带几个（训练场不限量）
+  // 投掷物。count 是每条命 / 每波带几个（训练场不限量）。玩家和 NPC 带一样多
   // fuse 是拉环后几秒引爆：按住左键就开始倒计时，松开才扔出去。攥太久会在手里炸
   grenades: {
     throwSpeed: 15,        // 出手速度 m/s
@@ -115,13 +115,13 @@ Game.Config = {
     trailLife: 2.2,        // 飞行轨迹保留几秒
 
     frag: {
-      name: '手雷', count: 2, fuse: 3.0,
+      name: '手雷', count: 1, fuse: 3.0,
       radius: 7,           // 爆炸半径；伤害随距离线性衰减，有掩体挡着不受伤
       damage: 150,         // 爆心伤害（2.3 米内必死）
       selfMul: 0.75,       // 炸到自己时伤害乘这个系数
     },
     flash: {
-      name: '闪光', count: 2, fuse: 2.0,
+      name: '闪光', count: 1, fuse: 2.0,
       radius: 20,
       playerBlind: 3.8,    // 玩家正对爆点、距离很近时致盲几秒
       botBlind: 3.2,       // NPC 致盲几秒（期间不开枪、站在原地）
@@ -149,6 +149,8 @@ Game.Config = {
   },
 
   // NPC 敌人（对战模式）
+  // NPC 的装备和玩家一样：AK + 手枪 + 三种雷各 grenades.*.count 个。
+  // 枪的射速、弹匣、换弹时间、各部位伤害都直接用上面 weapons 里的数值，这里只管 NPC 怎么用
   bots: {
     health: 100,
     walkSpeed: 2.4,        // 巡逻、交战时的移动速度
@@ -158,13 +160,24 @@ Game.Config = {
     viewAngle: 120,        // 视野角度（度），背后是盲区
     reactionTime: [0.6, 1.0],  // 发现玩家后多久开第一枪（随机范围）
     preferredRange: [8, 20],   // 喜欢的交战距离：太远会靠近，太近会后退
-    burstCount: [3, 5],    // 每次点射几发
-    burstInterval: 0.12,   // 点射中每发的间隔
-    burstPause: [0.7, 1.3],    // 两次点射之间的停顿
-    damage: 8,             // 打中玩家一发扣多少血
+    burstCount: [3, 5],    // AK 每次点射几发（点射中每发的间隔 = AK 的 fireInterval）
+    burstPause: [0.7, 1.3],    // AK 两次点射之间的停顿
+    pistolPause: [0.28, 0.5],  // 手枪两发之间的间隔（人扣扳机没那么快）
+    pistolRange: 15,       // AK 打空时：玩家在这个距离内就掏手枪，远了就换弹
+    damageMul: 1,          // NPC 子弹伤害倍数。1 = 和玩家的枪一样（爆头 100、身体 34…）；嫌太难打就调小
+    aimHeight: [0.45, 0.8],    // 瞄准玩家身高的哪一段（0 脚底 ~ 1 头顶）。头部是顶上 0.25 米，散布偶尔会爆头
     spread: 0.05,          // 基础散布，越大越打不准
     moveSpreadMul: 1.0,    // 玩家全速移动时，NPC 散布额外增加的倍数
     searchTime: 6,         // 丢失目标后搜索多久
+
+    // 投掷物：什么时候丢、丢哪种
+    grenadeChance: 0.6,    // 玩家躲起来（丢失视线）时，有多大概率朝最后看见的位置丢雷
+    fragRange: [8, 26],    // 手雷：离目标这个距离内才丢（太近会炸到自己）
+    flashRange: [6, 22],   // 闪光弹：同上。丢完会背过身去，免得闪到自己
+    smokeHealth: 50,       // 交战中血量低于这个值，丢烟雾弹挡住视线然后后撤
+    retreatTime: 3,        // 丢完烟后撤几秒
+    grenadeCooldown: 6,    // 两次丢雷至少隔几秒
+    throwTime: 0.6,        // 丢雷动作时长（期间不开枪）
     gravity: 15,
     stepHeight: 0.45,      // NPC 能直接走上去的台阶高度
     firstWave: 2,          // 波次模式：第一波几个敌人

@@ -7,6 +7,11 @@
 //   search（搜索）  ：玩家躲起来了 → 跑去最后看见玩家的地方找
 //   dead（阵亡）    ：布娃娃倒下、流血，几秒后消失（见 ragdoll.js）
 //
+// 装备和玩家一样（config.js 的 weapons 和 grenades）：
+//   AK 打空了，玩家离得近就掏手枪，远了就换弹；脱离交战后收起手枪、把 AK 换满。
+//   手雷 / 闪光：玩家躲起来后，朝最后看见的位置丢（看不到落点就高抛越过掩体）。
+//   丢闪光后背过身去，免得闪到自己。烟雾：血少时丢在自己和玩家之间，然后后撤。
+//
 // "看见"的判断（感知）有三个条件，全部满足才算看见：
 //   1. 距离够近   2. 在视野角度内（背后看不见）   3. 中间没有墙挡着（射线检测）
 //
@@ -64,6 +69,20 @@ Game.Bots = (function () {
       this.deathTimer = 0;
       this.aimPoint = new THREE.Vector3();
       this.blind = 0;                  // 被闪光弹致盲的剩余时间
+
+      // 装备：和玩家一样的两把枪 + 三种雷
+      const W = Game.Config.weapons, G = Game.Config.grenades;
+      this.weapon = 'rifle';
+      this.ammo = { rifle: W.rifle.magSize, pistol: W.pistol.magSize };
+      this.reloadT = 0;                // 换弹剩余时间
+      this.switchT = 0;                // 切枪剩余时间
+      this.switchTo = null;
+      this.nades = { frag: G.frag.count, flash: G.flash.count, smoke: G.smoke.count };
+      this.throwing = null;            // 正在丢的雷：{ kind, target, t, released }
+      this.nadeCooldown = rand(1, 3);
+      this.lookAway = 0;               // 丢完闪光背过身的剩余时间
+      this.retreatT = 0;               // 丢完烟后撤的剩余时间
+      this.nadeChecked = false;        // 这次丢失视线后是否已经考虑过丢雷
       this.bleedTime = 0;              // 尸体还要流多久的血
       this.pooled = false;             // 血泊是不是已经开始渗了
       this.bloodPos = new THREE.Vector3();
@@ -91,10 +110,10 @@ Game.Bots = (function () {
       this.health -= amount;
       this.model.hitFlash();
 
-      // 被打了就警觉：转身找玩家
-      this.alertTimer = 3;
+      // 被玩家打了就警觉：转身找玩家（被自己人的雷炸到不算）
+      if (!hit.byBot) this.alertTimer = 3;
       this.perceiveTimer = 0;
-      if (!this.seesPlayer) {
+      if (!this.seesPlayer && !hit.byBot) {
         this.state = 'search';
         this.lastSeen.copy(this.mgr.player.position);
         this.searchTimer = Game.Config.bots.searchTime;
@@ -103,6 +122,7 @@ Game.Bots = (function () {
       if (this.health <= 0) {
         this.alive = false;
         this.state = 'dead';
+        this.model.setWeapon(this.weapon, true);   // 丢雷时死了，枪也要掉出来
         const head = hit.part === 'head';
         this.model.flash = 0;   // 闪红是"打中了但没死"的反馈，死的时候看血和动作
         this.model.die({ ...hit, vel: this.vel, colliders: this.mgr.colliders });
@@ -110,7 +130,7 @@ Game.Bots = (function () {
         this.bleedTime = head ? 2.2 : 1.4;
         this.bleedRate = head ? 26 : 12;
         this.poolSize = head ? 0.95 : 0.8;
-        this.mgr.onBotKilled(this);
+        this.mgr.onBotKilled(this, hit);
         return { killed: true };
       }
       return { killed: false };
@@ -139,6 +159,10 @@ Game.Bots = (function () {
         this.perceive(dx, dz, dist);
       }
 
+      this.updateWeapons(dt);
+      this.nadeCooldown -= dt;
+      if (this.blind <= 0 && !this.throwing) this.considerGrenade(dist);
+
       // ---- 根据状态决定：往哪走、多快、面朝哪 ----
       let mx = 0, mz = 0, speed = 0, faceYaw = this.yaw;
 
@@ -146,6 +170,21 @@ Game.Bots = (function () {
         // 被闪了：什么都看不见，站在原地晃脑袋，等恢复后再重新发现玩家
         this.blind -= dt;
         faceYaw = this.yaw + Math.sin(this.blind * 4) * 0.6;
+      } else if (this.throwing) {
+        // 丢雷：站定、面朝落点
+        const tg = this.throwing.target;
+        faceYaw = yawTo(tg.x - this.pos.x, tg.z - this.pos.z);
+        this.updateThrow(dt);
+      } else if (this.lookAway > 0) {
+        // 闪光弹快炸了：背对落点等它炸完
+        this.lookAway -= dt;
+        faceYaw = yawTo(this.pos.x - this.flashAt.x, this.pos.z - this.flashAt.z);
+      } else if (this.retreatT > 0) {
+        // 烟雾掩护下后撤：背离玩家跑，枪口还对着玩家的方向
+        this.retreatT -= dt;
+        faceYaw = yawTo(dx, dz);
+        mx = -dx; mz = -dz;
+        speed = cfg.runSpeed;
       } else if (this.state === 'patrol') {
         if (!this.waypoint || Math.hypot(this.waypoint.x - this.pos.x, this.waypoint.z - this.pos.z) < 1) {
           this.waypoint = this.mgr.nextNavPoint(this.pos);
@@ -185,7 +224,7 @@ Game.Bots = (function () {
       const mlen = Math.hypot(mx, mz);
       if (mlen > 0.001) {
         mx /= mlen; mz /= mlen;
-        if (this.state !== 'combat') faceYaw = yawTo(mx, mz);
+        if (this.state !== 'combat' && this.retreatT <= 0) faceYaw = yawTo(mx, mz);
       } else {
         speed = 0;
       }
@@ -243,6 +282,7 @@ Game.Bots = (function () {
           this.reaction = rand(a, b) * (1 - 0.4 * this.skill);
         }
         this.seesPlayer = true;
+        this.nadeChecked = false;
         this.state = 'combat';
         this.lastSeen.copy(player.position);
       } else if (this.seesPlayer) {
@@ -253,18 +293,149 @@ Game.Bots = (function () {
       }
     }
 
-    // 点射：连开几枪，停一下，再连开几枪
+    // AK 点射：连开几枪，停一下，再连开几枪；手枪一发一发打
     updateFiring(dt, aimYaw) {
       const cfg = Game.Config.bots;
       if (this.reaction > 0) { this.reaction -= dt; return; }
       this.fireTimer -= dt;
-      if (this.fireTimer > 0) return;
+      if (this.fireTimer > 0 || this.busy()) return;
+      if (this.ammo[this.weapon] <= 0) return;                     // 等 updateWeapons 换弹或切枪
       if (Math.abs(wrapAngle(aimYaw - this.yaw)) > 0.15) return;  // 还没转过来
 
-      if (this.burstLeft <= 0) this.burstLeft = randInt(cfg.burstCount[0], cfg.burstCount[1]);
+      const gun = Game.Config.weapons[this.weapon];
       this.shoot();
+      this.ammo[this.weapon]--;
+      if (this.weapon === 'pistol') {
+        this.fireTimer = Math.max(gun.fireInterval, rand(cfg.pistolPause[0], cfg.pistolPause[1]));
+        return;
+      }
+      if (this.burstLeft <= 0) this.burstLeft = randInt(cfg.burstCount[0], cfg.burstCount[1]);
       this.burstLeft--;
-      this.fireTimer = this.burstLeft > 0 ? cfg.burstInterval : rand(cfg.burstPause[0], cfg.burstPause[1]);
+      this.fireTimer = this.burstLeft > 0 ? gun.fireInterval : rand(cfg.burstPause[0], cfg.burstPause[1]);
+    }
+
+    // 正在换弹、切枪或丢雷，腾不出手开枪
+    busy() { return this.reloadT > 0 || this.switchT > 0 || !!this.throwing; }
+
+    // 换弹和切枪。时间和玩家一样：换弹用各枪的 reloadTime，切枪 = 收枪 + 掏枪
+    updateWeapons(dt) {
+      const W = Game.Config.weapons;
+      if (this.reloadT > 0) {
+        this.reloadT -= dt;
+        if (this.reloadT <= 0) this.ammo[this.weapon] = W[this.weapon].magSize;
+        return;
+      }
+      if (this.switchT > 0) {
+        this.switchT -= dt;
+        if (this.switchT <= W.switchIn) this.model.setWeapon(this.switchTo, !this.throwing);   // 收完枪，开始掏另一把
+        if (this.switchT <= 0) this.weapon = this.switchTo;
+        return;
+      }
+      if (this.throwing) return;
+
+      const other = this.weapon === 'rifle' ? 'pistol' : 'rifle';
+      const empty = this.ammo[this.weapon] <= 0;
+      if (this.state === 'combat') {
+        if (!empty) return;
+        // AK 打空：近了掏手枪更快，远了换弹；手枪也打空了就看 AK 还有没有子弹
+        const dist = this.pos.distanceTo(this.mgr.player.position);
+        const wantPistol = this.weapon === 'rifle' && dist < Game.Config.bots.pistolRange;
+        if (this.ammo[other] > 0 && (this.weapon === 'pistol' || wantPistol)) this.switchWeapon(other);
+        else this.reload();
+      } else {
+        // 没在交战：收起手枪，把 AK 换满
+        if (this.weapon === 'pistol') this.switchWeapon('rifle');
+        else if (this.ammo.rifle < W.rifle.magSize) this.reload();
+      }
+    }
+
+    reload() {
+      this.reloadT = Game.Config.weapons[this.weapon].reloadTime;
+      this.burstLeft = 0;
+    }
+
+    switchWeapon(key) {
+      const W = Game.Config.weapons;
+      this.switchTo = key;
+      this.switchT = W.switchOut + W.switchIn;
+      this.burstLeft = 0;
+    }
+
+    // ---- 投掷物 ----
+    considerGrenade(dist) {
+      const cfg = Game.Config.bots;
+      if (this.nadeCooldown > 0 || this.reloadT > 0 || this.switchT > 0) return;
+      const player = this.mgr.player;
+
+      // 交战中血少：在自己和玩家之间丢烟，然后后撤
+      if (this.state === 'combat' && this.nades.smoke > 0 && this.health < cfg.smokeHealth && dist > 4) {
+        const k = Math.min(6, dist * 0.5) / dist;
+        const t = new THREE.Vector3(this.pos.x + (player.position.x - this.pos.x) * k, this.pos.y, this.pos.z + (player.position.z - this.pos.z) * k);
+        this.startThrow('smoke', t);
+        return;
+      }
+
+      // 玩家躲起来了：每次丢失视线只考虑一次，朝最后看见的位置丢手雷或闪光
+      if (this.state !== 'search' || this.nadeChecked) return;
+      this.nadeChecked = true;
+      if (Math.random() > cfg.grenadeChance) return;
+      const d = Math.hypot(this.lastSeen.x - this.pos.x, this.lastSeen.z - this.pos.z);
+      const inRange = (r) => d >= r[0] && d <= r[1];
+      const options = [];
+      if (this.nades.frag > 0 && inRange(cfg.fragRange)) options.push('frag');
+      if (this.nades.flash > 0 && inRange(cfg.flashRange)) options.push('flash');
+      if (!options.length) return;
+      this.startThrow(options[randInt(0, options.length - 1)], this.lastSeen.clone());
+    }
+
+    startThrow(kind, target) {
+      this.nades[kind]--;
+      this.throwing = { kind, target, t: 0, released: false };
+      this.burstLeft = 0;
+      this.model.setWeapon(this.weapon, false);   // 腾出手来：枪先收起
+    }
+
+    updateThrow(dt) {
+      const cfg = Game.Config.bots;
+      const th = this.throwing;
+      th.t += dt;
+      // 先转向落点，转过来了（或者等太久）才出手
+      const facing = Math.abs(wrapAngle(yawTo(th.target.x - this.pos.x, th.target.z - this.pos.z) - this.yaw)) < 0.25;
+      if (!th.released && (facing || th.t > 1.2) && th.t > cfg.throwTime * 0.5) {
+        th.released = true;
+        th.t = cfg.throwTime * 0.5;
+        this.releaseGrenade(th.kind, th.target);
+      }
+      if (th.released && th.t >= cfg.throwTime) {
+        this.throwing = null;
+        this.nadeCooldown = cfg.grenadeCooldown;
+        this.model.setWeapon(this.weapon, true);
+        if (th.kind === 'flash') {
+          this.flashAt = th.target;
+          this.lookAway = Game.Config.grenades.flash.fuse;
+        } else if (th.kind === 'smoke') {
+          this.retreatT = cfg.retreatTime;
+        }
+      }
+    }
+
+    // 算出手速度：出手速度固定（和玩家一样），只调角度，让雷落在 target。
+    // 看得见落点就平抛（低角度），被掩体挡着就高抛越过去。够不着就按 45 度丢最远
+    releaseGrenade(kind, target) {
+      const G = Game.Config.grenades;
+      const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
+      const pos = new THREE.Vector3(this.pos.x + fx * 0.35 - fz * 0.15, this.pos.y + 1.55, this.pos.z + fz * 0.35 + fx * 0.15);
+      const v = G.throwSpeed, g = 15;   // 重力和 grenades.js 的 stepGrenade 一致
+      const dx = target.x - pos.x, dz = target.z - pos.z;
+      const d = Math.max(0.5, Math.hypot(dx, dz) * 0.85);   // 落地后还会滚一段，丢近一点
+      const h = target.y + 0.1 - pos.y;
+      const aim = target.clone(); aim.y += 0.4;
+      const high = !this.mgr.hasLineOfSight(pos, aim);
+      const disc = v ** 4 - g * (g * d * d + 2 * h * v * v);
+      const angle = disc < 0 ? Math.PI / 4 : Math.atan((v * v + (high ? 1 : -1) * Math.sqrt(disc)) / (g * d));
+      const hd = Math.hypot(dx, dz) || 1;
+      const vel = new THREE.Vector3(dx / hd * Math.cos(angle) * v, Math.sin(angle) * v, dz / hd * Math.cos(angle) * v);
+      this.mgr.grenades.launch(kind, pos, vel, G[kind].fuse, this);
     }
 
     shoot() {
@@ -274,7 +445,7 @@ Game.Bots = (function () {
 
       // 瞄准玩家胸口到头之间的某一点
       const aim = player.position.clone();
-      aim.y += rand(0.65, 0.91) * player.height;   // 玩家蹲下时瞄准点也跟着降低
+      aim.y += rand(cfg.aimHeight[0], cfg.aimHeight[1]) * player.height;   // 玩家蹲下时瞄准点也跟着降低
       const dir = aim.sub(muzzle).normalize();
 
       // 散布：玩家跑得越快、自己在移动，就越打不准；技能越高越准
@@ -351,7 +522,7 @@ Game.Bots = (function () {
       this.model.setMotion(this.vel.x, this.vel.z, this.yaw, dt);
 
       // 交战时枪口跟着玩家抬高/压低，其他时候平举
-      if (this.state === 'combat' && this.mgr.player.alive) {
+      if (this.state === 'combat' && this.mgr.player.alive && !this.throwing && this.lookAway <= 0) {
         this.aimPoint.copy(this.mgr.player.position);
         this.aimPoint.y += 0.76 * this.mgr.player.height;
         this.model.aimAt(this.aimPoint);
@@ -503,7 +674,11 @@ Game.Bots = (function () {
       let end;
       if (this.player.alive && hitPlayer && origin.distanceTo(hitPlayer) < wallDist) {
         end = hitPlayer;
-        this.player.takeDamage(Game.Config.bots.damage, bot.pos);
+        // 玩家只有一个碰撞盒，按打中的高度分部位：顶上 0.25 米是头，下面 45% 是腿
+        const rel = hitPlayer.y - this.player.position.y;
+        const part = rel > this.player.height - 0.25 ? 'head' : rel < this.player.height * 0.45 ? 'leg' : 'body';
+        const dmg = Game.Config.weapons[bot.weapon].damage[part] * Game.Config.bots.damageMul;
+        this.player.takeDamage(dmg, bot.pos);
       } else {
         end = wall ? wall.point : origin.clone().addScaledVector(dir, maxDist);
       }
@@ -518,8 +693,13 @@ Game.Bots = (function () {
     }
 
     // ---- 击杀和回合 ----
-    onBotKilled(bot) {
-      if (this.mode === 'duel') {
+    // hit.byBot：被 NPC 的雷炸死（包括自己的），不算玩家的击杀
+    onBotKilled(bot, hit = {}) {
+      if (this.mode === 'duel' && hit.byBot) {
+        this.hud.banner('对手被自己的雷炸死', 1.5);
+        this.phase = 'respawning';
+        this.timer = Game.Config.duel.respawnDelay;
+      } else if (this.mode === 'duel') {
         this.score.player++;
         this.updateHud();
         this.hud.banner('击杀！', 1.2);

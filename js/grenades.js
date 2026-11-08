@@ -6,6 +6,8 @@
 //
 // 手雷伤害要看有没有掩体：从爆点朝目标打一条视线，被墙挡住就不受伤。
 // 闪光弹看距离和朝向：背对着爆点影响小得多。
+// 玩家和 NPC 都能丢（owner：null 是玩家，否则是丢雷的那个 NPC）。
+// 手雷炸到丢雷的人自己时伤害乘 selfMul；NPC 的雷炸死 NPC 不算玩家的击杀。
 // 烟团不是真正的体积，NPC 判断视线时把它当作一个球（blocksSight）；
 // 玩家这边靠一堆半透明的 Sprite 挡住视线。
 // ============================================================
@@ -42,7 +44,11 @@ Game.Grenades = class Grenades {
     const vel = fwd.clone().addScaledVector(up, cfg.throwUp).normalize().multiplyScalar(cfg.throwSpeed);
     vel.addScaledVector(this.player.velocity, 0.5);
     if (drop) vel.set(0, 0, 0);
+    this.launch(kind, pos, vel, fuse, null, drop);
+  }
 
+  // 真正把一颗雷放进场景：pos 出手位置、vel 初速度、owner 谁丢的（null = 玩家）
+  launch(kind, pos, vel, fuse, owner = null, drop = false) {
     const model = Game.GunModel.buildGrenade(kind).group;
     const pin = model.getObjectByName('pin');
     if (pin) pin.visible = false;
@@ -54,7 +60,7 @@ Game.Grenades = class Grenades {
     if (trail) this.trails.push(trail);
 
     this.flying.push({
-      kind, model, pos: pos.clone(), vel, trail,
+      kind, model, pos: pos.clone(), vel: vel.clone(), trail, owner,
       fuse,
       spin: new THREE.Vector3(Math.random() * 12 - 6, Math.random() * 6 - 3, Math.random() * 12 - 6),
     });
@@ -66,7 +72,7 @@ Game.Grenades = class Grenades {
     const pos = cam.position.clone().addScaledVector(new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion), 0.25);
     if (this.insideBox(pos, this.world.colliders)) pos.copy(cam.position);
     pos.y -= 0.15;       // detonate 会抬高 0.15
-    this.detonate({ kind, pos, model: new THREE.Group() });
+    this.detonate({ kind, pos, model: new THREE.Group(), owner: null });
   }
 
   insideBox(p, boxes, r = 0) {
@@ -144,7 +150,7 @@ Game.Grenades = class Grenades {
     const pos = g.pos.clone();
     pos.y += 0.15;
     const dist = pos.distanceTo(this.camera.position);
-    if (g.kind === 'frag') this.explodeFrag(pos, dist);
+    if (g.kind === 'frag') this.explodeFrag(pos, dist, g.owner || null);
     else if (g.kind === 'flash') this.explodeFlash(pos, dist);
     else this.startSmoke(pos, dist);
   }
@@ -162,7 +168,7 @@ Game.Grenades = class Grenades {
   }
 
   // ---------- 手雷 ----------
-  explodeFrag(pos, dist) {
+  explodeFrag(pos, dist, owner) {
     const c = Game.Config.grenades.frag;
     this.effects.explosion(pos);
     this.audio.explosion(dist);
@@ -175,10 +181,14 @@ Game.Grenades = class Grenades {
       if (d >= c.radius || !this.clearLine(pos, chest)) continue;
       const k = 1 - d / c.radius;
       const dir = chest.clone().sub(pos).normalize();
-      const result = bot.takeDamage(c.damage * k, {
-        part: 'body', point: chest.clone(), dir, explosion: true, force: 0.75 + 1.6 * k,
+      const result = bot.takeDamage(c.damage * k * (bot === owner ? c.selfMul : 1), {
+        part: 'body', point: chest.clone(), dir, explosion: true, force: 0.75 + 1.6 * k, byBot: !!owner,
       });
       if (!result) continue;
+      if (owner) {           // NPC 的雷：没有玩家的命中提示
+        if (!result.killed) this.effects.bloodHit(chest, dir);
+        continue;
+      }
       this.hud.showHit(result.killed);
       if (result.killed) this.audio.kill(false);
       else { this.audio.hit(); this.effects.bloodHit(chest, dir); }
@@ -198,7 +208,7 @@ Game.Grenades = class Grenades {
       const d = eye.distanceTo(pos);
       if (d < 16) player.addRecoil(0.05 * (1 - d / 16), (Math.random() - 0.5) * 0.03 * (1 - d / 16));
       if (d < c.radius && this.clearLine(pos, eye)) {
-        const dmg = c.damage * c.selfMul * (1 - d / c.radius);
+        const dmg = c.damage * (owner ? 1 : c.selfMul) * (1 - d / c.radius);
         if (dmg >= 1) player.takeDamage(dmg, pos);
       }
     }

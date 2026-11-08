@@ -134,6 +134,40 @@ Game.Character = (function () {
 
   // 枪在身体坐标系里的位置（原点在脚底，面朝 -z）
   const RIFLE_POS = new THREE.Vector3(0.16, 1.3, -0.12);
+  // 手枪双手平举在胸前：握把在 (0.08, 1.35, -0.42) 附近，减去握把在枪里的位置就是枪的原点
+  const PISTOL_POS = new THREE.Vector3(0.08, 1.4, -0.49);
+
+  // NPC 手里的手枪：和玩家用同一个模型（gunmodel.js 的 buildPistol），造一次，之后每个 NPC 克隆
+  let pistolProto = null;
+  function buildPistol() {
+    if (!pistolProto) {
+      pistolProto = Game.GunModel.buildPistol();
+      pistolProto.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.userData.shared = true; } });
+    }
+    const g = pistolProto.group.clone(true);
+    const at = (x, y, z) => { const o = new THREE.Object3D(); o.position.set(x, y, z); g.add(o); return o; };
+    const muzzle = at(pistolProto.muzzle.x, pistolProto.muzzle.y, pistolProto.muzzle.z);
+    const grip = at(0, -0.066, 0.075);
+    const guard = at(-0.01, -0.07, 0.07);   // 左手从另一侧包住握把
+    // stockZ / muzzleZ：死后脱手掉落时，布娃娃用这两个点代表整把枪（见 ragdoll.js）
+    return { group: g, muzzle, grip, guard, stockZ: 0.1, muzzleZ: -0.15 };
+  }
+
+  // 两把枪都挂在 parent 下，只显示手上那把。返回 { rifle, pistol }
+  function buildGuns(parent, riflePos, pistolPos) {
+    const guns = { rifle: buildRifle(), pistol: buildPistol() };
+    guns.rifle.group.position.copy(riflePos);
+    guns.pistol.group.position.copy(pistolPos);
+    guns.pistol.group.visible = false;
+    parent.add(guns.rifle.group, guns.pistol.group);
+    return guns;
+  }
+
+  // 换枪 / 收枪：两种模型共用。key 是 'rifle' | 'pistol'，show = false 表示枪收起来（丢雷时）
+  function equip(model, key, show = true) {
+    model.rifle = model.guns[key];       // model.rifle 永远指"手上那把"，瞄准、枪口、布娃娃都用它
+    for (const [k, g] of Object.entries(model.guns)) g.group.visible = show && k === key;
+  }
 
   // 用几个方块拼一把步枪，返回 { group, muzzle, grip, guard }
   function buildRifle() {
@@ -156,7 +190,7 @@ Game.Character = (function () {
     const muzzle = new THREE.Object3D(); muzzle.position.set(0, 0.015, -0.6); g.add(muzzle);
     const grip = new THREE.Object3D(); grip.position.set(0.02, -0.1, 0.06); g.add(grip);
     const guard = new THREE.Object3D(); guard.position.set(-0.03, -0.05, -0.3); g.add(guard);
-    return { group: g, muzzle, grip, guard };
+    return { group: g, muzzle, grip, guard, stockZ: 0.3, muzzleZ: -0.55 };
   }
 
   // 让骨头的方向（骨头的局部 Y 轴）指向世界坐标里的 dir
@@ -223,9 +257,8 @@ Game.Character = (function () {
       // 枪挂在"躯干"组里，躯干跟着瞄准方向转，腿可以朝别处
       this.torso = new THREE.Group();
       this.root.add(this.torso);
-      this.rifle = buildRifle();
-      this.rifle.group.position.copy(RIFLE_POS);
-      this.torso.add(this.rifle.group);
+      this.guns = buildGuns(this.torso, RIFLE_POS, PISTOL_POS);
+      equip(this, 'rifle');
 
       // 判定盒
       const hitMat = cfg().showHitboxes
@@ -313,6 +346,7 @@ Game.Character = (function () {
     }
 
     getMuzzle(out) { return this.rifle.muzzle.getWorldPosition(out); }
+    setWeapon(key, show = true) { equip(this, key, show); }
 
     hitFlash() { this.flash = 1; }
 
@@ -382,6 +416,7 @@ Game.Character = (function () {
     dispose() {
       this.mixer.stopAllAction();
       this.root.traverse((o) => {
+        if (o.userData.shared) return;    // 手枪的网格和材质所有 NPC 共用，不能释放
         if (o.isMesh && !o.isSkinnedMesh) o.geometry.dispose();
         if (o.material && o.material.dispose) o.material.dispose();
       });
@@ -425,9 +460,8 @@ Game.Character = (function () {
       box(0.12, 0.12, 0.45, 0.24, 1.3, -0.2, mats.shirt, 'body');
       box(0.12, 0.12, 0.4, -0.12, 1.3, -0.32, mats.shirt, 'body');
 
-      this.rifle = buildRifle();
-      this.rifle.group.position.set(0.1, 1.36, -0.2);
-      root.add(this.rifle.group);
+      this.guns = buildGuns(root, new THREE.Vector3(0.1, 1.36, -0.2), new THREE.Vector3(0.08, 1.42, -0.45));
+      equip(this, 'rifle');
 
       this.walkPhase = 0;
       this.speed = 0;
@@ -453,6 +487,7 @@ Game.Character = (function () {
     }
 
     getMuzzle(out) { return this.rifle.muzzle.getWorldPosition(out); }
+    setWeapon(key, show = true) { equip(this, key, show); }
     hitFlash() { this.flash = 1; }
 
     // 备用小人没有骨骼，做不了布娃娃：朝子弹方向整个倒下，爆头 / 爆炸时带一点腾空
@@ -492,6 +527,7 @@ Game.Character = (function () {
 
     dispose() {
       this.root.traverse((o) => {
+        if (o.userData.shared) return;
         if (o.geometry) o.geometry.dispose();
         if (o.material) o.material.dispose();
       });

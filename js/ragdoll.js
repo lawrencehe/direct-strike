@@ -259,8 +259,11 @@ Game.Ragdoll = (function () {
     buildRifle() {
       const g = this.rifle.group;
       this.rifleQ0 = g.getWorldQuaternion(new THREE.Quaternion());
-      const stock = this.solver.point(g.localToWorld(new THREE.Vector3(0, 0, 0.3)), 0.03, 0.5, 1);
-      const muzzle = this.solver.point(g.localToWorld(new THREE.Vector3(0, 0, -0.55)), 0.03, 0.5, 1);
+      // 枪托和枪口两个点（手枪短得多，各把枪自己给 stockZ / muzzleZ）
+      const sz = this.rifle.stockZ ?? 0.3, mz = this.rifle.muzzleZ ?? -0.55;
+      this.gunFrac = sz / (sz - mz);   // 枪的原点在两点连线上的位置
+      const stock = this.solver.point(g.localToWorld(new THREE.Vector3(0, 0, sz)), 0.03, 0.5, 1);
+      const muzzle = this.solver.point(g.localToWorld(new THREE.Vector3(0, 0, mz)), 0.03, 0.5, 1);
       this.solver.link(stock, muzzle);
       this.gunPts = { stock, muzzle, dir0: muzzle.p.clone().sub(stock.p).normalize() };
     }
@@ -460,7 +463,7 @@ Game.Ragdoll = (function () {
       // 枪：挂在 root 下面，要把世界坐标换回局部
       const g = this.rifle.group, s = this.gunPts;
       _a.subVectors(s.muzzle.p, s.stock.p);
-      g.position.copy(s.stock.p).addScaledVector(_a, 0.3 / 0.85);
+      g.position.copy(s.stock.p).addScaledVector(_a, this.gunFrac);
       g.parent.worldToLocal(g.position);
       _a.normalize();
       _dq.setFromUnitVectors(s.dir0, _a);

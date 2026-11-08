@@ -52,6 +52,10 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 - **投掷物**（`grenades.js`）：方块反弹物理、爆炸伤害（射线判断有无掩体）、闪光按距离和朝向致盲、烟团挡 NPC 视线（`blocksSight`），飞行轨迹是 `Trail` 类。
 - **NPC**：`bots.js` 是状态机 AI（巡逻 → 发现 → 交火），`character.js` 负责模型、动画、持枪姿势、判定盒和死亡；
   死亡时 `character.die(hit)` 创建 `ragdoll.js` 的布娃娃。
+  NPC 装备和玩家一样：`model.guns` 里有 AK 和手枪两把（`model.rifle` 永远指手上那把，瞄准、枪口、IK、布娃娃掉枪都用它），
+  弹药、换弹、切枪时间、各部位伤害都读 `config.weapons`。玩家只有一个碰撞盒，NPC 打中玩家时按命中高度分头 / 身 / 腿。
+  NPC 丢雷走 `grenades.launch(kind, pos, vel, fuse, owner)`；`owner` 是丢雷的 NPC（玩家丢的是 `null`），
+  决定"炸到自己乘 selfMul"、要不要显示命中提示、算不算玩家的击杀（`hit.byBot`）。
 - **布娃娃**（`ragdoll.js`）：Verlet 质点 + 距离约束，和地图方块碰撞，每帧把质点位置换算回 Mixamo 骨骼的旋转。
   不同死法（爆头、炸飞、打腿、打身体的三种倒法）只是初始冲量不同，参数在 `config.ragdoll`。
 - **血**（`effects.js`）：血雾是 Sprite；血滴共用一个 `THREE.Points` 环形缓冲；地上的血迹和血泊是逐渐变大的平面。
