@@ -30,7 +30,7 @@ v0.11：手雷按住拉环、飞行轨迹，枪和投掷物都加上手
 ## 版本号
 
 - 一次功能性的更新加一个小版本（v0.10 → v0.11）。
-- 版本号写在两处，发版时一起改：`README.md` 第一行标题、`index.html` 开始界面的 `<small>vX.Y</small>`。
+- 版本号写在两处，发版时一起改：`README.md` 第一行标题、`index.html` 首页顶栏的 `<small>vX.Y</small>`。
 - 大版本打 tag：`git tag v0.12 && git push origin v0.12`。回滚靠 tag，见 `deploy.md`。
 
 ## 每次改动的步骤

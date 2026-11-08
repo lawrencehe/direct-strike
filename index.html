@@ -17,7 +17,7 @@
 <body>
   <canvas id="game"></canvas>
 
-  <!-- 抬头显示（HUD） -->
+  <!-- 抬头显示（HUD）：只在战斗中显示，由 hud.js 控制 -->
   <div id="hud">
     <div id="flash-white"></div>
     <div id="damage-flash"></div>
@@ -34,15 +34,15 @@
     <div id="banner"></div>
 
     <div id="stats">
-      <div class="battle-only">击杀 <b id="stat-kills">0</b></div>
-      <div>射击 <b id="stat-shots">0</b></div>
-      <div>命中 <b id="stat-hits">0</b></div>
-      <div>爆头 <b id="stat-heads">0</b></div>
-      <div>命中率 <b id="stat-acc">0%</b></div>
+      <div class="battle-only"><span>击杀</span><b id="stat-kills">0</b></div>
+      <div><span>射击</span><b id="stat-shots">0</b></div>
+      <div><span>命中</span><b id="stat-hits">0</b></div>
+      <div><span>爆头</span><b id="stat-heads">0</b></div>
+      <div><span>命中率</span><b id="stat-acc">0%</b></div>
     </div>
 
     <div id="health">
-      <span class="label">生命</span><span id="health-val">100</span>
+      <span class="label">HP</span><span id="health-val">100</span>
       <div class="bar"><i id="health-bar"></i></div>
     </div>
 
@@ -51,32 +51,141 @@
     <div id="hint"></div>
   </div>
 
-  <!-- 开始 / 暂停 / 结算界面 -->
+  <!-- 界面：加载 → 首页 → 作战简报 → 战斗 ⇄ 暂停 → 结算。由 ui.js 切换，同一时间只显示一个 .screen -->
   <div id="overlay">
-    <div class="panel">
-      <img class="logo" src="assets/brand/logo.png" alt="" width="200" height="110">
-      <h1>Direct-Strike <small>v0.17</small></h1>
-      <p id="overlay-sub">选择模式开始</p>
-      <div id="overlay-result"></div>
-      <!-- 按键表由 hud.js 根据当前绑定生成，点击按键名可以改键 -->
-      <div class="keys-head">
-        <span>按键（点击可改）</span>
-        <a id="btn-keys-reset" href="#">恢复默认</a>
+
+    <!-- 加载页 -->
+    <section class="screen" id="scr-boot">
+      <div class="boot">
+        <img src="assets/brand/logo-dark.png" alt="Direct-Strike" width="217" height="110">
+        <div class="boot-bar"><i id="boot-progress"></i></div>
+        <!-- 地图和枪模加载完之前显示"加载中"，出错时显示原因 -->
+        <div id="loading">加载中…</div>
       </div>
-      <table class="keys" id="keys"></table>
-      <button id="btn-resume">继续</button>
-      <div class="mode-btns">
-        <button id="btn-range">训练场</button>
-        <button id="btn-duel">1v1 对决</button>
-        <button id="btn-waves">波次</button>
+    </section>
+
+    <!-- 首页：不全屏，背后是训练场的 3D 画面 -->
+    <section class="screen" id="scr-home">
+      <header class="topbar">
+        <a class="brand" href="#" data-tab="play">
+          <img src="assets/brand/logo-dark.png" alt="" width="63" height="32">
+          <span>DIRECT-STRIKE <small>v0.18</small></span>
+        </a>
+        <nav class="tabs">
+          <a href="#" data-tab="play" class="on">作战</a>
+          <a href="#" data-tab="settings">设置</a>
+        </nav>
+        <div class="topbar-right">
+          <span class="chip" id="npc-status"></span>
+          <button class="icon-btn" id="btn-mute" title="静音"></button>
+        </div>
+      </header>
+
+      <!-- 作战页：左边选模式，右边看地图、调规则、进入战斗 -->
+      <div class="tab-page" id="tab-play">
+        <div class="hero">
+          <div class="eyebrow">本地对战 · LOCAL OPS</div>
+          <h1 id="mode-title"></h1>
+          <div class="tags" id="mode-tags"></div>
+          <p id="mode-desc"></p>
+        </div>
+
+        <div class="mode-list" id="mode-list"></div>
+
+        <aside class="deploy ticks">
+          <div class="map-card">
+            <img id="map-img" alt="">
+            <div class="map-meta">
+              <span class="eyebrow">地图</span>
+              <b id="map-name"></b>
+            </div>
+          </div>
+          <div class="deploy-body">
+            <div class="opt" id="opt-duel">
+              <span class="eyebrow">获胜条件</span>
+              <div class="seg" id="duel-len"></div>
+            </div>
+            <div class="opt">
+              <span class="eyebrow">装备</span>
+              <div class="loadout" id="loadout"></div>
+            </div>
+            <button class="btn-deploy" id="btn-deploy"><span>进入战斗</span><i></i></button>
+          </div>
+        </aside>
       </div>
-      <!-- 对决的获胜杀数，选项由 hud.js 按 config.duel.winScoreOptions 生成 -->
-      <div class="duel-len"><span>1v1 先到</span><span id="duel-len"></span><span>杀获胜</span></div>
-      <!-- 地图和枪模加载完之前显示"加载中"，之后由 hud.js 接管 -->
-      <div id="loading" style="display:block">加载中…</div>
-      <!-- CC BY 授权的素材要求署名，署名清单在 assets/LICENSES.md -->
-      <a class="credits" href="assets/LICENSES.md" target="_blank" rel="noopener">素材来源与署名</a>
-    </div>
+
+      <!-- 设置页（暂停菜单里的"设置"也用这一块，打开时搬过去） -->
+      <div class="tab-page" id="tab-settings">
+        <div class="settings" id="settings">
+          <div class="set-col">
+            <h3>操作</h3>
+            <label class="row"><span>鼠标灵敏度</span><input type="range" id="set-sens" min="0.2" max="3" step="0.05"><output id="set-sens-v"></output></label>
+            <h3>画面</h3>
+            <label class="row"><span>视野（FOV）</span><input type="range" id="set-fov" min="60" max="100" step="1"><output id="set-fov-v"></output></label>
+            <div class="row"><span>准星颜色</span><div class="swatches" id="set-cross"></div></div>
+            <label class="row"><span>进入战斗时全屏</span><input type="checkbox" class="toggle" id="set-fs"></label>
+            <h3>声音</h3>
+            <label class="row"><span>主音量</span><input type="range" id="set-vol" min="0" max="100" step="1"><output id="set-vol-v"></output></label>
+            <a href="#" class="link" id="btn-set-reset">恢复默认设置</a>
+          </div>
+          <div class="set-col">
+            <h3>按键 <small>点击按键名修改，Esc 取消</small> <a href="#" class="link" id="btn-keys-reset">恢复默认</a></h3>
+            <!-- 按键表由 ui.js 根据当前绑定生成 -->
+            <table class="keys" id="keys"></table>
+          </div>
+        </div>
+      </div>
+
+      <footer class="foot">
+        <!-- CC BY 授权的素材要求署名，署名清单在 assets/LICENSES.md -->
+        <a href="assets/LICENSES.md" target="_blank" rel="noopener">素材来源与署名</a>
+        <span>建议用电脑浏览器、鼠标和键盘游玩</span>
+      </footer>
+    </section>
+
+    <!-- 作战简报：进入战斗后（已全屏）显示，点一下锁定鼠标开始 -->
+    <section class="screen" id="scr-brief">
+      <div class="brief">
+        <div class="eyebrow" id="brief-mode"></div>
+        <h2 id="brief-map"></h2>
+        <p id="brief-goal"></p>
+        <div class="brief-keys" id="brief-keys"></div>
+        <div class="brief-go">点击屏幕开始</div>
+        <a href="#" class="link" id="btn-brief-back">返回首页</a>
+      </div>
+    </section>
+
+    <!-- 暂停 -->
+    <section class="screen" id="scr-pause">
+      <div class="side-panel">
+        <div class="eyebrow" id="pause-mode"></div>
+        <h2>已暂停</h2>
+        <div id="pause-info"></div>
+        <div class="menu-btns" id="pause-menu">
+          <button class="primary" id="btn-resume">继续作战</button>
+          <button id="btn-pause-settings">设置</button>
+          <button id="btn-restart">重新开始</button>
+          <button id="btn-quit">返回首页</button>
+        </div>
+        <div id="pause-settings">
+          <a href="#" class="link back" id="btn-pause-back">‹ 返回</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 结算 -->
+    <section class="screen" id="scr-result">
+      <div class="result ticks">
+        <div class="eyebrow" id="result-mode"></div>
+        <h2 id="result-title"></h2>
+        <div id="result-score"></div>
+        <div class="result-stats" id="result-stats"></div>
+        <div class="menu-btns row-btns">
+          <button class="primary" id="btn-again">再来一局</button>
+          <button id="btn-home">返回首页</button>
+        </div>
+      </div>
+    </section>
   </div>
 
   <!-- 按依赖顺序加载：先库，再配置，最后主循环 -->
@@ -85,6 +194,7 @@
   <script src="vendor/meshopt_decoder.js"></script>
   <script src="vendor/SkeletonUtils.js"></script>
   <script src="js/config.js"></script>
+  <script src="js/settings.js"></script>
   <script src="js/physics.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/input.js"></script>
@@ -101,6 +211,7 @@
   <script src="js/weapon.js"></script>
   <script src="js/bots.js"></script>
   <script src="js/hud.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

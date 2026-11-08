@@ -1,6 +1,7 @@
 // ============================================================
-// HUD：准星、命中标记、弹药、生命值、受击方向、比分/波次、统计、菜单
+// HUD：准星、命中标记、弹药、生命值、受击方向、比分/波次、统计
 // 用普通 HTML 元素叠在 3D 画面上面，比在 3D 里画文字简单得多。
+// 首页、暂停、结算这些界面在 ui.js。
 // ============================================================
 Game.Hud = class Hud {
   constructor() {
@@ -14,11 +15,8 @@ Game.Hud = class Hud {
       health: $('health'), healthVal: $('health-val'), healthBar: $('health-bar'),
       damageFlash: $('damage-flash'), damageDir: $('damage-dir'),
       wave: $('wave-info'), banner: $('banner'), hint: $('hint'),
-      overlay: $('overlay'), overlaySub: $('overlay-sub'), result: $('overlay-result'),
-      resume: $('btn-resume'), loading: $('loading'),
-      keys: $('keys'), keysReset: $('btn-keys-reset'), duelLen: $('duel-len'),
-      modeBtns: [$('btn-duel'), $('btn-waves')],
     };
+    this.input = null;   // main.js 设置，用来显示当前绑定的按键名
     this.hitTimer = 0;
     this.bannerTimer = 0;
     this.damageTimer = 0;
@@ -30,116 +28,12 @@ Game.Hud = class Hud {
     this.resetStats();
   }
 
-  // kind: 'menu' | 'paused' | 'dead' | 'win' | 'lose'
-  showOverlay(kind, score) {
-    const el = this.el;
-    el.overlay.classList.remove('hidden');
-    el.resume.style.display = kind === 'paused' ? 'block' : 'none';
-    el.result.style.display = kind === 'menu' || kind === 'paused' ? 'none' : 'block';
-    el.overlaySub.textContent = {
-      menu: '选择模式开始', paused: '已暂停', dead: '你阵亡了', win: '你赢了！', lose: '你输了',
-    }[kind];
-    const s = this.stats;
-    if (kind === 'dead') {
-      el.result.innerHTML =
-        `坚持到 <b>第 ${this.waveNum} 波</b><br>` +
-        `击杀 <b>${s.kills}</b> · 爆头 <b>${s.heads}</b> · 命中率 <b>${this.accuracy()}</b>`;
-    } else if (kind === 'win' || kind === 'lose') {
-      el.result.innerHTML =
-        `比分 <b>${score.player} : ${score.bot}</b><br>` +
-        `爆头 <b>${s.heads}</b> · 命中率 <b>${this.accuracy()}</b>`;
-    }
-  }
-
-  hideOverlay() {
-    this.el.overlay.classList.add('hidden');
-    if (this.input && this.input.capture) this.input.finishCapture(null);   // 改到一半就开始游戏：取消
-  }
-
-  // ---------- 对决杀数 ----------
-  // 开始界面里选"先到几杀获胜"，存在浏览器里，下次打开还在。选了只影响下一局对决
-  bindDuelLength() {
-    const KEY = 'direct-strike.duelWinScore';
-    const cfg = Game.Config.duel;
-    try {
-      const saved = Number(localStorage.getItem(KEY));
-      if (cfg.winScoreOptions.includes(saved)) cfg.winScore = saved;
-    } catch (e) { /* 隐私模式下可能不可用 */ }
-    const render = () => {
-      this.el.duelLen.innerHTML = '';
-      for (const n of cfg.winScoreOptions) {
-        const b = document.createElement('a');
-        b.href = '#';
-        b.textContent = n;
-        if (n === cfg.winScore) b.className = 'on';
-        b.addEventListener('click', (e) => {
-          e.preventDefault();
-          cfg.winScore = n;
-          try { localStorage.setItem(KEY, String(n)); } catch (err) { /* 忽略 */ }
-          render();
-        });
-        this.el.duelLen.appendChild(b);
-      }
-    };
-    render();
-  }
-
-  // ---------- 改键界面 ----------
-  // 把动作列表画成表格，点按键名 → 等待玩家按一个键 → 保存并重画
-  bindKeySettings(input) {
-    this.input = input;
-    this.el.keysReset.addEventListener('click', (e) => {
-      e.preventDefault();
-      input.finishCapture(null);
-      input.resetBindings();
-      this.renderKeys();
-      this.renderSlots();
-      if (this.mode) this.setMode(this.mode);   // 刷新底部的按键提示
-    });
-    this.renderKeys();
-  }
-
-  renderKeys() {
-    const input = this.input;
-    const table = this.el.keys;
-    table.innerHTML = '';
-    const row = (label, html) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${label}</td><td>${html}</td>`;
-      table.appendChild(tr);
-      return tr;
-    };
-    row('转动视角', '<span style="opacity:.7">鼠标</span>');
-    for (const [action, label] of Game.Input.ACTIONS) {
-      const tr = row(label, `<span class="key">${Game.Input.bindingName(input.bindings[action])}</span>`);
-      const btn = tr.querySelector('.key');
-      btn.addEventListener('click', () => {
-        if (input.capture) { input.finishCapture(null); this.renderKeys(); return; }
-        btn.textContent = '按一个键…';
-        btn.classList.add('waiting');
-        input.startCapture((code) => {
-          if (code) input.bind(action, code);
-          this.renderKeys();
-          this.renderSlots();
-          if (this.mode) this.setMode(this.mode);
-        });
-      });
-    }
-  }
-
-  // 模型加载中：禁用对战按钮
-  setLoading(on, note = '') {
-    this.el.loading.textContent = on ? 'NPC 模型加载中…' : note;
-    this.el.loading.style.display = on || note ? 'block' : 'none';
-    for (const b of this.el.modeBtns) b.disabled = on;
-  }
-
   // 不同模式显示不同的 HUD 元素
   setMode(mode) {
     const battle = mode === 'duel' || mode === 'waves';
     this.el.stats.classList.toggle('battle', battle);
     this.el.health.style.display = battle ? 'block' : 'none';
-    this.el.wave.style.display = battle ? 'block' : 'none';
+    this.el.wave.style.display = battle ? 'flex' : 'none';
     const key = (a) => this.input ? Game.Input.bindingName(this.input.bindings[a]) : '?';
     const common = `${key('reload')} 换弹 · ${key('lastWeapon')} / 滚轮 切枪`;
     this.el.hint.textContent = battle
@@ -222,12 +116,16 @@ Game.Hud = class Hud {
 
   setWave(wave, alive, total) {
     this.waveNum = wave;
-    this.el.wave.textContent = `第 ${wave} 波 · 剩余敌人 ${alive} / ${total}`;
+    this.waveAlive = alive;   // 暂停界面要显示
+    this.waveTotal = total;
+    this.el.wave.innerHTML = `<small>第</small><b>${wave}</b><small>波</small><span class="sep"></span>剩余敌人 <b class="enemy">${alive}</b> / ${total}`;
   }
 
   // 对决比分
   setScore(mine, theirs, target) {
-    this.el.wave.innerHTML = `你 <b class="me">${mine}</b> : <b class="enemy">${theirs}</b> 敌 · 先到 ${target} 杀`;
+    this.el.wave.innerHTML =
+      `<span class="side me">你</span><b class="me">${mine}</b><i>:</i><b class="enemy">${theirs}</b>` +
+      `<span class="side enemy">敌</span><small>先到 ${target} 杀</small>`;
   }
 
   banner(text, seconds = 2) {

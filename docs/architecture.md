@@ -6,9 +6,10 @@
 
 - 没有构建步骤，也没有模块系统。`index.html` 按顺序加载 `vendor/` 和 `js/` 下的脚本，每个文件往全局 `Game` 上挂一个东西
   （`Game.Config`、`Game.Player`、`Game.Weapon`……）。**后加载的可以用先加载的，反过来不行**，新文件要插到正确位置。
-- 顺序：`config → physics → audio → input → textures → effects → truck → world → targets → ragdoll → character → player → gunmodel → grenades → weapon → bots → hud → main`。
+- 顺序：`config → settings → physics → audio → input → textures → effects → truck → world → targets → ragdoll → character → player → gunmodel → grenades → weapon → bots → hud → ui → main`。
+  `settings` 紧跟 `config`：它把玩家存在浏览器里的设置写回 `Game.Config`，后面的文件读到的就是玩家的值。
 - `main.js` 先异步加载 `maps/<config.map>.json`、AK 枪模（`GunModel.loadAK`）和第一人称手臂（`GunModel.loadArms`），都加载完才调用 `startGame` 创建所有对象；
-  任何一个失败，错误显示在开始界面上。NPC 模型 `soldier.glb` 也是异步加载，加载完才能进对战模式。
+  加载页显示进度，任何一个失败，错误显示在加载页上。NPC 模型也是异步加载，加载完首页才允许进对战模式。
 - 浏览器控制台里的 `window.game` 能拿到所有对象（`game.player`、`game.weapon`、`game.bots`……），调试和测试脚本都靠它。
 
 ## 对象关系
@@ -17,6 +18,7 @@
 
 ```
 world（场景、碰撞盒、出生点）  targets（靶子）  input  audio  hud  effects（特效）
+ui（界面流程，动作通过 onDeploy / onStart / onResume / onRestart / onQuit 回调交给 main.js）
 player（摄像机、移动、生命）
 grenades（飞出去的投掷物）  ← 需要 world / player / bots / effects
 weapon（手里的武器：枪和投掷动作）  ← 开枪打 shootables，丢雷交给 grenades
@@ -25,7 +27,8 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 
 - 状态变化用回调通知 `main.js`：`player.onDamage / onDeath`、`bots.onChange / onWaveCleared / onDuelEnd`、`input.onLockChange`。
 - `shootables` 是开枪射线能打到的网格数组，`main.js` 按模式和 NPC 生死原地更新（`refreshShootables`）。
-- 三种模式（range / duel / waves）由 `main.js` 的 `startMode` 切换。
+- 三种模式（range / duel / waves）由 `main.js` 的 `startMode` 切换。首页背后也是 `range`（没有 NPC），镜头停在 `config.ui.menuCamera`。
+- 界面流程（首页 → 简报 → 战斗 → 暂停 / 结算）见 `ui.md`。
 
 ## 游戏循环
 
@@ -34,7 +37,7 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 1. `dt` 最长限制 0.05 秒（切出窗口回来不会穿墙）。
 2. 指针锁定时才更新玩法：`player → weapon → targets → bots → grenades`。玩家死了只更新倒地镜头和重生倒计时。
 3. 不管锁没锁都更新 `world`（云、动画）和 `hud`，然后 `input.endFrame()` 清掉本帧的"刚按下"。
-4. 渲染两次：先画世界场景，清深度，再画枪模场景。
+4. 渲染两次：先画世界场景，清深度，再画枪模场景（首页和简报不画枪模）。
 
 测试脚本会绕开 `requestAnimationFrame`，自己按固定步长调用这些 `update`，见 `testing.md`。
 
@@ -68,11 +71,14 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 - **加灯会让所有材质重新编译，造成卡顿。** 所以爆炸用的 PointLight（`grenades.js`）和枪口火光（`weapon.js`）一开始就创建好，平时亮度为 0。
   新增灯光也照这样做，不要在游戏中途 `scene.add` 新的灯。
 - **第一次出现的材质会卡一下**（第一次击杀、第一次丢雷）。`effects.precompile` 和 `grenades.precompile` 在开局前预编译，新增特效材质要加进去。
-- **枪模在第一帧之前就要摆好位置**，否则开始界面背后会看到一把巨大的枪：`weapon.js` 的 `buildModels` 里按 `basePos / baseRot` 初始化。
+- **枪模在第一帧之前就要摆好位置**，否则界面背后会看到一把巨大的枪：`weapon.js` 的 `buildModels` 里按 `basePos / baseRot` 初始化。
 - **死亡的 NPC 还要继续更新**（布娃娃、血泊、尸体下沉），包括对决结束后的 `phase === 'over'`。
 - **受击闪红**：NPC 死亡前要把 `model.flash` 清零，否则尸体会一直发红。
 - **全屏和指针锁定都要用户手势。** `input.lock(fullscreen)` 在按钮的 click 里同步发出两个请求，中间不能 `await`，否则第二个会被拒。
   全屏挂在 `document.documentElement` 上（不是 canvas），否则 HUD 和菜单不在全屏里。按 Esc 会同时退出全屏和锁定，点"继续"再进。
+  首页不全屏："进入战斗"时才请求全屏，回首页时退出。
+- **自动弹出的界面要先显示再解锁鼠标。** 结算是 `ui.showResult` 之后才 `exitPointerLock`，`onLockChange(false)` 看到已经有界面就不管；
+  顺序反了会先闪一下暂停菜单。
 - **`window.game` 在开局前是那个 `<canvas id="game">`**（浏览器会把带 id 的元素挂到 `window` 上）。
   测试脚本判断游戏是否就绪要看 `window.game.startMode`，不能只看 `window.game`，`tools/lib/game-page.mjs` 就是这么等的。
 - **glb 枪模换了要重新对手的位置。** 手臂是 `arm.glb`（蒙皮模型），握把、护木的位置写在 `weapon.js` 的 `buildModels` 里（`arms.hand(...)`）；

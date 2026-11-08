@@ -113,7 +113,7 @@ Game.GunModel = (function () {
   // ---------- AK：Blender 加工的 glb 模型 ----------
   // 由 assets-src/models/gun/ak47.py 生成，坐标约定和上面一样。零件拆成三个网格：
   // body 枪身、mag 弹匣（原点在弹匣顶部，换弹时绕这里转）、bolt 拉机柄，另有空节点 muzzle 标出枪口。
-  // main.js 开局前和地图一起等它加载完；加载失败就进不了游戏，错误显示在开始界面上。
+  // main.js 开局前和地图一起等它加载完；加载失败就进不了游戏，错误显示在加载页上。
   let akAsset = null;
   function loadAK() {
     return new Promise((resolve, reject) => {

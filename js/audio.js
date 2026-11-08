@@ -25,6 +25,11 @@ Game.Audio = class Audio {
     for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
   }
 
+  // 设置里改音量。还没点过开始（没有 ctx）时不用管，init 会读 Config
+  setVolume(v) {
+    if (this.master) this.master.gain.value = v;
+  }
+
   // kind：'rifle' 或 'pistol'（手枪更脆、更短，低音也轻）
   shot(kind = 'rifle') {
     const ctx = this.ctx;

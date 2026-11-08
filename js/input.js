@@ -4,7 +4,7 @@
 // 所有 FPS 网页游戏都靠它。
 //
 // 游戏逻辑不直接问"W 有没有按下"，而是问"forward 这个动作有没有按下"，
-// 动作 → 按键 的对应关系（绑定）可以在开始界面里改，并保存在浏览器里。
+// 动作 → 按键 的对应关系（绑定）可以在设置里改，并保存在浏览器里。
 // ============================================================
 Game.Input = class Input {
   constructor(element) {
@@ -16,6 +16,7 @@ Game.Input = class Input {
     this.wheel = 0;            // 这一帧的滚轮方向：1 向下，-1 向上（切枪用）
     this.locked = false;
     this.onLockChange = null;
+    this.onLockError = null;   // 浏览器拒绝锁定鼠标（例如刚按 Esc 退出又马上点）
 
     this.bindings = Game.Input.loadBindings();
     this.capture = null;       // 正在等待玩家按键来改绑定时的回调
@@ -64,9 +65,10 @@ Game.Input = class Input {
       if (!this.locked) this.down.clear();
       if (this.onLockChange) this.onLockChange(this.locked);
     });
+    document.addEventListener('pointerlockerror', () => { if (this.onLockError) this.onLockError(); });
   }
 
-  // 锁定鼠标；fullscreen=true 时顺带进入全屏。
+  // 锁定鼠标；fullscreen=true 时顺带进入全屏（首页不全屏，进入战斗才全屏）。
   // 两个请求都必须在同一次点击里同步发出（浏览器要求"用户手势"）。
   // 全屏挂在整个页面上而不是 canvas，这样 HUD 和菜单也在全屏里。
   lock(fullscreen) {

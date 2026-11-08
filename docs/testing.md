@@ -32,7 +32,7 @@ import { openGame } from '/home/donkey/direct-strike/tools/lib/game-page.mjs';
 const g = await openGame({ width: 1280, height: 720 });
 const p = g.page;
 await p.evaluate(() => {
-  document.getElementById('overlay').classList.add('hidden');
+  game.ui.show(null);   // 隐藏所有界面，显示 HUD（只隐藏 #overlay 的话 HUD 也是藏着的）
   game.input.locked = false;
   game.startMode('waves');
   for (const b of game.bots.bots) { b.pos.set(30, 0, 30); b.update = () => false; }   // NPC 先挪开

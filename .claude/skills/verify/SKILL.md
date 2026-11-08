@@ -8,6 +8,7 @@ description: 启动游戏检查 WebGL、模型加载和控制台报错，并按�
 ```bash
 node tools/verify.mjs                                   # 默认 menu,range,duel，1280x720
 node tools/verify.mjs --modes range,duel,waves --sizes 1280x720,1920x1080
+node tools/verify.mjs --modes menu,settings,brief,pause,result   # 截各个界面（首页、设置、简报、暂停、结算）
 node tools/verify.mjs --eval "game.player.position.toArray()"
 node tools/verify.mjs --url https://game.lightup.host   # 检查线上
 ```

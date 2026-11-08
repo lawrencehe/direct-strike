@@ -2,7 +2,7 @@
 // 启动游戏并检查：WebGL、模型加载、控制台报错、各模式截图和基础状态。
 // 默认只打印摘要，完整问题列表写到 tools/out/verify/report.json。有问题时退出码为 1。
 //
-// 用法：node tools/verify.mjs [--modes menu,range,duel,waves] [--sizes 1280x720,1920x1080]
+// 用法：node tools/verify.mjs [--modes menu,settings,brief,range,duel,waves,pause,result] [--sizes 1280x720,1920x1080]
 //                             [--seconds 3] [--eval "JS 表达式"] [--url https://...]
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,11 +22,23 @@ const dir = path.join(OUT, 'verify');
 fs.mkdirSync(dir, { recursive: true });
 
 // 进入模式。无头环境拿不到真实的指针锁定，所以直接把 locked 置真，让游戏循环跑起来。
+// 除了 range / duel / waves 三个玩法模式，还能截界面：
+//   menu 首页  settings 设置页  brief 作战简报  pause 暂停（对决中）  result 结算（对决胜利）
 const enterMode = (page, m) => page.evaluate((mode) => {
-  if (mode === 'menu') { game.input.locked = false; game.hud.showOverlay('menu'); return; }
+  const ui = game.ui;
+  game.input.locked = false;
+  if (mode === 'menu' || mode === 'settings') { ui.onQuit(); ui.setTab(mode === 'menu' ? 'play' : 'settings'); return; }
+  if (mode === 'brief') { game.startMode('duel'); ui.showBrief('duel'); return; }
+  if (mode === 'pause' || mode === 'result') {
+    game.startMode('duel');
+    ui.show(null);
+    if (mode === 'result') { game.bots.score.player = Game.Config.duel.winScore; game.bots.score.bot = 2; game.bots.phase = 'over'; }
+    game.input.onLockChange(false);   // 走真实的"解锁鼠标"流程
+    return;
+  }
   game.startMode(mode);
+  ui.show(null);
   game.input.locked = true;
-  game.hud.hideOverlay();
 }, m);
 
 const measure = (page, ms) => page.evaluate((duration) => new Promise((resolve) => {

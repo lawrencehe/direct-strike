@@ -7,16 +7,22 @@
 //   duel   1v1 对决：和一个 NPC 互相击杀，先到 N 杀获胜
 //   waves  波次：一波波的敌人，看能撑到第几波
 // ============================================================
-// 地图文件和枪模是异步加载的，都加载完才开始创建游戏对象
-// 有问题时把原因显示在开始界面上，不要留一个什么都点不动的页面
-Promise.all([Game.World.loadMap(Game.Config.map), Game.GunModel.loadAK(), Game.GunModel.loadArms()]).then(([mapData]) => startGame(mapData)).catch((err) => {
-  console.error(err);
-  window.gameError = err.message;
-  const el = document.getElementById('loading');
-  // 浏览器不允许 file:// 页面读取地图文件
-  el.textContent = location.protocol === 'file:' ? '不能直接打开 index.html，请用 start.sh 启动' : err.message;
-  el.style.display = 'block';
-});
+// 界面流程（首页 → 简报 → 战斗 → 暂停 / 结算）在 ui.js，这里只负责开局、锁鼠标、全屏这些动作。
+// ============================================================
+// 地图文件和枪模是异步加载的，都加载完才开始创建游戏对象，加载页显示进度
+// 有问题时把原因显示在加载页上，不要留一个什么都点不动的页面
+{
+  const loads = [Game.World.loadMap(Game.Config.map), Game.GunModel.loadAK(), Game.GunModel.loadArms()];
+  let done = 0;
+  Game.UI.bootProgress(0, loads.length + 1);
+  for (const p of loads) p.then(() => Game.UI.bootProgress(++done, loads.length + 1), () => {});
+  Promise.all(loads).then(([mapData]) => startGame(mapData)).catch((err) => {
+    console.error(err);
+    window.gameError = err.message;
+    // 浏览器不允许 file:// 页面读取地图文件
+    Game.UI.bootError(location.protocol === 'file:' ? '不能直接打开 index.html，请用 start.sh 启动' : err.message);
+  });
+}
 
 function startGame(mapData) {
   const canvas = document.getElementById('game');
@@ -35,7 +41,7 @@ function startGame(mapData) {
   // ---- 世界场景 ----
   const scene = new THREE.Scene();
   const aspect = window.innerWidth / window.innerHeight;
-  const camera = new THREE.PerspectiveCamera(Game.Config.view.fov, aspect, 0.05, 320);
+  const camera = new THREE.PerspectiveCamera(Game.Config.view.fov, aspect, 0.05, 320);   // 视野可在设置里改
   scene.add(camera);
 
   // ---- 枪模场景 ----
@@ -55,8 +61,8 @@ function startGame(mapData) {
   const input = new Game.Input(canvas);
   const audio = new Game.Audio();
   const hud = new Game.Hud();
-  hud.bindKeySettings(input);   // 开始界面的改键表格
-  hud.bindDuelLength();         // 开始界面的对决杀数选项
+  hud.input = input;            // 武器栏和底部提示要显示当前绑定的按键
+  const ui = new Game.UI({ input, hud, audio, world });
   const effects = new Game.Effects(scene, world.colliders);
   const player = new Game.Player(camera, world.colliders, world.spawn);
 
@@ -86,13 +92,25 @@ function startGame(mapData) {
     weapon.refill();
   };
 
+  // 当前对局的数据，暂停和结算界面用
+  const matchInfo = () => ({
+    score: bots.score, wave: hud.waveNum, alive: hud.waveAlive, total: hud.waveTotal,
+    stats: hud.stats, accuracy: hud.accuracy(),
+  });
+
+  // 结算：先显示结算界面再解锁鼠标，这样 onLockChange 不会把它当成暂停
+  function finish(kind) {
+    ui.showResult(mode, kind, matchInfo());
+    if (document.pointerLockElement) document.exitPointerLock();
+  }
+
   // 对决结束
   bots.onDuelEnd = (result) => {
     hud.banner(result === 'win' ? '胜利！' : '失败', 2);
+    const m = mode;
     setTimeout(() => {
-      if (mode !== 'duel') return;
-      if (document.pointerLockElement) document.exitPointerLock();
-      hud.showOverlay(result, bots.score);
+      if (mode !== m || ui.screen === 'home') return;   // 这期间已经回首页或换了模式
+      finish(result);
     }, 1800);
   };
 
@@ -114,9 +132,8 @@ function startGame(mapData) {
     if (mode === 'duel') return;   // 对决已分出胜负，由 onDuelEnd 处理
     hud.banner('你阵亡了', 1.5);
     setTimeout(() => {
-      if (player.alive) return;  // 这 1.5 秒里已经开了新一局
-      if (document.pointerLockElement) document.exitPointerLock();
-      else hud.showOverlay('dead');
+      if (player.alive || ui.screen === 'home') return;  // 这 1.5 秒里已经开了新一局或回了首页
+      finish('dead');
     }, 1500);
   };
 
@@ -144,22 +161,61 @@ function startGame(mapData) {
     refreshShootables();
   }
 
-  // ---- 菜单按钮 ----
-  const play = (m) => {
+  // ---- 界面动作 ----
+  // 全屏和锁鼠标都要在点击里同步发起，这些回调里不能 await
+  const enterFullscreen = () => {
+    const root = document.documentElement;
+    if (Game.Config.view.fullscreen && !document.fullscreenElement && root.requestFullscreen) {
+      root.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});   // 被拒绝就照常窗口玩
+    }
+  };
+  const exitFullscreen = () => {
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+  };
+
+  // 首页点"进入战斗"：全屏 → 开局 → 简报，简报里再点一下才锁鼠标
+  ui.onDeploy = (m) => {
+    enterFullscreen();
+    startMode(m);
+    player.update(0, input);   // 镜头从首页背景移到出生点
+    ui.showBrief(m);
+  };
+  ui.onStart = () => { audio.init(); input.lock(false); };
+  ui.onResume = () => { audio.init(); input.lock(Game.Config.view.fullscreen); };
+  ui.onRestart = () => {
     audio.init();
-    if (m) startMode(m);
+    startMode(mode);
     input.lock(Game.Config.view.fullscreen);
   };
-  document.getElementById('btn-range').addEventListener('click', () => play('range'));
-  document.getElementById('btn-duel').addEventListener('click', () => play('duel'));
-  document.getElementById('btn-waves').addEventListener('click', () => play('waves'));
-  document.getElementById('btn-resume').addEventListener('click', () => play(null));
+  // 首页背景：停在 config.ui.menuCamera 的镜头上（没锁鼠标时游戏循环不更新玩家，镜头会一直停在这）
+  function menuShot() {
+    const c = Game.Config.ui.menuCamera;
+    camera.position.set(...c.pos);
+    camera.lookAt(...c.lookAt);
+  }
+
+  // 回首页：退出全屏，场景换回训练场（没有 NPC），镜头切到首页背景
+  ui.onQuit = () => {
+    if (document.pointerLockElement) document.exitPointerLock();
+    exitFullscreen();
+    startMode('range');
+    menuShot();
+    ui.goHome();
+  };
 
   input.onLockChange = (locked) => {
-    if (locked) hud.hideOverlay();
-    else if (bots.phase === 'over') hud.showOverlay(bots.score.player > bots.score.bot ? 'win' : 'lose', bots.score);
-    else hud.showOverlay(player.alive || respawnTimer > 0 ? 'paused' : 'dead');   // 对决里等重生时按 Esc 只是暂停
+    if (locked) { ui.show(null); return; }
+    if (ui.screen) return;   // 结算、回首页这些是先切界面再解锁的，不用管
+    if (bots.phase === 'over') finish(bots.score.player > bots.score.bot ? 'win' : 'lose');
+    else if (!player.alive && respawnTimer <= 0) finish('dead');
+    else ui.showPause(mode, matchInfo());   // 对决里等重生时按 Esc 只是暂停
   };
+
+  // 设置里改了视野、音量：立刻生效
+  Game.Settings.onChange((k) => {
+    if (k === 'fov') { camera.fov = Game.Config.view.fov; camera.updateProjectionMatrix(); }
+    if (k === 'volume') audio.setVolume(Game.Config.audio.volume);
+  });
 
   window.addEventListener('resize', () => {
     const a = window.innerWidth / window.innerHeight;
@@ -205,7 +261,8 @@ function startGame(mapData) {
 
     renderer.clear();
     renderer.render(scene, camera);
-    if (player.alive) {
+    // 首页和简报不画手里的枪
+    if (player.alive && ui.screen !== 'home' && ui.screen !== 'brief') {
       renderer.clearDepth();
       renderer.render(weaponScene, weaponCamera);
     }
@@ -213,20 +270,19 @@ function startGame(mapData) {
     requestAnimationFrame(frame);
   }
 
-  // 先摆好摄像机、显示训练场，让菜单背后就能看到场景
+  // 先摆好场景（训练场）和首页背景的镜头
   startMode('range');
-  hud.showOverlay('menu');
-  hud.setLoading(true);
   player.update(0, input);
+  menuShot();
   effects.precompile(renderer, camera);
   grenades.precompile(renderer, camera);
   frame();
+  Game.UI.bootProgress(1, 1);
+  ui.goHome();
 
   // NPC 模型是异步加载的，加载完才允许进入对战模式
-  Game.Character.load().then((ok) => {
-    hud.setLoading(false, ok ? '' : '（NPC 模型加载失败，使用简易小人。请用 start.sh 启动）');
-  });
+  Game.Character.load().then((ok) => ui.setNpcReady(ok));
 
   // 方便在浏览器控制台（F12）里调试，例如输入 game.player.position 查看位置
-  window.game = { scene, camera, renderer, world, targets, input, audio, hud, player, weapon, grenades, effects, bots, startMode };
+  window.game = { scene, camera, renderer, world, targets, input, audio, hud, ui, player, weapon, grenades, effects, bots, startMode };
 }

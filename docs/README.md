@@ -18,6 +18,7 @@ AI 助手（Claude Code）的约定在根目录的 `CLAUDE.md`，它也指向这
 |---|---|
 | [tools.md](tools.md) | 装工具链；处理模型、图片、骨骼动画；这台开发机的限制 |
 | [testing.md](testing.md) | 写无头浏览器测试脚本：逐帧推进游戏、模拟按键、断言和截图 |
+| [ui.md](ui.md) | 界面流程（首页 → 简报 → 战斗 → 暂停 / 结算）、全屏规则、玩家设置、视觉规范、地图预览图 |
 | [maps.md](maps.md) | 地图 JSON 格式、改地图、加新地图 |
 | [deploy.md](deploy.md) | 线上架构、发布、回滚、首次接入 |
 | [game-references.md](game-references.md) | 可参考的开源游戏：联网对战（Quake III）、手感和武器数值（AssaultCube、Xonotic）、1v1 地图（Xonotic、Red Eclipse） |

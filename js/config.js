@@ -12,7 +12,7 @@ Game.Config = {
     fov: 75,               // 视野角度（度）。越大看得越广，但边缘会变形
     weaponFov: 60,         // 枪模单独使用的视野，避免枪被拉伸
     mouseSensitivity: 0.0022,  // 鼠标灵敏度：每移动 1 像素转多少弧度
-    fullscreen: true,      // 点"开始/继续"时自动进入全屏（浏览器规定必须由点击触发，不能打开网页就全屏）
+    fullscreen: true,      // 进入战斗时自动全屏，首页不全屏（浏览器规定必须由点击触发；玩家可在设置里关掉）
   },
 
   player: {
@@ -188,8 +188,8 @@ Game.Config = {
 
   // 1v1 对决
   duel: {
-    winScore: 5,           // 先打到几杀获胜（默认值；玩家在开始界面选过的存在浏览器里，优先于这里）
-    winScoreOptions: [3, 5, 10],   // 开始界面可选的杀数
+    winScore: 5,           // 先打到几杀获胜（默认值；玩家在首页选过的存在浏览器里，优先于这里）
+    winScoreOptions: [3, 5, 10],   // 首页可选的杀数
     respawnDelay: 3,       // 被击杀后几秒重生
     botSkill: 0.5,         // 对手强度 0 ~ 1（影响反应、准度、转身）
   },
@@ -205,11 +205,20 @@ Game.Config = {
   },
 
   audio: {
-    volume: 0.5,
+    volume: 0.5,           // 默认音量 0 ~ 1（玩家在设置里改过的存在浏览器里，优先于这里）
+  },
+
+  // 界面和设置页
+  ui: {
+    crosshairColors: ['#33ff66', '#ffffff', '#ffd23f', '#3fe0ff', '#ff4b3a'],  // 设置里可选的准星颜色，第一个是默认
+    sensitivityRange: [0.2, 3],   // 鼠标灵敏度倍率的范围（乘 view.mouseSensitivity）
+    fovRange: [60, 100],          // 视野角度的范围（度）
+    mapPreview: 'assets/ui/maps/', // 地图预览图目录，文件名 <地图名>.webp（用游戏截图生成，见 docs/ui.md）
+    menuCamera: { pos: [16, 6, -22], lookAt: [-2, 1, 4] },  // 首页背景的镜头位置和朝向
   },
 
   // 默认按键。值是 KeyboardEvent.code（KeyW、ShiftLeft、Space…）或 Mouse0 ~ Mouse4。
-  // 玩家在开始界面里改过的按键会存到浏览器 localStorage，优先级高于这里。
+  // 玩家在设置里改过的按键会存到浏览器 localStorage，优先级高于这里。
   keys: {
     forward:    ['KeyW'],
     back:       ['KeyS'],

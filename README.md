@@ -1,4 +1,4 @@
-# Direct-Strike v0.17
+# Direct-Strike v0.18
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -9,7 +9,7 @@
 ## 三种模式
 
 - **训练场**：站在高台上打靶，统计命中率和爆头
-- **1v1 对决**：和一个 NPC 在集装箱堆场里单挑。谁被击杀谁在远处重生，先打到 5 杀的赢（开始界面可以改成 3 或 10 杀）
+- **1v1 对决**：和一个 NPC 在集装箱堆场里单挑。谁被击杀谁在远处重生，先打到 5 杀的赢（首页可以改成 3 或 10 杀）
 - **波次**：一波一波的敌人会巡逻、发现你、横移、点射。清完一波回满血和子弹，下一波人更多更强
 
 ## 武器
@@ -43,7 +43,7 @@ NPC 死亡是实时物理（布娃娃）：爆头会被打飞，打身体有踉�
 
 ## 操作
 
-默认按键如下。**开始界面里点击按键名就能改键**，改过的按键存在浏览器里，下次打开还在；"恢复默认"一键还原。
+默认按键如下。**首页"设置"或暂停菜单的"设置"里点击按键名就能改键**，改过的按键存在浏览器里，下次打开还在；"恢复默认"一键还原。
 
 | 按键 | 作用 |
 |---|---|
@@ -71,7 +71,7 @@ NPC 死亡是实时物理（布娃娃）：爆头会被打飞，打身体有踉�
 
 ```
 direct-strike/
-├── index.html        页面骨架：画布、HUD、开始界面，按顺序加载脚本
+├── index.html        页面骨架：画布、HUD、各个界面（加载、首页、简报、暂停、结算），按顺序加载脚本
 ├── start.sh / .bat   一键启动本地服务
 ├── deploy.sh         一键发布到 game.lightup.host（提交推送部署一条龙用 tools/ship.sh）
 ├── deploy/           站点容器的 compose 和 Caddyfile
@@ -81,15 +81,17 @@ direct-strike/
 │   ├── decisions.md      项目方向和做过的决定
 │   ├── testing.md        冒烟验证和写测试脚本
 │   ├── tools.md          本地工具链的安装和用法
+│   ├── ui.md             界面流程、全屏规则、玩家设置、视觉规范
 │   ├── maps.md           地图文件格式、怎么改地图、怎么加新地图
 │   └── deploy.md         部署架构、首次接入、回滚
 ├── maps/yard.json    ★ 地图数据：掩体、出生点、巡逻点、靶子
 ├── tools/            开发工具（验证、模型、图片、骨骼、地图），不发布
 ├── assets-src/       未压缩的模型母版和 Blender 加工脚本，不发布
 ├── CLAUDE.md         给 AI 助手看的项目约定
-├── css/style.css     HUD 和界面样式
+├── css/style.css     界面和 HUD 样式（颜色、字体是开头的 CSS 变量）
 ├── assets/
-│   ├── brand/               logo、网站图标、分享预览图
+│   ├── brand/               logo（logo-dark.png 用在深色界面上）、网站图标、分享预览图
+│   ├── ui/maps/             首页的地图预览图（游戏截图）
 │   ├── models/human/ukrainian-soldier.glb  NPC 模型（Mixamo 骨骼，带待机/走/跑动画）
 │   ├── models/human/init_soldier.glb  旧 NPC 模型，现在只作为动画来源
 │   ├── models/human/arm.glb           第一人称手臂（蒙皮模型，CC0）
@@ -102,7 +104,8 @@ direct-strike/
 │   └── SkeletonUtils.js     复制带骨骼的模型（多个 NPC 共用一份模型数据）
 └── js/
     ├── config.js     ★ 所有可调参数（手感、武器、NPC 难度、对决规则、画质……）
-    ├── main.js       入口：创建对象、模式切换、游戏循环
+    ├── settings.js   玩家设置（灵敏度、视野、音量、准星、自动全屏、对决杀数）：存浏览器，写回 config
+    ├── main.js       入口：创建对象、模式切换、全屏和锁鼠标、游戏循环
     ├── input.js      键盘鼠标输入、指针锁定、按键绑定（改键 + 保存）
     ├── physics.js    ★ 方块碰撞 + 自动上台阶（玩家和 NPC 共用）
     ├── player.js     ★ 视角、移动、跳跃、生命值、重生
@@ -117,7 +120,8 @@ direct-strike/
     ├── textures.js   程序生成的贴图（沥青、水泥、集装箱、沙袋、铁丝网、天空……）
     ├── targets.js    靶子（状态机：立着 → 倒下 → 立起）
     ├── effects.js    曳光、枪口火光、血（血雾、血滴、血迹、血泊）、爆炸
-    ├── hud.js        准星、命中标记、弹药、生命、受击方向、比分、菜单
+    ├── hud.js        战斗中的 HUD：准星、命中标记、弹药、生命、受击方向、比分
+    ├── ui.js         界面流程：加载 → 首页 → 作战简报 → 暂停 / 结算，设置页和改键
     └── audio.js      用 Web Audio 实时合成的音效
 ```
 
@@ -137,6 +141,7 @@ direct-strike/
 - **改枪的样子**：AK 是 glb 模型，加工脚本在 `assets-src/models/gun/ak47.py`（Blender）；手枪还在 `gunmodel.js`，每个零件一行，坐标单位是米；枪在画面里的位置在 `weapon.js` 的 `basePos / baseRot`
 - **改手和手臂**：模型是 `assets/models/human/arm.glb`，摆法和手指弯曲在 `gunmodel.js` 的 `buildArms`，握在枪上的位置在 `weapon.js` 的 `buildModels`，尺寸在 `config.js` 的 `weapons.arms`
 - **改武器手感和伤害**：`config.js` 的 `weapons`（枪）和 `grenades`（投掷物）
+- **改界面**：流程和规则见 `docs/ui.md`；结构在 `index.html`，逻辑在 `ui.js`，样式在 `css/style.css`，模式介绍文字在 `ui.js` 末尾的 `MODES`
 - **改死亡效果**：`config.js` 的 `ragdoll`（爆头打飞的力度、尸体留多久）
 - **改地图**：改 `maps/yard.json`，格式见 `docs/maps.md`；要加新种类的物体再改 `world.js` 的 `builders`
 - **改对决规则**：`config.js` 的 `duel`（赢的杀数、重生时间、对手强度）

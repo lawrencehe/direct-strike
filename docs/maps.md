@@ -54,7 +54,7 @@
 
 `box` 可用的材质：`asphalt`、`dirt`、`concrete`、`concreteDark`、`sandbag`、`wood`、`metal`、`metalDark`、`rubber`、`barrelRed`、`barrelBlue`、`barrelGrey`。
 
-写错类型或材质时，游戏会在开始界面显示错误，`map-check` 也会报出来。
+写错类型或材质时，游戏会在加载页显示错误，`map-check` 也会报出来。
 
 ## 注意事项
 

@@ -406,6 +406,7 @@ Game.World = (function () {
 
     return {
       colliders, shootables, update,
+      mapName: map.name || Game.Config.map,   // 界面上显示的地图名
       spawns: map.spawns, navPoints: map.navPoints, rangeSpawn: map.rangeSpawn,
       targetLayout: map.targets, bounds: map.bounds,
       spawn: new THREE.Vector3(map.spawns[0].x, 0, map.spawns[0].z),
