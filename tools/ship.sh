@@ -73,15 +73,20 @@ git push -q origin main && echo "✓ 推送 main $(git rev-parse --short HEAD)"
 # ---- 4. 从 main 部署 ----
 if [ $DEPLOY = 1 ]; then
   ./deploy.sh >/dev/null 2>&1 || { [ "$BR" != main ] && git checkout -q "$BR"; die "deploy.sh 失败，手动运行 ./deploy.sh 看报错"; }
-  BAD=""
-  for u in / /js/main.js /maps/yard.json /assets/models/human/init_soldier.glb; do
-    c=$(curl -s -o /dev/null -w '%{http_code}' "$SITE$u"); [ "$c" = 200 ] || BAD="$BAD $u=$c"
+  # deploy.sh 最后会让 fps-game 的 Caddy 重载配置，刚重载完的一两秒里请求可能失败，所以检查不通过时隔 2 秒重试，最多 3 次
+  for try in 1 2 3; do
+    BAD=""
+    for u in / /js/main.js /maps/yard.json /assets/models/human/init_soldier.glb; do
+      c=$(curl -s -o /dev/null -w '%{http_code}' "$SITE$u"); [ "$c" = 200 ] || BAD="$BAD $u=$c"
+    done
+    for u in /refer/ak.png /.git/HEAD /docs/README.md /server/api.py; do
+      c=$(curl -s -o /dev/null -w '%{http_code}' "$SITE$u"); [ "$c" = 404 ] || BAD="$BAD $u=$c(应为404)"
+    done
+    curl -s "$SITE/" | grep -q "<small>$CUR</small>" || BAD="$BAD 线上页面不是$CUR"
+    curl -s "$SITE/api/health" | grep -q '"ok": true' || BAD="$BAD 开发接口/api/health不通"
+    [ -z "$BAD" ] && break
+    if [ $try -lt 3 ]; then sleep 2; fi
   done
-  for u in /refer/ak.png /.git/HEAD /docs/README.md /server/api.py; do
-    c=$(curl -s -o /dev/null -w '%{http_code}' "$SITE$u"); [ "$c" = 404 ] || BAD="$BAD $u=$c(应为404)"
-  done
-  curl -s "$SITE/" | grep -q "<small>$CUR</small>" || BAD="$BAD 线上页面不是$CUR"
-  curl -s "$SITE/api/health" | grep -q '"ok": true' || BAD="$BAD 开发接口/api/health不通"
   [ -z "$BAD" ] || { [ "$BR" != main ] && git checkout -q "$BR"; die "线上检查失败：$BAD"; }
   echo "✓ 已部署 $CUR，线上检查通过"
   if [ $LIVE = 1 ]; then

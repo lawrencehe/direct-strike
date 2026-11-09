@@ -31,8 +31,8 @@ fps-game 容器（caddy:alpine，只在 Docker 网络 paseo-relay_default 内开
 
 | 路径 | 作用 |
 |---|---|
-| `deploy.sh` | 一键发布：rsync 到站点目录 + 拉起容器 |
-| `deploy/compose.yaml` | fps-game 容器定义，网络指向 `paseo-relay_default` |
+| `deploy.sh` | 一键发布：rsync 站点和接口代码 + 拉起容器 + 重载 / 重启（首次还生成 `api.env`） |
+| `deploy/compose.yaml` | fps-game、fps-api 两个容器的定义，网络指向 `paseo-relay_default` |
 | `deploy/Caddyfile` | fps-game 的配置：`/api/*` 转给 fps-api，其他出静态文件（根目录、gzip、缓存策略） |
 | `server/api.py` | 开发接口（fps-api 容器里跑），说明见 `devmode.md` |
 | `/home/donkey/direct-strike-data/api.env` | 开发者模式密码 `DEV_PASSWORD`、签名随机串 `API_SECRET`、数据上限 `DATA_QUOTA_GB`。首次 `deploy.sh` 自动生成，不在仓库里 |
@@ -83,12 +83,28 @@ curl -s https://game.lightup.host/api/health                                    
 curl -s -o /dev/null -w '%{http_code}\n' https://game.lightup.host/server/api.py   # 必须 404（接口代码不在站点目录里）
 ```
 
+## 开发接口排查
+
+`/api/health` 不通、游戏里解锁提示"服务器没有开发接口"时按顺序查：
+
+```bash
+docker ps --filter name=fps-                      # fps-game 和 fps-api 都要是 Up
+docker logs --tail 50 fps-api                     # 接口报错（比如 api.env 缺项）
+docker exec fps-game wget -qO- http://fps-api:8080/api/health   # fps-game 能不能连到接口
+docker exec fps-game cat /etc/caddy/Caddyfile | grep -A3 /api   # Caddy 有没有 /api/* 这段
+```
+
+- 容器里的 Caddyfile 有 `/api/*` 但线上还是不通：Caddy 没重读配置，`docker exec fps-game caddy reload --config /etc/caddy/Caddyfile`。
+  （v0.21 第一次部署就是这样，之后 `deploy.sh` 每次都重载。）
+- 改密码：改 `~/direct-strike-data/api.env` 的 `DEV_PASSWORD`，`docker restart fps-api`。所有已解锁的浏览器下次打开页面自动退出。
+- 数据目录、配额和上传的格式见 `devmode.md`。
+
 ## 回滚
 
 - 代码：`git tag --sort=v:refname` 看有哪些版本，`git checkout <tag>` 然后 `./deploy.sh`，部署完 `git checkout main` 回来。
   每个上线的版本都有 tag（`ship.sh --tag` 打的，见 `workflow.md` 的"版本号"）。
   回滚只是临时措施：线上这时比 `main` 旧，修好后照常从 `main` 发新版本。
-- Caddyfile：同目录有 `Caddyfile.bak-<时间戳>`，复制回去再 `caddy reload`。
+- relay 的 Caddyfile：`/home/donkey/paseo-relay/` 同目录有 `Caddyfile.bak-<时间戳>`，复制回去再 `caddy reload`。
 
 ## 以后加地图要注意
 

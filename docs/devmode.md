@@ -24,6 +24,8 @@
 node tools/devlog/analyze.mjs --list          # 所有上传：编号、版本、模式、时长、帧率、标记数、视频片数、显卡
 node tools/devlog/analyze.mjs                 # 最新一次
 node tools/devlog/analyze.mjs <编号> --at 12.5,30 --around 2   # 额外看某几个时刻，前后 2 秒
+node tools/devlog/analyze.mjs devlog-xxx.json.gz              # 分析"下载到本地"的文件（或任意目录）
+node tools/devlog/analyze.mjs <编号> --no-video                # 不拆视频帧，快一些
 ```
 
 输出在 `tools/out/devlog/<编号>/`：
@@ -113,6 +115,32 @@ node tools/devlog/analyze.mjs <编号> --at 12.5,30 --around 2   # 额外看某�
   `sub` 现在固定是 `dev`；以后做后台（玩家账号、按人开开发者模式）时换成玩家 id。
 - 数据目录总大小超过 `DATA_QUOTA_GB`（默认 10）就从最旧的上传开始删。
 - 改密码：改 `~/direct-strike-data/api.env` 的 `DEV_PASSWORD`，然后 `docker restart fps-api`。
+
+### 在服务器上看数据和密码
+
+```bash
+grep DEV_PASSWORD ~/direct-strike-data/api.env            # 现在的密码
+ls -lt ~/direct-strike-data/devlogs | head                # 最近的上传（编号就是目录名）
+du -sh ~/direct-strike-data/devlogs                       # 占了多少（上限 DATA_QUOTA_GB）
+cat ~/direct-strike-data/devlogs/<编号>/meta.json          # 谁、什么时候、什么设备传的
+docker logs --tail 50 fps-api                             # 接口日志（登录、上传、报错）
+```
+
+不想要的上传直接删目录即可，服务器不另记索引。
+
+## 常见问题
+
+| 看到的提示 / 现象 | 原因和办法 |
+|---|---|
+| "密码不对" | 密码以服务器 `api.env` 为准，改过密码要用新的 |
+| "输错太多次，过 10 分钟再试" | 同一 IP 10 分钟内输错 10 次，等 10 分钟；或 `docker restart fps-api` 清掉计数 |
+| "服务器没有开发接口（本地请用 start.sh 启动）" | 本地用别的方式（`python -m http.server`、VS Code 插件）出的页面，没有 `/api/`；线上出现说明 fps-api 没起来，见 `deploy.md` 的"开发接口排查" |
+| 本来解锁了，打开页面变回没解锁 | 令牌失效：过了 30 天，或服务器改了密码 / `API_SECRET`。重新输密码 |
+| "录画面让游戏明显变卡，已自动关闭" | 这台电脑录画面太吃力，帧数据不受影响照常录。要录画面可以先把画质调低再试 |
+| "上传失败：上传不存在或已关闭" | 一次上传建好 1 小时后关闭（例如暂停着放了很久），重新点"上传"即可，会新建一个编号 |
+| "上传失败"，其他原因 | 先"下载到本地"保存帧数据（`devlog-*.json.gz`），把文件发给开发，`node tools/devlog/analyze.mjs <文件路径>` 直接分析；画面只能上传 |
+| 统计里帧数是 0 | 只录战斗中（鼠标锁定时）的帧，进一局玩一会儿再看 |
+| 分析脚本说没有视频 | 没开"录制画面"，或者录画面被自动关掉了；`report.md` 的事件统计里看有没有 `videoSegment` |
 
 ## 限制
 
