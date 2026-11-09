@@ -34,6 +34,7 @@ Game.UI = class UI {
     this.mode = Game.Settings.get('mode');   // 首页当前选中的模式
     this.npcReady = false;
     this.npcNote = 'NPC 模型加载中…';
+    this.loading = {};       // 正在下载模型的装备槽：rifle / pistol / npc → true
 
     // main.js 设置的回调
     this.onDeploy = null;    // (mode) 点"进入战斗"：开局并进入全屏
@@ -41,6 +42,7 @@ Game.UI = class UI {
     this.onResume = null;    // 暂停里点"继续"
     this.onRestart = null;   // 重新开始 / 再来一局
     this.onQuit = null;      // 回首页
+    this.onLoadout = null;   // (slot) 首页换了装备：下载并换上新模型，返回 Promise
 
     this.buildHome();
     this.buildSettings();
@@ -174,6 +176,12 @@ Game.UI = class UI {
       duelLen.appendChild(b);
     }
 
+    // 装备选择：点按钮切换（事件委托，按钮每次 renderMode 重画）
+    $('loadout-pick').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-slot]');
+      if (b) this.pickLoadout(b.dataset.slot, b.dataset.key);
+    });
+
     $('btn-deploy').addEventListener('click', () => {
       if (this.deployBlocked()) return;
       this.audio.init();
@@ -204,7 +212,32 @@ Game.UI = class UI {
   }
 
   deployBlocked() {
-    return UI.MODES[this.mode].npc && !this.npcReady;
+    return (UI.MODES[this.mode].npc && (!this.npcReady || this.loading.npc)) || this.loading.rifle || this.loading.pistol;
+  }
+
+  // 换装备：存进设置（settings 写回 Game.Config），交给 main.js 下载模型；失败就换回原来的
+  pickLoadout(slot, key) {
+    const prev = Game.Settings.get(slot);
+    if (key === prev || this.loading[slot]) return;
+    Game.Settings.set(slot, key);
+    this.loading[slot] = true;
+    this.renderMode();
+    const done = this.onLoadout ? this.onLoadout(slot) : Promise.resolve();
+    done.then((ok) => {
+      if (ok === false) {    // NPC 模型加载失败
+        this.toast(`${Game.Config.loadout.npc[key].name} 模型加载失败`);
+        Game.Settings.set(slot, prev);
+        return this.onLoadout(slot);
+      }
+    }).catch((err) => {
+      console.error(err);
+      this.toast(`${Game.Config.loadout[slot][key].name} 模型加载失败`);
+      Game.Settings.set(slot, prev);
+      return this.onLoadout(slot);
+    }).finally(() => {
+      this.loading[slot] = false;
+      this.renderMode();
+    });
   }
 
   // 按当前选中的模式刷新首页
@@ -217,26 +250,41 @@ Game.UI = class UI {
     for (const b of document.querySelectorAll('#mode-list .mode')) b.classList.toggle('on', b.dataset.mode === this.mode);
     $('opt-duel').style.display = this.mode === 'duel' ? '' : 'none';
     for (const b of $('duel-len').children) b.classList.toggle('on', Number(b.dataset.n) === Game.Config.duel.winScore);
+    $('loadout-pick').innerHTML = this.pickHtml();
     $('loadout').innerHTML = this.loadoutHtml();
 
     const blocked = this.deployBlocked();
     const btn = $('btn-deploy');
     btn.disabled = blocked;
-    btn.firstElementChild.textContent = blocked ? 'NPC 模型加载中…' : '进入战斗';
+    btn.firstElementChild.textContent = !blocked ? '进入战斗'
+      : this.loading.rifle || this.loading.pistol ? '枪模加载中…' : 'NPC 模型加载中…';
     const chip = $('npc-status');
     chip.textContent = this.npcNote;
     chip.style.display = this.npcNote ? '' : 'none';
   }
 
+  // 可切换的装备：主武器、副武器，有 NPC 的模式再加一行对手形象
+  pickHtml() {
+    const L = Game.Config.loadout;
+    const rows = [['rifle', '主武器'], ['pistol', '副武器']];
+    if (UI.MODES[this.mode].npc) rows.push(['npc', '对手']);
+    return rows.map(([slot, label]) => {
+      const cur = Game.Settings.get(slot);
+      const btns = Object.entries(L[slot]).map(([key, it]) => {
+        const on = key === cur;
+        const busy = on && this.loading[slot];
+        return `<button data-slot="${slot}" data-key="${key}" class="${on ? 'on' : ''}${busy ? ' busy' : ''}">${it.name}${busy ? '…' : ''}</button>`;
+      }).join('');
+      return `<div class="pick"><span>${label}</span><div class="seg">${btns}</div></div>`;
+    }).join('');
+  }
+
+  // 投掷物：数量
   loadoutHtml() {
-    const W = Game.Config.weapons;
     const G = Game.Config.grenades;
     const unlimited = this.mode === 'range';   // 训练场投掷物不限量
-    const items = [
-      [W.rifle.name, '主武器'], [W.pistol.name, '副武器'],
-      ...['frag', 'flash', 'smoke'].map((k) => [G[k].name, unlimited ? '× ∞' : `× ${G[k].count}`]),
-    ];
-    return items.map(([name, note]) => `<div><b>${name}</b><small>${note}</small></div>`).join('');
+    return ['frag', 'flash', 'smoke']
+      .map((k) => `<div><b>${G[k].name}</b><small>${unlimited ? '× ∞' : `× ${G[k].count}`}</small></div>`).join('');
   }
 
   // ---------- 设置 ----------

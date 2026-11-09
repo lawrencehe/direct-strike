@@ -8,9 +8,20 @@
   （`Game.Config`、`Game.Player`、`Game.Weapon`……）。**后加载的可以用先加载的，反过来不行**，新文件要插到正确位置。
 - 顺序：`config → settings → physics → audio → input → textures → effects → truck → world → targets → ragdoll → character → player → gunmodel → grenades → weapon → bots → hud → ui → main`。
   `settings` 紧跟 `config`：它把玩家存在浏览器里的设置写回 `Game.Config`，后面的文件读到的就是玩家的值。
-- `main.js` 先异步加载 `maps/<config.map>.json`、AK 枪模（`GunModel.loadAK`）和第一人称手臂（`GunModel.loadArms`），都加载完才调用 `startGame` 创建所有对象；
+- `main.js` 先异步加载 `maps/<config.map>.json`、首页选中的主副武器枪模（`GunModel.loadGun`）和第一人称手臂（`GunModel.loadArms`），都加载完才调用 `startGame` 创建所有对象；
   加载页显示进度，任何一个失败，错误显示在加载页上。NPC 模型也是异步加载，加载完首页才允许进对战模式。
 - 浏览器控制台里的 `window.game` 能拿到所有对象（`game.player`、`game.weapon`、`game.bots`……），调试和测试脚本都靠它。
+
+## 可选装备（换枪、换 NPC 形象）
+
+- 可选项在 `config.js` 的 `loadout`（`rifle` / `pistol` / `npc` 三组，key 是存档名）。首页"装备"里点选，存进 `Game.Settings`，
+  `settings.js` 把选中的那项写回 `Game.Config`：`weapons.rifle` / `weapons.pistol` = 默认数值 + 这把枪的覆盖项，`character.model` = NPC 模型路径。
+  所以其他代码照常读 `Game.Config.weapons.rifle`，不用知道选的是哪把。
+- 模型按需下载：开局只加载选中的枪；首页换枪时 `ui.pickLoadout` → `main.js` 的 `ui.onLoadout` → `GunModel.loadGun` 下载（同一文件只下一次），
+  好了再 `weapon.buildGun(slot)` 重建这一格的枪模和手臂。下载期间"进入战斗"不可点；失败就提示并换回原来的。
+- NPC 形象：`Character.load()` 按 `character.model` 加载（有缓存），之后新生成的 NPC 用它。NPC 每局开始时重建，所以换形象下一局生效。
+- NPC 手里的枪仍是方块步枪和代码拼的手枪，不跟着玩家的选择换外观；数值读的是同一个 `Game.Config.weapons`。
+- 每把枪在画面里的摆法、手的握持位置在 `weapon.js` 末尾的 `Weapon.VIEW`，按 `loadout` 的 key 写。
 
 ## 对象关系
 
@@ -81,12 +92,14 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
   顺序反了会先闪一下暂停菜单。
 - **`window.game` 在开局前是那个 `<canvas id="game">`**（浏览器会把带 id 的元素挂到 `window` 上）。
   测试脚本判断游戏是否就绪要看 `window.game.startMode`，不能只看 `window.game`，`tools/lib/game-page.mjs` 就是这么等的。
-- **glb 枪模换了要重新对手的位置。** 手臂是 `arm.glb`（蒙皮模型），握把、护木的位置写在 `weapon.js` 的 `buildModels` 里（`arms.hand(...)`）；
+- **glb 枪模换了要重新对手的位置。** 手臂是 `arm.glb`（蒙皮模型），握把、护木的位置写在 `weapon.js` 末尾的 `Weapon.VIEW` 里（`right` / `left`）；
   换模型后用侧视截图（把枪转 90 度）检查手有没有握在握把和护木上。
 - **手臂每帧要 `solve()`。** `gunmodel.js` 的 `buildArms` 按握持坐标系摆手腕骨骼、沿 `armDir` 摆小臂和上臂，手指只在第一次 solve 时自动弯到贴住握把。
   `weapon.js` 在 `animate` 末尾对当前武器调一次；在别处移动了枪或手的目标点，要在渲染前再调一次，否则手臂慢一帧。
   蒙皮网格关了视锥剔除（静止姿势的包围球不准）。
 - **同色集装箱共用贴图**，只显示第一个的编号，见 `maps.md`。
+- **下载来的模型常是 HASHED / BLEND 材质。** M4、SG 的原始材质都是 HASHED（半透明抖动），在游戏里会透；加工脚本里统一改 `OPAQUE`。
+  原始单位也不统一（SG 是厘米），加工脚本按"全长"缩放，见 `assets-src/models/gun/m4.py`、`sg.py`。
 - **换 NPC 模型先看朝向和材质。** 下载来的模型可能面朝反方向（左手在 +X），`rig.sh add-anim` 会报"静止姿态相差 ~180°"，
   先转 180° 再移植动画；Sketchfab 类导出常把所有材质设成 `BLEND`、法线强度 0、透明度放在单独贴图里，要改成 `MASK`。
   例子见 `assets-src/models/human/ukrainian-soldier/build.sh`。

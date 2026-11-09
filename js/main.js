@@ -9,10 +9,11 @@
 // ============================================================
 // 界面流程（首页 → 简报 → 战斗 → 暂停 / 结算）在 ui.js，这里只负责开局、锁鼠标、全屏这些动作。
 // ============================================================
-// 地图文件和枪模是异步加载的，都加载完才开始创建游戏对象，加载页显示进度
+// 地图文件和枪模（首页上次选的主副武器）是异步加载的，都加载完才开始创建游戏对象，加载页显示进度
 // 有问题时把原因显示在加载页上，不要留一个什么都点不动的页面
 {
-  const loads = [Game.World.loadMap(Game.Config.map), Game.GunModel.loadAK(), Game.GunModel.loadArms()];
+  const W = Game.Config.weapons;
+  const loads = [Game.World.loadMap(Game.Config.map), Game.GunModel.loadGun(W.rifle.model), Game.GunModel.loadGun(W.pistol.model), Game.GunModel.loadArms()];
   let done = 0;
   Game.UI.bootProgress(0, loads.length + 1);
   for (const p of loads) p.then(() => Game.UI.bootProgress(++done, loads.length + 1), () => {});
@@ -282,6 +283,16 @@ function startGame(mapData) {
 
   // NPC 模型是异步加载的，加载完才允许进入对战模式
   Game.Character.load().then((ok) => ui.setNpcReady(ok));
+
+  // 首页换了装备（settings 已经把选择写回 Game.Config）：下载新模型，好了再换上。
+  // 下载期间 ui 不让进入战斗；返回的 Promise 结束时 ui 刷新首页
+  ui.onLoadout = (slot) => {
+    if (slot === 'npc') return Game.Character.load().then((ok) => { ui.setNpcReady(ok); return ok; });
+    const key = Game.Settings.get(slot);
+    return Game.GunModel.loadGun(Game.Config.weapons[slot].model).then(() => {
+      if (Game.Settings.get(slot) === key) weapon.buildGun(slot);   // 下载期间又换了别的就不管
+    });
+  };
 
   // 方便在浏览器控制台（F12）里调试，例如输入 game.player.position 查看位置
   window.game = { scene, camera, renderer, world, targets, input, audio, hud, ui, player, weapon, grenades, effects, bots, startMode };

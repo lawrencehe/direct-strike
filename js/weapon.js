@@ -65,61 +65,12 @@ Game.Weapon = class Weapon {
     this.refreshHud();
   }
 
-  // 枪模和手臂由 gunmodel.js 提供（AK、手臂是 glb，手枪是几何体），这里只负责摆位置、摆手、挂枪口火焰
+  // 枪模和手臂由 gunmodel.js 提供（AK、M4、SG、手臂是 glb，默认手枪是几何体），这里只负责摆位置、摆手、挂枪口火焰。
+  // 每把枪怎么摆、手握在哪，见文件末尾的 Weapon.VIEW
   buildModels() {
-    const cam = this.weaponCamera;
-    const makeFlash = (size, at, parent) => {
-      const flash = new THREE.Mesh(
-        new THREE.PlaneGeometry(size, size),
-        new THREE.MeshBasicMaterial({
-          map: Game.Effects.flashTexture(), transparent: true,
-          blending: THREE.AdditiveBlending, depthWrite: false,
-        })
-      );
-      flash.position.copy(at);
-      flash.visible = false;
-      parent.add(flash);
-      return flash;
-    };
-
-    const ak = Game.GunModel.buildAK();
-    const pistol = Game.GunModel.buildPistol();
-
-    // 手（握持坐标系见 gunmodel.js 的 buildArms）：握把的轴线前倾，所以绕 x 轴转；左手托护木时掌心朝上（护木轴线是 z），用基向量直接写朝向
+    this.guns = {};
+    for (const slot of ['rifle', 'pistol']) this.buildGun(slot);
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
-    const tilt = (a) => new THREE.Quaternion().setFromEuler(new THREE.Euler(a, 0, 0));
-    const cradle = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(0, 1, 0), V(0, 0, -1), V(-1, 0, 0)));
-    const akArms = Game.GunModel.buildArms(ak.group);
-    akArms.hand('R', { R: 0.024, pos: V(0, -0.052, 0.13), quat: tilt(-0.25), armDir: V(0.35, -0.6, 0.72) });
-    const akLeft = akArms.hand('L', { R: 0.036, pos: V(0, 0.022, -0.215), quat: cradle, armDir: V(-0.5, -0.55, 0.67) });
-    const pistolArms = Game.GunModel.buildArms(pistol.group);
-    pistolArms.hand('R', { R: 0.027, pos: V(0, -0.066, 0.075), quat: tilt(-0.18), armDir: V(0.35, -0.6, 0.72) });
-    // 手枪双手持握：左手从另一侧包住握把和右手手指
-    const pistolLeft = pistolArms.hand('L', { R: 0.037, pos: V(0, -0.082, 0.07), quat: tilt(-0.18), armDir: V(-0.62, -0.5, 0.6) });
-
-    this.guns = {
-      rifle: {
-        cfg: Game.Config.weapons.rifle, ammo: Game.Config.weapons.rifle.magSize,
-        model: ak.group, scale: 0.75, arms: akArms,
-        // 摆在画面右下，枪口略微朝准星方向内收
-        basePos: new THREE.Vector3(0.155, -0.15, -0.5), baseRot: new THREE.Euler(0.0, 0.07, 0.0),
-        bolt: ak.bolt, boltHome: ak.boltHome, boltKick: 0.07,       // 拉机柄：开枪时往后跳
-        mag: ak.mag, magHome: ak.magHome, magDrop: 0.16, magBack: 0.05, magTilt: 0.5,
-        flash: makeFlash(0.26, ak.muzzle, ak.group),
-        leftHand: akLeft, leftHome: akLeft.position.clone(), leftGrab: V(0, -0.13, -0.095),   // 换弹时左手去抓弹匣
-        kickBack: 0.06, kickUp: 0.05,
-      },
-      pistol: {
-        cfg: Game.Config.weapons.pistol, ammo: Game.Config.weapons.pistol.magSize,
-        model: pistol.group, scale: 0.72, arms: pistolArms,
-        basePos: new THREE.Vector3(0.105, -0.075, -0.34), baseRot: new THREE.Euler(0.02, 0.07, 0.0),
-        bolt: pistol.slide, boltHome: pistol.slideHome, boltKick: 0.036,   // 套筒：开枪时往后坐
-        mag: pistol.mag, magHome: pistol.magHome, magDrop: 0.13, magBack: 0.02, magTilt: 0,
-        flash: makeFlash(0.17, pistol.muzzle, pistol.group),
-        leftHand: pistolLeft, leftHome: pistolLeft.position.clone(), leftGrab: V(0, -0.15, 0.085),
-        kickBack: 0.045, kickUp: 0.14,
-      },
-    };
 
     // 投掷物：拿在手上是一个完整的模型，出手后 grenades.js 再造一个飞出去
     this.throwables = {};
@@ -137,14 +88,57 @@ Game.Weapon = class Weapon {
       };
     }
 
-    for (const it of [...Object.values(this.guns), ...Object.values(this.throwables)]) {
-      it.model.scale.setScalar(it.scale);
-      it.model.position.copy(it.basePos);    // 第一次 animate 之前（比如菜单背景）也要摆在正确位置
-      it.model.rotation.copy(it.baseRot);
-      it.model.visible = false;
-      cam.add(it.model);
-      it.arms.solve();
-    }
+    for (const it of Object.values(this.throwables)) this.mount(it);
+  }
+
+  // 挂到枪模摄像机上，先摆在正确位置（第一次 animate 之前，比如菜单背景，也不能是一把巨大的枪）
+  mount(it) {
+    it.model.scale.setScalar(it.scale);
+    it.model.position.copy(it.basePos);
+    it.model.rotation.copy(it.baseRot);
+    it.model.visible = false;
+    this.weaponCamera.add(it.model);
+    it.arms.solve();
+  }
+
+  // 按 config 里当前选的枪造 slot（'rifle' | 'pistol'）这一格：枪模、手臂、枪口火焰。
+  // 首页换了枪就再调一次，旧的模型拆掉（网格、贴图是共用的缓存，不释放）
+  buildGun(slot) {
+    const old = this.guns[slot];
+    if (old) old.model.removeFromParent();
+
+    const cfg = Game.Config.weapons[slot];
+    const key = Game.Settings.get(slot);
+    const view = Game.Weapon.VIEW[key] || Game.Weapon.VIEW[slot === 'rifle' ? 'ak' : 'beretta'];
+    const gun = Game.GunModel.buildGun(slot);
+
+    const flash = new THREE.Mesh(
+      new THREE.PlaneGeometry(view.flashSize, view.flashSize),
+      new THREE.MeshBasicMaterial({
+        map: Game.Effects.flashTexture(), transparent: true,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      })
+    );
+    flash.position.copy(gun.muzzle);
+    flash.visible = false;
+    gun.group.add(flash);
+
+    const arms = Game.GunModel.buildArms(gun.group);
+    arms.hand('R', view.right);
+    const left = arms.hand('L', view.left);
+
+    const it = this.guns[slot] = {
+      key, cfg, ammo: old && old.key === key ? old.ammo : cfg.magSize,
+      model: gun.group, scale: view.scale, arms, flash,
+      basePos: view.basePos.clone(), baseRot: view.baseRot.clone(),
+      bolt: gun.bolt, boltHome: gun.boltHome, boltKick: view.boltKick,
+      mag: gun.mag, magHome: gun.magHome, magDrop: view.magDrop, magBack: view.magBack, magTilt: view.magTilt,
+      leftHand: left, leftHome: left.position.clone(), leftGrab: view.leftGrab,
+      kickBack: view.kickBack, kickUp: view.kickUp,
+    };
+    this.mount(it);
+    if (old && this.current === slot) this.show(slot);
+    if (this.hud && this.current) this.refreshHud();
   }
 
   isGun(key) { return key === 'rifle' || key === 'pistol'; }
@@ -589,3 +583,54 @@ Game.Weapon = class Weapon {
 // 滚轮切换的顺序，和按键动作的对应关系
 Game.Weapon.ORDER = ['rifle', 'pistol', 'frag', 'flash', 'smoke'];
 Game.Weapon.ACTIONS = { rifle: 'slotRifle', pistol: 'slotPistol', frag: 'slotFrag', flash: 'slotFlash', smoke: 'slotSmoke' };
+
+// 每把枪在画面里怎么摆、手握在哪。key 和 config.js 的 loadout.rifle / loadout.pistol 一致（找不到时用 ak / beretta 的）。
+// 坐标都是枪自己的局部坐标（-z 枪口，+y 上，单位米），握持坐标系见 gunmodel.js 的 buildArms：
+//   right / left  右手、左手：R 握把半径，pos 握持中心，quat 握持方向，armDir 手臂伸出画面的方向
+//   leftGrab      换弹时左手去抓弹匣的位置
+//   scale / basePos / baseRot  枪模缩放和在画面右下角的位置、朝向（枪口略微朝准星方向内收）
+//   boltKick      拉机柄 / 套筒开枪时往后跳多少；magDrop / magBack / magTilt 换弹时弹匣往下、往后抽多少，转多少
+//   kickBack / kickUp  每发枪身后坐、上抬；flashSize 枪口火焰大小
+// 换了枪模要重新对手的位置：用侧视截图检查手有没有握在握把和护木上（docs/architecture.md 的"已知的坑"）
+{
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const tilt = (a) => new THREE.Quaternion().setFromEuler(new THREE.Euler(a, 0, 0));
+  // 左手托护木时掌心朝上（护木轴线是 z），用基向量直接写朝向
+  const cradle = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(0, 1, 0), V(0, 0, -1), V(-1, 0, 0)));
+
+  Game.Weapon.VIEW = {
+    ak: {
+      right: { R: 0.024, pos: V(0, -0.052, 0.13), quat: tilt(-0.25), armDir: V(0.35, -0.6, 0.72) },
+      left: { R: 0.036, pos: V(0, 0.022, -0.215), quat: cradle, armDir: V(-0.5, -0.55, 0.67) },
+      leftGrab: V(0, -0.13, -0.095),
+      scale: 0.75, basePos: V(0.155, -0.15, -0.5), baseRot: new THREE.Euler(0.0, 0.07, 0.0),
+      boltKick: 0.07, magDrop: 0.16, magBack: 0.05, magTilt: 0.5,
+      kickBack: 0.06, kickUp: 0.05, flashSize: 0.26,
+    },
+    m4: {
+      right: { R: 0.024, pos: V(0, -0.1, 0.11), quat: tilt(-0.35), armDir: V(0.35, -0.6, 0.72) },
+      left: { R: 0.034, pos: V(0, 0.0, -0.2), quat: cradle, armDir: V(-0.5, -0.55, 0.67) },
+      leftGrab: V(0, -0.13, -0.03),
+      scale: 0.75, basePos: V(0.155, -0.15, -0.46), baseRot: new THREE.Euler(0.0, 0.07, 0.0),
+      boltKick: 0.03, magDrop: 0.16, magBack: 0.02, magTilt: 0.3,
+      kickBack: 0.055, kickUp: 0.045, flashSize: 0.24,
+    },
+    beretta: {
+      right: { R: 0.027, pos: V(0, -0.066, 0.075), quat: tilt(-0.18), armDir: V(0.35, -0.6, 0.72) },
+      // 双手持握：左手从另一侧包住握把和右手手指
+      left: { R: 0.037, pos: V(0, -0.082, 0.07), quat: tilt(-0.18), armDir: V(-0.62, -0.5, 0.6) },
+      leftGrab: V(0, -0.15, 0.085),
+      scale: 0.72, basePos: V(0.105, -0.075, -0.34), baseRot: new THREE.Euler(0.02, 0.07, 0.0),
+      boltKick: 0.036, magDrop: 0.13, magBack: 0.02, magTilt: 0,
+      kickBack: 0.045, kickUp: 0.14, flashSize: 0.17,
+    },
+    sg: {
+      right: { R: 0.026, pos: V(0, -0.04, 0.03), quat: tilt(-0.3), armDir: V(0.35, -0.6, 0.72) },
+      left: { R: 0.036, pos: V(0, -0.056, 0.025), quat: tilt(-0.3), armDir: V(-0.62, -0.5, 0.6) },
+      leftGrab: V(0, -0.13, 0.04),
+      scale: 0.72, basePos: V(0.105, -0.075, -0.34), baseRot: new THREE.Euler(0.02, 0.07, 0.0),
+      boltKick: 0.03, magDrop: 0.12, magBack: 0.03, magTilt: 0,
+      kickBack: 0.045, kickUp: 0.14, flashSize: 0.17,
+    },
+  };
+}

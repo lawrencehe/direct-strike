@@ -203,7 +203,13 @@ body[data-screen="brief"] #hud { display: none; }
 }
 .seg button:hover { color: var(--ink); border-color: var(--line-2); }
 .seg button.on { color: var(--ink); border-color: var(--accent); background: rgba(255, 95, 0, .14); }
-.loadout { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+/* 装备选择：每行左边是槽位名，右边是可选项 */
+.picks { display: flex; flex-direction: column; gap: 4px; }
+.pick { display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 8px; }
+.pick > span { font-family: var(--font-m); font-size: 11px; color: var(--dim); }
+.pick .seg button { padding: 6px 0; font-size: 13px; }
+.pick .seg button.busy { color: var(--dim); }
+.loadout { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .loadout div {
   padding: 7px 4px; text-align: center; border: 1px solid var(--line);
   background: rgba(233, 228, 212, .03); display: flex; flex-direction: column; gap: 2px;

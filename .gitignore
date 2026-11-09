@@ -10,3 +10,8 @@ assets-src/models/human/ukrainian-soldier-download.glb
 assets-src/models/human/ukrainian-soldier.glb
 assets-src/models/human/ukrainian-soldier/source/
 assets-src/models/human/ukrainian-soldier/textures/
+assets-src/models/gun/m4-download.glb
+assets-src/models/gun/sg-handgun-download.glb
+assets-src/models/gun/sg-handgun/
+# 还没接进游戏的原始下载（锯短霰弹枪 + 手臂动画、另一套第一人称手臂）
+assets-src/models/arm/

@@ -1,8 +1,8 @@
 // ============================================================
 // NPC 的外观：加载 glTF 士兵模型、播放动画、摆持枪姿势、挂判定盒
 //
-// 模型是 ukrainian-soldier.glb（Mixamo 骨骼），待机/走/跑三个动画是从 init_soldier.glb 移植过来的，
-// 加工流程见 assets-src/models/human/ukrainian-soldier/build.sh。
+// 模型由首页选的形象决定（config.js 的 loadout.npc → character.model），都是 Mixamo 骨骼、带待机/走/跑动画。
+// 默认的 ukrainian-soldier.glb 的动画是从 init_soldier.glb 移植过来的，加工流程见 assets-src/models/human/ukrainian-soldier/build.sh。
 // 持枪姿势不是动画，而是每帧把手臂骨骼"掰"向枪上的握把位置（一个很简单的 IK）。
 // 这样换成别的 Mixamo 骨骼模型时，不需要重做持枪动画。
 //
@@ -21,30 +21,37 @@
 Game.Character = (function () {
   const cfg = () => Game.Config.character;
 
-  let asset = null;
-  let loadPromise = null;
-  let gait = null;   // { walk: { stride, footPhase }, run: {...} }，加载后量出来
+  let asset = null;   // 当前用的模型（gltf）
+  let gait = null;    // 它的步幅 { walk: { stride, footPhase }, run: {...} }，加载后量出来
+  const cache = {};   // 文件路径 → Promise<{ gltf, gait } | null>，同一个模型只下载一次
 
+  // 加载 config.character.model（首页选的 NPC 形象），加载完换成当前模型，之后新生成的 NPC 用它。
+  // 返回 Promise<boolean>：false 表示加载失败，NPC 退回方块小人
   function load() {
-    if (loadPromise) return loadPromise;
-    loadPromise = new Promise((resolve) => {
-      if (!THREE.GLTFLoader) { resolve(false); return; }
-      new THREE.GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load(cfg().model, (gltf) => {
-        gltf.scene.traverse((o) => {
-          if (o.isMesh) {
-            o.castShadow = o.receiveShadow = true;
-            o.frustumCulled = false;   // 蒙皮动起来后包围球不准，关掉以免被误剔除
-          }
+    const path = cfg().model;
+    if (!cache[path]) {
+      cache[path] = new Promise((resolve) => {
+        if (!THREE.GLTFLoader) { resolve(null); return; }
+        new THREE.GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load(path, (gltf) => {
+          gltf.scene.traverse((o) => {
+            if (o.isMesh) {
+              o.castShadow = o.receiveShadow = true;
+              o.frustumCulled = false;   // 蒙皮动起来后包围球不准，关掉以免被误剔除
+            }
+          });
+          resolve({ gltf, gait: measureGait(gltf) });
+        }, undefined, (err) => {
+          console.warn('NPC 模型加载失败，改用方块小人。用 start.sh 启动本地服务可以解决。', path, err);
+          resolve(null);
         });
-        asset = gltf;
-        gait = measureGait(gltf);
-        resolve(true);
-      }, undefined, (err) => {
-        console.warn('NPC 模型加载失败，改用方块小人。用 start.sh 启动本地服务可以解决。', err);
-        resolve(false);
       });
+    }
+    return cache[path].then((r) => {
+      if (cfg().model !== path) return !!r;   // 加载期间又换了别的形象
+      asset = r ? r.gltf : null;
+      gait = r ? r.gait : null;
+      return !!r;
     });
-    return loadPromise;
   }
 
   // Mixamo 骨骼名（不带前缀）。不同导出工具的前缀不一样：
@@ -137,7 +144,7 @@ Game.Character = (function () {
   // 手枪双手平举在胸前：握把在 (0.08, 1.35, -0.42) 附近，减去握把在枪里的位置就是枪的原点
   const PISTOL_POS = new THREE.Vector3(0.08, 1.4, -0.49);
 
-  // NPC 手里的手枪：和玩家用同一个模型（gunmodel.js 的 buildPistol），造一次，之后每个 NPC 克隆
+  // NPC 手里的手枪：用代码拼的默认手枪（gunmodel.js 的 buildPistol），不跟着玩家选的枪换。造一次，之后每个 NPC 克隆
   let pistolProto = null;
   function buildPistol() {
     if (!pistolProto) {
@@ -538,5 +545,5 @@ Game.Character = (function () {
     return asset ? new SoldierModel() : new BlockModel();
   }
 
-  return { load, create, isLoaded: () => !!asset };
+  return { load, create };
 })();

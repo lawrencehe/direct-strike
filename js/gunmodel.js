@@ -1,5 +1,5 @@
 // ============================================================
-// 枪模：AK 和第一人称手臂加载 glb 模型；手枪、手雷还是用基础几何体拼的（之后逐个换成 glb）
+// 枪模：AK、M4、SG 手枪和第一人称手臂加载 glb 模型；默认手枪、手雷还是用基础几何体拼的（之后逐个换成 glb）
 //
 // 坐标约定（枪自己的局部坐标）：-z 是枪口方向，+z 朝射手，+y 向上，+x 是枪的右侧。
 // 单位是米，尺寸大致按真枪（全长约 0.9 米）。weapon.js 负责把它缩放、摆到画面右下角。
@@ -110,23 +110,35 @@ Game.GunModel = (function () {
     return m;
   }
 
-  // ---------- AK：Blender 加工的 glb 模型 ----------
-  // 由 assets-src/models/gun/ak47.py 生成，坐标约定和上面一样。零件拆成三个网格：
-  // body 枪身、mag 弹匣（原点在弹匣顶部，换弹时绕这里转）、bolt 拉机柄，另有空节点 muzzle 标出枪口。
-  // main.js 开局前和地图一起等它加载完；加载失败就进不了游戏，错误显示在加载页上。
-  let akAsset = null;
-  function loadAK() {
-    return new Promise((resolve, reject) => {
-      new THREE.GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load(Game.Config.weapons.rifle.model,
-        (gltf) => { akAsset = gltf.scene; resolve(); },
-        undefined,
-        (err) => reject(new Error('AK 模型加载失败：' + (err.message || err))));
-    });
+  // ---------- glb 枪模（AK、M4、SG 手枪……）：Blender 加工的 glb 模型 ----------
+  // 由 assets-src/models/gun/*.py 生成，坐标约定和上面一样。零件拆成几个网格：
+  // body 枪身、mag 弹匣（原点在弹匣顶部，换弹时绕这里转）、bolt 拉机柄 / 枪机或 slide 套筒（开枪时往后跳），
+  // 另有空节点 muzzle 标出枪口。
+  // 用哪个文件看 config.js 的 weapons.rifle.model / weapons.pistol.model（首页选的枪），同一个文件只下载一次。
+  // main.js 开局前等选中的枪加载完；首页换枪时 ui.js 再加载新的。加载失败的错误显示在加载页或首页上。
+  const gunAssets = {};   // 文件路径 → Promise<gltf.scene>
+  function loadGun(path) {
+    if (!path) return Promise.resolve(null);   // 代码拼的枪，不用下载
+    if (!gunAssets[path]) {
+      gunAssets[path] = new Promise((resolve, reject) => {
+        new THREE.GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load(path,
+          (gltf) => resolve(gltf.scene),
+          undefined,
+          (err) => { delete gunAssets[path]; reject(new Error(`枪模加载失败（${path}）：` + (err.message || err))); });
+      });
+      gunAssets[path].then((scene) => { loaded[path] = scene; }, () => {});
+    }
+    return gunAssets[path];
   }
+  const loaded = {};
+  const isGunLoaded = (path) => !path || !!loaded[path];
 
-  function buildAK() {
-    const gun = akAsset.clone(true);   // 网格、材质、贴图都共用，只复制节点
-    const bolt = gun.getObjectByName('bolt');
+  // slot：'rifle' | 'pistol'，按 config 里当前选的枪造一把。返回 { group, muzzle, bolt, mag, boltHome, magHome }
+  function buildGun(slot) {
+    const path = Game.Config.weapons[slot].model;
+    if (!path) return buildPistol();
+    const gun = loaded[path].clone(true);   // 网格、材质、贴图都共用，只复制节点
+    const bolt = gun.getObjectByName('bolt') || gun.getObjectByName('slide');
     const mag = gun.getObjectByName('mag');
     const muzzle = gun.getObjectByName('muzzle').position.clone();
     return { group: gun, muzzle, bolt, mag, boltHome: bolt.position.clone(), magHome: mag.position.clone() };
@@ -252,7 +264,7 @@ Game.GunModel = (function () {
     add(mag);
 
     const muzzle = new THREE.Vector3(0, 0.03, -0.145);
-    return { group: gun, muzzle, slide, mag, slideHome: slide.position.clone(), magHome: mag.position.clone() };
+    return { group: gun, muzzle, bolt: slide, mag, boltHome: slide.position.clone(), magHome: mag.position.clone() };
   }
 
   // ---------- 投掷物 ----------
@@ -554,5 +566,5 @@ Game.GunModel = (function () {
     return { group: g.clone(true) };
   }
 
-  return { loadAK, loadArms, buildAK, buildPistol, buildGrenade, buildArms, GRIP_RADIUS, environment };
+  return { loadGun, isGunLoaded, buildGun, loadArms, buildPistol, buildGrenade, buildArms, GRIP_RADIUS, environment };
 })();

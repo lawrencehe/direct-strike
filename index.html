@@ -69,7 +69,7 @@
       <header class="topbar">
         <a class="brand" href="#" data-tab="play">
           <img src="assets/brand/logo-dark.png" alt="" width="63" height="32">
-          <span>DIRECT-STRIKE <small>v0.18</small></span>
+          <span>DIRECT-STRIKE <small>v0.19</small></span>
         </a>
         <nav class="tabs">
           <a href="#" data-tab="play" class="on">作战</a>
@@ -105,8 +105,10 @@
               <span class="eyebrow">获胜条件</span>
               <div class="seg" id="duel-len"></div>
             </div>
+            <!-- 装备：主副武器、NPC 形象可以点击切换（可选项在 config.js 的 loadout），投掷物只显示数量 -->
             <div class="opt">
               <span class="eyebrow">装备</span>
+              <div class="picks" id="loadout-pick"></div>
               <div class="loadout" id="loadout"></div>
             </div>
             <button class="btn-deploy" id="btn-deploy"><span>进入战斗</span><i></i></button>

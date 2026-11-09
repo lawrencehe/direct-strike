@@ -1,4 +1,4 @@
-# Direct-Strike v0.18
+# Direct-Strike v0.19
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -18,6 +18,9 @@
 |---|---|---|
 | 1 | AK（主武器） | 全自动，30 发。爆头 100、身体 34、腿 25 |
 | 2 | 手枪（副武器） | 半自动，15 发，换弹快。爆头 100、身体 26、腿 18 |
+
+**首页"装备"里可以换枪和对手形象**：主武器 AK / M4，副武器 手枪 / SG 手枪，对手 乌克兰士兵 / 特种兵。选择存在浏览器里，
+没选过的模型不会下载。现在换枪只换外观，数值一样；想让某把枪不同，在 `config.js` 的 `loadout` 里给它写覆盖参数。
 | 3 | 手雷 ×1 | 拉环后 3 秒爆炸，半径 7 米，2.3 米内必死；有掩体挡着不受伤，也会炸到自己 |
 | 4 | 闪光弹 ×1 | 致盲视野内的 NPC（站住不开枪）；你自己正对着也会白屏，背对影响小很多 |
 | 5 | 烟雾弹 ×1 | 烟团持续 14 秒，NPC 看不穿就不会开枪 |
@@ -93,9 +96,11 @@ direct-strike/
 │   ├── brand/               logo（logo-dark.png 用在深色界面上）、网站图标、分享预览图
 │   ├── ui/maps/             首页的地图预览图（游戏截图）
 │   ├── models/human/ukrainian-soldier.glb  NPC 模型（Mixamo 骨骼，带待机/走/跑动画）
-│   ├── models/human/init_soldier.glb  旧 NPC 模型，现在只作为动画来源
-│   ├── models/human/arm.glb           第一人称手臂（蒙皮模型，CC0）
+│   ├── models/human/init_soldier.glb  可选的 NPC 形象"特种兵"，也是动画来源
+│   ├── models/arm/arm.glb           第一人称手臂（蒙皮模型，CC0）
 │   ├── models/gun/ak47.glb            AK 枪模（Blender 加工，CC BY 4.0，署名见 LICENSES.md）
+│   ├── models/gun/m4.glb              M4 枪模（Blender 加工，assets-src/models/gun/m4.py）
+│   ├── models/gun/sg.glb              SG 手枪枪模（Blender 加工，assets-src/models/gun/sg.py）
 │   └── LICENSES.md          第三方资源的来源和协议，以及怎么换模型
 ├── vendor/
 │   ├── three.min.js         Three.js r149（3D 渲染库，MIT 协议）
@@ -138,8 +143,9 @@ direct-strike/
 
 ## 想改点什么？
 
-- **改枪的样子**：AK 是 glb 模型，加工脚本在 `assets-src/models/gun/ak47.py`（Blender）；手枪还在 `gunmodel.js`，每个零件一行，坐标单位是米；枪在画面里的位置在 `weapon.js` 的 `basePos / baseRot`
-- **改手和手臂**：模型是 `assets/models/human/arm.glb`，摆法和手指弯曲在 `gunmodel.js` 的 `buildArms`，握在枪上的位置在 `weapon.js` 的 `buildModels`，尺寸在 `config.js` 的 `weapons.arms`
+- **改枪的样子**：AK、M4、SG 是 glb 模型，加工脚本在 `assets-src/models/gun/*.py`（Blender）；默认手枪还在 `gunmodel.js`，每个零件一行，坐标单位是米；枪在画面里的位置、手握在哪在 `weapon.js` 末尾的 `Weapon.VIEW`
+- **加一个可选的枪或 NPC 形象**：`config.js` 的 `loadout` 加一项（枪还要在 `Weapon.VIEW` 加一项并截图对手），首页自动出现
+- **改手和手臂**：模型是 `assets/models/arm/arm.glb`，摆法和手指弯曲在 `gunmodel.js` 的 `buildArms`，握在枪上的位置在 `weapon.js` 的 `Weapon.VIEW`，尺寸在 `config.js` 的 `weapons.arms`
 - **改武器手感和伤害**：`config.js` 的 `weapons`（枪）和 `grenades`（投掷物）
 - **改界面**：流程和规则见 `docs/ui.md`；结构在 `index.html`，逻辑在 `ui.js`，样式在 `css/style.css`，模式介绍文字在 `ui.js` 末尾的 `MODES`
 - **改死亡效果**：`config.js` 的 `ragdoll`（爆头打飞的力度、尸体留多久）

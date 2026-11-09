@@ -48,16 +48,16 @@ Game.Config = {
 
     // 第一人称手臂（所有武器共用一套模型，每把武器各摆一份）
     arms: {
-      model: 'assets/models/human/arm.glb',   // CC0，见 assets/LICENSES.md
+      model: 'assets/models/arm/arm.glb',   // CC0，见 assets/LICENSES.md
       handLength: 0.1,       // 手腕到中指根的长度（米），模型按这个缩放
       palmGap: 0.012,        // 掌心离握把表面的距离（手掌厚度的一半）
       fingerRadius: 0.009,   // 手指半径：弯手指时让指节贴着"握把半径 + 这个值"的圆
     },
 
-    // 主武器
+    // 主武器（下面是默认数值；首页选的枪见后面的 loadout.rifle，可以覆盖其中任何一项）
     rifle: {
       name: 'AK',
-      model: 'assets/models/gun/ak47.glb',   // 枪模（Blender 加工，见 assets-src/models/gun/ak47.py）
+      model: 'assets/models/gun/ak47.glb',
       auto: true,            // 按住连发
       fireInterval: 0.1,     // 两发之间的间隔 → 每分钟 600 发
       magSize: 30,           // 弹匣容量
@@ -84,6 +84,7 @@ Game.Config = {
     // 副武器：半自动，一次扣扳机一发。伤害低一些，换弹快
     pistol: {
       name: '手枪',
+      model: null,           // null = 代码拼的几何体（gunmodel.js 的 buildPistol）
       auto: false,
       fireInterval: 0.16,
       magSize: 15,
@@ -194,9 +195,32 @@ Game.Config = {
     botSkill: 0.5,         // 对手强度 0 ~ 1（影响反应、准度、转身）
   },
 
+  // 可选装备：首页"装备"里点击切换，选择存在浏览器里（settings.js 写回 weapons.rifle / weapons.pistol / character.model）。
+  // 每一项的 key 是存档用的名字，不要随便改；第一项是默认值。
+  // 枪：name 显示名，model 枪模（null = 代码拼的）。数值默认和上面 weapons.rifle / weapons.pistol 一样，
+  //     想让某把枪不同，在这一项里写同名参数覆盖，例如 m4: { ..., fireInterval: 0.08, damage: { head: 100, body: 30, leg: 22 } }。
+  //     枪在画面里的位置、手握在哪，在 weapon.js 的 Weapon.VIEW 里按 key 写。
+  // 加一把新枪：模型放 assets/models/gun/，这里加一项，Weapon.VIEW 加一项，再截图对手的位置（docs/architecture.md）。
+  // NPC：model 是 Mixamo 骨骼、带 Idle / Walk / Run 动画的 glb（见 assets/LICENSES.md 的"换模型"）。
+  // 模型都是选中了才下载。来源和授权登记在 assets/LICENSES.md。
+  loadout: {
+    rifle: {
+      ak: { name: 'AK', model: 'assets/models/gun/ak47.glb' },   // assets-src/models/gun/ak47.py 加工
+      m4: { name: 'M4', model: 'assets/models/gun/m4.glb' },     // assets-src/models/gun/m4.py 加工
+    },
+    pistol: {
+      beretta: { name: '手枪', model: null },
+      sg: { name: 'SG 手枪', model: 'assets/models/gun/sg.glb' }, // assets-src/models/gun/sg.py 加工
+    },
+    npc: {
+      ukrainian: { name: '乌克兰士兵', model: 'assets/models/human/ukrainian-soldier.glb' },
+      soldier: { name: '特种兵', model: 'assets/models/human/init_soldier.glb' },
+    },
+  },
+
   // NPC 外观
   character: {
-    model: 'assets/models/human/ukrainian-soldier.glb',  // CC0，见 assets/LICENSES.md；加载失败时自动退回方块小人
+    model: 'assets/models/human/ukrainian-soldier.glb',  // 由首页选的 loadout.npc 决定；加载失败时自动退回方块小人
     walkAnimSpeed: 1.7,    // 走路动画本来的前进速度（m/s）。加载模型时会自动量，这里只是量不出来时的备用值
     runAnimSpeed: 4.4,
     walkRunBlend: [2.2, 3.6],  // 速度在这个区间内从走路动画过渡到跑步动画

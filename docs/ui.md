@@ -7,7 +7,7 @@
 
 ```
 加载页 boot ──→ 首页 home（不全屏）
-                 ├─ 作战：选模式 → 看地图、调获胜条件、看装备 → [进入战斗]
+                 ├─ 作战：选模式 → 看地图、调获胜条件、选装备（主副武器、对手形象）→ [进入战斗]
                  └─ 设置：灵敏度、视野、准星颜色、自动全屏、音量、改键
                        │ 点"进入战斗"：进入全屏 + 开局
                        ▼
@@ -41,6 +41,8 @@
 （`view.mouseSensitivity`、`view.fov`、`audio.volume`、`view.fullscreen`、`duel.winScore`），游戏其他代码照常读 `Game.Config`。
 默认值就是 `config.js` 里的值，可调范围在 `config.ui`。需要立即生效的（视野、音量、准星颜色）用 `Game.Settings.onChange` 监听。
 改键另存在 `fps.keys.v1`（见 `input.js`）。
+装备选择也存在这里（`rifle` / `pistol` / `npc`，值是 `config.loadout` 的 key），写回 `weapons.rifle` / `weapons.pistol` / `character.model`，见 `architecture.md` 的"可选装备"。
+首页的装备行由 `ui.js` 的 `pickHtml` 按 `config.loadout` 生成，加一项不用改界面代码；"对手"一行只在有 NPC 的模式显示。
 
 加一项设置：`settings.js` 的 `defaults` 和 `valid` 各加一行，`apply` 里写回 Config；`index.html` 的 `#settings` 里加控件；`ui.js` 的 `buildSettings` 里绑定。
 
