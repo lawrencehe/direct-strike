@@ -71,6 +71,7 @@ await g.close();
 |---|---|
 | `tools/tests/reload-nade-economy.mjs` | v0.20：自动换弹、换弹中切枪、手雷两道保险、经济（赏金、上限、购买、补给） |
 | `tools/tests/devlog.mjs` | v0.21：开发者模式的解锁、录制开销和零内存分配、事件、录画面的自动关闭保护、上传、分析脚本 |
+| `tools/tests/arm-wrist.mjs` | v0.22：每把枪、换弹中、三种投掷物的手腕相对绑定姿势弯折不超过 `wristMaxBend`、没有扭转 |
 
 ```bash
 node tools/tests/reload-nade-economy.mjs

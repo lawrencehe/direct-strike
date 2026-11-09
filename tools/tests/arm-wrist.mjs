@@ -1,0 +1,75 @@
+// v0.22 的针对性测试：第一人称手臂的手腕不弯折过度、不扭转（gunmodel.js 的 buildArms().solve）。
+// 每把枪 / 手雷、换弹中左手去抓弹匣时，量手腕骨骼相对蒙皮绑定姿势转了多少，拆成"弯折"和"绕小臂的扭转"。
+// 用法（在仓库根目录）：node tools/tests/arm-wrist.mjs
+import { openGame } from '../lib/game-page.mjs';
+const g = await openGame({ width: 1280, height: 720 });
+const p = g.page;
+let fails = 0;
+const check = (ok, name, v) => { if (!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', name, v === undefined ? '' : JSON.stringify(v)); };
+
+await p.evaluate(() => {
+  game.ui.show(null);
+  game.input.locked = false;
+  game.startMode('range');
+  window.press = (c) => game.input.pressed.add(c);
+  window.tick = (sec, step = 1 / 60) => {
+    for (let t = 0; t < sec; t += step) {
+      game.player.update(step, game.input); game.camera.updateMatrixWorld();
+      if (game.player.alive) { game.economy.update(step); game.weapon.update(step, game.input); }
+      game.input.endFrame();
+    }
+  };
+  // 量 model 下所有手臂的手腕：相对绑定姿势的弯折、扭转，和手肘的弯曲（度）
+  window.measure = (model) => {
+    const deg = (q) => 2 * Math.acos(Math.min(1, Math.abs(q.w))) * 180 / Math.PI;
+    const qOf = (m) => { const q = new THREE.Quaternion(); m.decompose(new THREE.Vector3(), q, new THREE.Vector3()); return q; };
+    let sk = null;
+    model.traverse((o) => { if (!sk && o.isSkinnedMesh) sk = o.skeleton; });
+    const bind = (b) => new THREE.Matrix4().copy(sk.boneInverses[sk.bones.indexOf(b)]).invert();
+    const out = {};
+    for (const s of ['L', 'R']) {
+      const E = sk.bones.find((b) => b.name.startsWith(s + '_elbow_')), W = sk.bones.find((b) => b.name.startsWith(s + '_wrist_'));
+      const S = sk.bones.find((b) => b.name.startsWith(s + '_arm_'));
+      if (S.scale.x < 1e-3) continue;   // 没用到、缩成点的那条手臂
+      const relRest = qOf(bind(E)).invert().multiply(qOf(bind(W)));
+      const relNow = E.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(W.getWorldQuaternion(new THREE.Quaternion()));
+      const d = relRest.invert().multiply(relNow);
+      const axis = W.position.clone().normalize().applyQuaternion(relRest.clone().invert());   // 小臂长轴，在手腕自身坐标里
+      const v = new THREE.Vector3(d.x, d.y, d.z), pr = axis.multiplyScalar(v.dot(axis));
+      const tw = new THREE.Quaternion(pr.x, pr.y, pr.z, d.w).normalize();
+      const P = (b) => new THREE.Vector3().setFromMatrixPosition(b.matrixWorld);
+      out[s] = {
+        bend: +deg(d.clone().multiply(tw.clone().invert())).toFixed(1), twist: +deg(tw).toFixed(1),
+        elbow: +P(E).sub(P(S)).angleTo(P(W).sub(P(E))).toFixed(2) * 57.3 | 0,
+      };
+    }
+    return out;
+  };
+});
+
+const maxBend = await p.evaluate(() => Game.Config.weapons.arms.wristMaxBend);
+const judge = (name, r) => {
+  for (const [s, v] of Object.entries(r)) check(v.bend <= maxBend + 0.5 && v.twist <= 1, `${name} ${s} 手腕弯折 ≤ ${maxBend}°、不扭转`, v);
+};
+
+for (const [rifle, pistol] of [['m4', 'sg'], ['ak', 'beretta']]) {
+  await p.evaluate(([r, s]) => { game.ui.pickLoadout('rifle', r); game.ui.pickLoadout('pistol', s); }, [rifle, pistol]);
+  await p.waitForFunction(([r, s]) => game.weapon.guns.rifle.key === r && game.weapon.guns.pistol.key === s, [rifle, pistol], { timeout: 60000 });
+  for (const [key, slot, name] of [['Digit1', 'rifle', rifle], ['Digit2', 'pistol', pistol]]) {
+    judge(name, await p.evaluate(([k, slot]) => { press(k); tick(1.2); return measure(game.weapon.guns[slot].model); }, [key, slot]));
+    // 换弹到一半：左手去抓弹匣
+    judge(`${name} 换弹中`, await p.evaluate((slot) => {
+      const it = game.weapon.guns[slot]; it.ammo = 0; tick(0.5);
+      if (!game.weapon.reloading) return { X: { bend: 999, twist: 999, note: '没进入换弹' } };
+      const r = measure(it.model); tick(3); return r;
+    }, slot));
+  }
+}
+for (const kind of ['frag', 'flash', 'smoke']) {
+  judge(kind, await p.evaluate((kind) => { press({ frag: 'Digit3', flash: 'Digit4', smoke: 'Digit5' }[kind]); tick(1); return measure(game.weapon.throwables[kind].model); }, kind));
+}
+
+check(g.problems.length === 0, '控制台无报错', g.problems);
+await g.close();
+console.log(fails ? `${fails} 项失败` : '全部通过');
+process.exit(fails ? 1 : 0);

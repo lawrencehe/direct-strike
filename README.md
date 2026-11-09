@@ -1,4 +1,4 @@
-# Direct-Strike v0.21
+# Direct-Strike v0.22
 
 ![Direct-Strike](assets/brand/logo.png)
 

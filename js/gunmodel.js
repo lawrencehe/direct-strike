@@ -341,7 +341,8 @@ Game.GunModel = (function () {
   //
   // 手的摆法是"握住一根竖直圆柱"（握持坐标系）：圆柱轴是 y，原点在握持中心，y 正方向是食指一侧；
   // 右手掌心贴在 +x 一侧（左手在 -x），四指从 -z 绕过去，拇指从 +z 压过来。
-  // 每帧 solve()：手腕骨骼对齐到握持坐标系，小臂、上臂沿 armDir 伸出画面（不做肘部弯曲，手臂是直的）。
+  // 每帧 solve()：手腕骨骼对齐到握持坐标系；小臂从"手腕不弯"的方向往 armDir 转，手腕最多弯 wristMaxBend 度，
+  // 剩下的角度由手肘弯；上臂沿 armDir 伸出画面。小臂、上臂都只做最小摆动，不绕自身扭转。
   // 手指在第一次 solve 时逐节弯到贴住圆柱，之后不再变：手指是手腕的子骨骼，会跟着手走。
   let armAsset = null, armRest = null;
   function loadArms() {
@@ -375,6 +376,15 @@ Game.GunModel = (function () {
     root.updateMatrixWorld(true);
     const pos = (o) => new THREE.Vector3().setFromMatrixPosition(o.matrixWorld);
     const quat = (o) => { const q = new THREE.Quaternion(); o.matrixWorld.decompose(new THREE.Vector3(), q, new THREE.Vector3()); return q; };
+    // 蒙皮的绑定姿势：骨骼摆成这样时网格不变形。场景里的默认姿势和它不一样（左手腕自带约 30° 扭转），
+    // 所以"手腕 / 手肘没弯"的基准用绑定姿势，不用默认姿势
+    let skeleton = null;
+    root.traverse((o) => { if (!skeleton && o.isSkinnedMesh) skeleton = o.skeleton; });
+    const bindQuat = (b) => {
+      const q = new THREE.Quaternion();
+      _m4.copy(skeleton.boneInverses[skeleton.bones.indexOf(b)]).invert().decompose(new THREE.Vector3(), q, new THREE.Vector3());
+      return q;
+    };
     const rest = {};
     for (const side of ['L', 'R']) {
       const S = armBone(root, side, 'arm'), E = armBone(root, side, 'elbow'), W = armBone(root, side, 'wrist');
@@ -388,9 +398,10 @@ Game.GunModel = (function () {
         // 握持点：手腕到中指根的 85% 处，也就是掌心靠近指根的位置
         anchor: wp.clone().lerp(mp, 0.85), wrist: wp, elbow: ep, shoulder: sp, n,
         qS: quat(S), qE: quat(E), qW: quat(W),
+        // 绑定姿势下小臂 → 手、上臂 → 小臂的相对旋转；骨骼自身坐标里指向下一节的方向（小臂、上臂的长轴）
+        bindEW: bindQuat(E).invert().multiply(bindQuat(W)), bindSE: bindQuat(S).invert().multiply(bindQuat(E)),
+        foreAxis: W.position.clone().normalize(), upperAxis: E.position.clone().normalize(),
         hand: basisQuat(across, n),                       // 手的朝向：(食指方向, 掌心法线, ...)
-        fore: basisQuat(wp.clone().sub(ep), n),           // 小臂的朝向：(小臂方向, 掌心法线, ...)
-        upper: basisQuat(ep.clone().sub(sp), n),
       };
     }
     return rest;
@@ -464,7 +475,9 @@ Game.GunModel = (function () {
 
     const tq = new THREE.Quaternion(), pq = new THREE.Quaternion(), rel = new THREE.Quaternion();
     const anchor = new THREE.Vector3(), wrist = new THREE.Vector3(), elbow = new THREE.Vector3(), shoulder = new THREE.Vector3();
-    const dir = new THREE.Vector3(), nW = new THREE.Vector3(), up = new THREE.Vector3();
+    const dir = new THREE.Vector3(), back = new THREE.Vector3();
+    const fore = new THREE.Vector3(), swing = new THREE.Quaternion();
+    const qS = new THREE.Quaternion(), qE = new THREE.Quaternion(), qW = new THREE.Quaternion();
     let hidden = false;
 
     function solve() {
@@ -486,15 +499,27 @@ Game.GunModel = (function () {
         rel.copy(tq).multiply(handTarget).multiply(_q.copy(rest.hand).invert());   // 模型坐标 → 世界的旋转
         h.target.localToWorld(anchor.set((right ? 1 : -1) * (h.R + cfg.palmGap), 0, 0));
         wrist.copy(rest.wrist).sub(rest.anchor).multiplyScalar(k).applyQuaternion(rel).add(anchor);
-        // 小臂、上臂：沿 armDir 伸出去，绕自身的扭转跟手掌对齐，避免手腕拧成麻花
+        // 小臂：手腕相对绑定姿势最多弯 wristMaxBend 度，多出来的角度交给手肘。
+        // 先算"手腕不弯"时小臂该往哪伸（back，手腕 → 手肘），再从它往 armDir 转，转到手腕弯够上限为止。
+        // 以前小臂直接沿 armDir，握持姿势和 armDir 差 50° 多，全压在手腕上，蒙皮挤瘪、还带扭转。
         dir.copy(h.armDir).applyQuaternion(pq);
-        elbow.copy(wrist).addScaledVector(dir, rest.foreLen * k);
+        qW.copy(rel).multiply(rest.qW);
+        qE.copy(qW).multiply(_q.copy(rest.bindEW).invert());          // 手腕不弯时小臂的朝向
+        fore.copy(rest.foreAxis).applyQuaternion(qE);                  // 那时小臂的方向（手肘 → 手腕）
+        back.copy(fore).negate();
+        const off = back.angleTo(dir), maxBend = THREE.MathUtils.degToRad(cfg.wristMaxBend);
+        if (off > maxBend) back.applyQuaternion(_q.identity().slerp(swing.setFromUnitVectors(back, dir), maxBend / off));
+        else back.copy(dir);
+        // 小臂 = 不弯的朝向再加一个最小摆动（不绕自身转）：手腕只有弯折、没有扭转
+        qE.premultiply(swing.setFromUnitVectors(fore, _v.copy(back).negate()));
+        elbow.copy(wrist).addScaledVector(back, rest.foreLen * k);
+        // 上臂：同理从"手肘不弯"摆到沿 armDir 伸出画面
+        qS.copy(qE).multiply(_q.copy(rest.bindSE).invert());
+        qS.premultiply(swing.setFromUnitVectors(_v.copy(rest.upperAxis).applyQuaternion(qS), _v2.copy(dir).negate()));
         shoulder.copy(elbow).addScaledVector(dir, rest.upperLen * k);
-        nW.copy(rest.n).applyQuaternion(rel);
-        const aim = basisQuat(up.copy(dir).negate(), nW);
-        setBoneWorld(h.S, shoulder, _q2.copy(aim).multiply(_q.copy(rest.upper).invert()).multiply(rest.qS), k);
-        setBoneWorld(h.E, elbow, _q2.copy(aim).multiply(_q.copy(rest.fore).invert()).multiply(rest.qE), k);
-        setBoneWorld(h.W, wrist, _q2.copy(rel).multiply(rest.qW), k);
+        setBoneWorld(h.S, shoulder, qS, k);
+        setBoneWorld(h.E, elbow, qE, k);
+        setBoneWorld(h.W, wrist, qW, k);
 
         if (!h.curled) {
           // 四指绕圆柱轴往远侧（-z）卷，拇指反方向

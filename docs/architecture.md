@@ -107,9 +107,13 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 - **测试脚本的 tick 要调 `economy.update`，而且在 `weapon.update` 之前**，和 `main.js` 的帧循环一致，否则购买面板的按键会被武器当成切枪。
 - **glb 枪模换了要重新对手的位置。** 手臂是 `arm.glb`（蒙皮模型），握把、护木的位置写在 `weapon.js` 末尾的 `Weapon.VIEW` 里（`right` / `left`）；
   换模型后用侧视截图（把枪转 90 度）检查手有没有握在握把和护木上。
-- **手臂每帧要 `solve()`。** `gunmodel.js` 的 `buildArms` 按握持坐标系摆手腕骨骼、沿 `armDir` 摆小臂和上臂，手指只在第一次 solve 时自动弯到贴住握把。
+- **手臂每帧要 `solve()`。** `gunmodel.js` 的 `buildArms` 按握持坐标系摆手腕骨骼；小臂从"手腕不弯"的方向往 `armDir` 转，手腕最多弯 `wristMaxBend`，
+  其余由手肘弯；上臂沿 `armDir` 伸出画面。手指只在第一次 solve 时自动弯到贴住握把。
   `weapon.js` 在 `animate` 末尾对当前武器调一次；在别处移动了枪或手的目标点，要在渲染前再调一次，否则手臂慢一帧。
   蒙皮网格关了视锥剔除（静止姿势的包围球不准）。
+- **手臂的"没弯"要以蒙皮绑定姿势为准，不是 glb 场景里的默认姿势。** `arm.glb` 的默认姿势里左手腕相对绑定姿势自带约 30° 扭转；
+  蒙皮是按绑定姿势变形的，所以 `measureArms` 从 `skeleton.boneInverses` 取小臂→手、上臂→小臂的相对旋转。
+  小臂、上臂只做最小摆动（`setFromUnitVectors`），不绕自身转，手腕就不会拧成麻花。改了解算跑 `tools/tests/arm-wrist.mjs`。
 - **`DevLog.sample` 每帧不能新建对象**（包括闭包返回小数、`Set.has`、three.js 的 getter），否则开发者模式自己就会引起垃圾回收卡顿。
   改了它跑 `tools/tests/devlog.mjs`，里面用采样堆分析器检查零分配。
 - **录画面要在渲染之后立刻拷画布。** WebGL 画布没开 `preserveDrawingBuffer`，交给屏幕后就清空了，晚一步拷到的是黑的。
