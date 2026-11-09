@@ -2,16 +2,18 @@
 # 一键"提交 → 并入 main → 推送 → 部署 → 线上检查"。流程约定见 docs/workflow.md，Claude Code 里是 /ship。
 # 输出尽量少：每步一行，出错才打印细节。
 #
-# 用法：tools/ship.sh [-v vX.Y] [-m 提交信息文件] [--no-deploy] [--live-verify] [--skip-verify]
+# 用法：tools/ship.sh [-v vX.Y] [-m 提交信息文件] [--tag] [--no-deploy] [--live-verify] [--skip-verify]
 #   -v vX.Y          发版：把 README.md 标题和 index.html 的 <small> 改成这个版本号
 #   -m 文件          提交信息（首行 "vX.Y：摘要"，版本号必须和 README 一致）。工作区没改动时可省略
-#   --no-deploy      只提交和推送，不部署
+#   --tag            部署成功后给 main 打 tag（版本号就是 tag 名，带注释 = 提交首行）并推送，回滚靠它（docs/deploy.md）。
+#                    同一个版本的 tag 已经在别的提交上时报错，不移动已发布的 tag
+#   --no-deploy      只提交和推送，不部署（加了 --tag 就在推送 main 后打）
 #   --live-verify    部署后再用无头浏览器验证线上（慢，约 1 分钟）
 #   --skip-verify    跳过本地 verify（只改了文档时会自动跳过）
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VER="" MSG="" DEPLOY=1 LIVE=0 SKIPV=0
+VER="" MSG="" DEPLOY=1 LIVE=0 SKIPV=0 TAG=0
 while [ $# -gt 0 ]; do
   case "$1" in
     -v) VER="$2"; shift 2 ;;
@@ -19,6 +21,7 @@ while [ $# -gt 0 ]; do
     --no-deploy) DEPLOY=0; shift ;;
     --live-verify) LIVE=1; shift ;;
     --skip-verify) SKIPV=1; shift ;;
+    --tag) TAG=1; shift ;;
     *) echo "未知参数：$1"; exit 2 ;;
   esac
 done
@@ -84,6 +87,18 @@ if [ $DEPLOY = 1 ]; then
     OUT=$(node tools/verify.mjs --url "$SITE" --modes menu,duel 2>&1) && echo "✓ 线上 verify：$(echo "$OUT" | tail -1)" \
       || { echo "$OUT" | tail -8; echo "✗ 线上 verify 没通过"; }
   fi
+fi
+
+# ---- 5. 打 tag（部署失败的话上面已经退出，不会打）----
+if [ $TAG = 1 ]; then
+  HEAD=$(git rev-parse HEAD)
+  if OLD=$(git rev-parse -q --verify "refs/tags/$CUR^{commit}"); then
+    [ "$OLD" = "$HEAD" ] || { [ "$BR" != main ] && git checkout -q "$BR"; die "tag $CUR 已经在 $(git rev-parse --short "$OLD") 上，不移动已发布的 tag；要打新 tag 请用新版本号 -v"; }
+    echo "· tag $CUR 已经在当前提交上"
+  else
+    git tag -a "$CUR" -m "$(git log -1 --format=%s)"
+  fi
+  git push -q origin "refs/tags/$CUR" && echo "✓ tag $CUR → $(git rev-parse --short HEAD)，已推送"
 fi
 
 # 回到原来的分支继续开发

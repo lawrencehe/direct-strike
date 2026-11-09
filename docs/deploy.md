@@ -74,7 +74,9 @@ curl -s -o /dev/null -w '%{http_code}\n' https://game.lightup.host/.git/HEAD    
 
 ## 回滚
 
-- 代码：`git checkout <tag>` 然后 `./deploy.sh`。
+- 代码：`git tag --sort=v:refname` 看有哪些版本，`git checkout <tag>` 然后 `./deploy.sh`，部署完 `git checkout main` 回来。
+  每个上线的版本都有 tag（`ship.sh --tag` 打的，见 `workflow.md` 的"版本号"）。
+  回滚只是临时措施：线上这时比 `main` 旧，修好后照常从 `main` 发新版本。
 - Caddyfile：同目录有 `Caddyfile.bak-<时间戳>`，复制回去再 `caddy reload`。
 
 ## 以后加地图要注意
