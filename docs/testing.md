@@ -25,7 +25,7 @@ node tools/verify.mjs            # Claude Code 里是 /verify
 - **NPC 碍事时**把它挪远并替换 `update`。
 - 截图前 `waitForTimeout` 一小会儿，让真实循环画一帧。
 
-模板（脚本放在仓库外的临时目录，或 `tools/out/`）：
+模板（一次性的脚本放在仓库外的临时目录或 `tools/out/`；要留着反复跑的放 `tools/tests/`，见下文）：
 
 ```js
 import { openGame } from '/home/donkey/direct-strike/tools/lib/game-page.mjs';
@@ -40,7 +40,7 @@ await p.evaluate(() => {
   window.tick = (sec, step = 1 / 60) => {
     for (let t = 0; t < sec; t += step) {
       game.player.update(step, game.input); game.camera.updateMatrixWorld();
-      if (game.player.alive) game.weapon.update(step, game.input);
+      if (game.player.alive) { game.economy.update(step); game.weapon.update(step, game.input); }   // 顺序和 main.js 一样
       game.bots.update(step); game.grenades.update(step); game.hud.update(step, game.player);
       game.input.endFrame();
     }
@@ -55,6 +55,23 @@ await g.close();
 ```
 
 `openGame` 还返回 `problems`（控制台报错列表），结束前检查它为空。
+
+- 换弹、投掷这类按进度做的动作，可以按进度推进到某一点再截图，例如推到换弹进度 0.56 看新弹匣插入。
+- 经济：`game.economy.money` 是钱，`game.player.position.copy(game.player.spawn)` 站进购买区，按 `KeyB` 开面板。
+  测试里直接 `bot.takeDamage(999, { part: 'head' })` 模拟击杀，`hit` 决定赏金类型（`explosion: true` 是手雷，`byBot: true` 不给钱）。
+
+## 留在仓库里的测试
+
+需要反复跑的测试放 `tools/tests/`，按需求起名，在需求文档的"验证"一节写上路径。截图写到 `tools/out/tests/`（不入仓库）。
+失败时退出码非 0。
+
+| 脚本 | 测什么 |
+|---|---|
+| `tools/tests/reload-nade-economy.mjs` | v0.20：自动换弹、换弹中切枪、手雷两道保险、经济（赏金、上限、购买、补给） |
+
+```bash
+node tools/tests/reload-nade-economy.mjs
+```
 
 ## 什么测不了
 

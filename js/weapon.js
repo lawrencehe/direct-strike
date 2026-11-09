@@ -8,8 +8,13 @@
 // 枪的参数在 config.js 的 weapons 里，投掷物丢出去之后的事归 grenades.js 管。
 // 切枪分两段：先收（当前武器往下沉），再掏（新武器抬起来），掏好之前不能开火。
 //
-// 投掷物的流程：按下左键 = 拉环，倒计时开始（hold）；松开 = 挥臂（swing），挥到一半出手。
-// 引信从拉环算起，所以攥久了丢出去会在空中炸，攥太久就在手里炸。
+// 换弹：打空了自动开始，按 R 随时开始；切枪会打断（子弹数不变，切回来空枪会自动再换）。
+// 动作按进度分段（见 animate 和 Weapon.RELOAD）：抓弹匣 → 抽出 → 手下去拿新弹匣 → 插入拍实 →（空枪才有）拉机柄上膛 → 回位。
+// 音效跟着动作的时间点响，被打断就不会再响。
+//
+// 投掷物按真实手雷的两道保险：拉环是第一道，保险握片（被手握住）是第二道。
+// 按住左键 = 拔掉拉环（hold），只要还攥着握片就不会开始计时，攥多久都不会炸；
+// 松开 = 挥臂（swing），出手的瞬间握片弹开，引信才开始倒计时。
 // ============================================================
 Game.Weapon = class Weapon {
   constructor({ scene, camera, weaponCamera, player, audio, hud, effects, shootables, grenades }) {
@@ -26,6 +31,8 @@ Game.Weapon = class Weapon {
     this.cooldown = 0;
     this.reloading = false;
     this.reloadTimer = 0;
+    this.reloadEmpty = false;   // 这次是空枪换弹：多一个拉机柄上膛的动作
+    this.reloadCue = 0;         // 下一个该响的换弹音效（Weapon.RELOAD.cues 的下标）
     this.bloom = 0;       // 连射累积的散布
     this.kick = 0;        // 枪模后退动画（1 → 0）
     this.flashTimer = 0;
@@ -48,10 +55,9 @@ Game.Weapon = class Weapon {
     this.pending = null;          // 正在切向哪把
     this.switchT = 0;             // 切枪进度：0 = 就绪；> 0 表示正在收或掏
     this.switchPhase = null;      // 'out' | 'in'
-    this.throwState = null;       // 投掷动作：null | 'hold'（攥着）| 'swing'（挥臂）
+    this.throwState = null;       // 投掷动作：null | 'hold'（拔了环、攥着握片）| 'swing'（挥臂）
     this.holdT = 0;               // 攥了多久
     this.swingT = 0;              // 挥臂进行了多久
-    this.cookT = 0;               // 拉环后过了多久（引信）
     this.thrown = false;          // 手雷已经离手
     this.unlimitedThrowables = false;
     this.counts = {};
@@ -161,7 +167,7 @@ Game.Weapon = class Weapon {
     if (!this.canEquip(key)) { this.audio.empty(); return; }
 
     // 换弹被打断：子弹数不变，换回来要重新换
-    if (this.reloading) { this.reloading = false; this.reloadTimer = 0; }
+    this.cancelReload();
     this.flashTimer = 0;
 
     this.pending = key;
@@ -256,53 +262,37 @@ Game.Weapon = class Weapon {
     const cfg = gun.cfg;
     if (this.reloading) {
       this.reloadTimer -= dt;
+      this.playReloadCues(gun);
       if (this.reloadTimer <= 0) {
         this.reloading = false;
         gun.ammo = cfg.magSize;
         this.refreshHud();
       }
+      this.hud.setReload(this.reloading ? this.reloadProgress(gun) : null);
     }
     if (!ready) return;
 
     if (input.wasAction('reload')) this.startReload();
+    // 打空了自动换弹：等最后一发的后坐做完就开始，不用再扣一次扳机。切回一把空枪也一样
+    if (gun.ammo === 0 && !this.reloading && this.cooldown <= 0) this.startReload();
 
     // 全自动按住连发；半自动每次扣扳机只打一发
     const wantFire = cfg.auto ? input.isAction('fire') : input.wasAction('fire');
-    if (wantFire && !this.reloading && this.cooldown <= 0) {
-      if (gun.ammo > 0) {
-        this.fire(gun);
-      } else {
-        if (input.wasAction('fire')) this.audio.empty();
-        this.startReload();  // 打空了自动换弹
-      }
-    }
+    if (wantFire && !this.reloading && this.cooldown <= 0 && gun.ammo > 0) this.fire(gun);
   }
 
-  // 投掷：按住拉环并开始倒计时，松开挥臂出手，动作做完切回枪
+  // 投掷：按住拔环（握片还攥着，不计时），松开挥臂出手，出手时引信才开始走，动作做完切回枪
   updateThrow(dt, input, ready) {
     const cfg = Game.Config.grenades;
     const kind = this.current;
     if (!this.throwState) {
       if (ready && input.wasAction('fire') && this.hasThrowable(kind)) {
         this.throwState = 'hold';
-        this.holdT = this.swingT = this.cookT = 0;
+        this.holdT = this.swingT = 0;
         this.thrown = false;
         this.audio.pullPin();
       }
       return;
-    }
-
-    const fuse = cfg[kind].fuse;
-    if (!this.thrown) {
-      this.cookT += dt;
-      // 攥太久：在手里炸
-      if (this.cookT >= fuse) {
-        this.releaseGrenade();
-        this.finishThrow();
-        this.grenades.explodeInHand(kind);
-        return;
-      }
-      this.hud.setCook(1 - this.cookT / fuse);
     }
 
     if (this.throwState === 'hold') {
@@ -318,16 +308,16 @@ Game.Weapon = class Weapon {
     this.swingT += dt;
     if (!this.thrown && this.swingT >= cfg.releaseAt) {
       this.releaseGrenade();
-      this.grenades.throw(kind, fuse - this.cookT);
+      this.grenades.throw(kind);   // 引信从这一刻算，满时长
+      this.audio.spoon();
     }
     if (this.swingT >= cfg.swingTime) this.finishThrow();
   }
 
-  // 手雷离手：扣数量、藏起手里的模型、收起倒计时
+  // 手雷离手：扣数量、藏起手里的模型
   releaseGrenade() {
     this.thrown = true;
     if (!this.unlimitedThrowables) this.counts[this.current]--;
-    this.hud.setCook(null);
     this.refreshHud();
   }
 
@@ -341,14 +331,15 @@ Game.Weapon = class Weapon {
     this.refreshHud();
   }
 
-  // 玩家死了：拉了环还没丢出去的手雷掉在脚下，引信照走
+  // 玩家死了：手一松，拔了环的手雷掉在脚下，握片弹开，引信从这时开始走
   onPlayerDeath() {
     if (this.throwState && !this.thrown) {
       const kind = this.current;
       this.releaseGrenade();
-      this.grenades.throw(kind, Game.Config.grenades[kind].fuse - this.cookT, true);
+      this.grenades.throw(kind, Game.Config.grenades[kind].fuse, true);
     }
     this.throwState = null;
+    this.cancelReload();
   }
 
   // 新一局：换弹匣、补投掷物、清空弹孔
@@ -373,22 +364,31 @@ Game.Weapon = class Weapon {
     this.switchT = 0;
     this.throwState = null;
     this.thrown = false;
-    this.reloading = false;
-    this.hud.setCook(null);
+    this.cancelReload();
     this.lastGun = key === 'rifle' ? 'pistol' : 'rifle';
     this.previous = this.lastGun;
     this.show(key);
   }
 
-  restock() {
-    for (const kind of Object.keys(this.throwables)) this.counts[kind] = Game.Config.grenades[kind].count;
+  // 投掷物补到开局数量（grenades.*.count）。keep = true 时多买的不收走（波次之间），否则正好回到开局数量（重生、新一局）
+  restock(keep = false) {
+    for (const kind of Object.keys(this.throwables)) {
+      const base = Game.Config.grenades[kind].count;
+      this.counts[kind] = keep ? Math.max(this.counts[kind] || 0, base) : base;
+    }
   }
 
-  // 补满子弹和投掷物（波次之间、重生）
-  refill() {
+  // 补满子弹和投掷物（波次之间 keep = true，重生、新一局 false）
+  refill(keep = false) {
     for (const g of Object.values(this.guns)) g.ammo = g.cfg.magSize;
-    this.restock();
-    this.reloading = false;
+    this.restock(keep);
+    this.cancelReload();
+    this.refreshHud();
+  }
+
+  // 买到一个投掷物（economy.js）
+  addThrowable(kind) {
+    this.counts[kind]++;
     this.refreshHud();
   }
 
@@ -397,14 +397,32 @@ Game.Weapon = class Weapon {
     if (!gun || this.reloading || gun.ammo === gun.cfg.magSize) return;
     this.reloading = true;
     this.reloadTimer = gun.cfg.reloadTime;
-    this.audio.reload(gun.cfg.reloadTime);
+    this.reloadEmpty = gun.ammo === 0;
+    this.reloadCue = 0;
     this.refreshHud();
+  }
+
+  cancelReload() {
+    if (!this.reloading) return;
+    this.reloading = false;
+    this.reloadTimer = 0;
+    this.hud.setReload(null);
+  }
+
+  reloadProgress(gun) { return 1 - this.reloadTimer / gun.cfg.reloadTime; }
+
+  // 换弹音效：到了动作的时间点才响（不提前排好），中途切枪就不会再响
+  playReloadCues(gun) {
+    const cues = Game.Weapon.RELOAD[this.reloadEmpty ? 'empty' : 'normal'].cues;
+    const p = this.reloadProgress(gun);
+    while (this.reloadCue < cues.length && p >= cues[this.reloadCue].at) this.audio[cues[this.reloadCue++].sound]();
   }
 
   refreshHud() {
     const gun = this.guns[this.current];
     if (gun) {
-      this.hud.setAmmo(gun.ammo, gun.cfg.magSize, this.reloading);
+      this.hud.setAmmo(gun.ammo, gun.cfg.magSize);
+      this.hud.setReload(this.reloading ? this.reloadProgress(gun) : null);
     } else {
       this.hud.setThrowable(this.unlimitedThrowables ? '∞' : this.counts[this.current]);
     }
@@ -507,42 +525,33 @@ Game.Weapon = class Weapon {
     const swayY = this.sway.y - Math.abs(Math.sin(bob * 0.5)) * 0.01 * moving + crouch * 0.015 - dipSwitch * 0.26;
 
     if (this.guns[this.current]) {
-      // 换弹：枪口上扬并侧倾；弹匣先抽出去（0 → 0.4），空一会儿，再插回来（0.6 → 1）
-      let dip = 0, magOut = 0;
-      if (this.reloading) {
-        const p = 1 - this.reloadTimer / it.cfg.reloadTime;
-        dip = Math.sin(p * Math.PI);
-        if (p < 0.4) magOut = p / 0.4;
-        else if (p < 0.6) magOut = 1;
-        else magOut = 1 - (p - 0.6) / 0.4;
-      }
-      it.mag.position.set(it.magHome.x, it.magHome.y - magOut * it.magDrop, it.magHome.z - magOut * it.magBack);
-      it.mag.rotation.x = magOut * it.magTilt;
-      it.mag.visible = magOut < 0.98;
+      // 换弹：按 Weapon.RELOAD 的时间段算出各个动作的进度（0 ~ 1），再叠到枪、弹匣、左手、机柄上
+      const r = this.reloading ? Game.Weapon.reloadPose(this.reloadProgress(it), this.reloadEmpty) : Game.Weapon.REST_POSE;
+      const dip = r.tilt;
 
-      // 左手：先伸去抓弹匣，跟着弹匣抽出、插回，最后回到原位
-      let grab = 0;
-      if (this.reloading) {
-        const p = 1 - this.reloadTimer / it.cfg.reloadTime;
-        grab = p < 0.2 ? p / 0.2 : p > 0.85 ? (1 - p) / 0.15 : 1;
-        grab = grab * grab * (3 - 2 * grab);
-      }
-      it.leftHand.position.lerpVectors(it.leftHome, it.leftGrab, grab);
-      it.leftHand.position.y -= magOut * it.magDrop;
-      it.leftHand.position.z -= magOut * it.magBack;
+      // 弹匣：往下往后抽出，越抽越快（像是被甩掉），抽到底就藏起来；新弹匣跟着左手从下面上来
+      it.mag.position.set(it.magHome.x, it.magHome.y - r.mag * it.magDrop, it.magHome.z - r.mag * it.magBack);
+      it.mag.rotation.x = r.mag * it.magTilt;
+      it.mag.visible = r.mag < 0.98;
 
-      // 拉机柄 / 套筒随后坐往后跳
-      it.bolt.position.z = it.boltHome.z + this.kick * it.boltKick;
+      // 左手：伸去抓弹匣 → 跟着弹匣出来 → 往下离开画面拿新弹匣 → 托着新弹匣插回去 → 回到护木
+      it.leftHand.position.lerpVectors(it.leftHome, it.leftGrab, r.grab);
+      it.leftHand.position.y -= r.mag * it.magDrop + r.away * 0.22;
+      it.leftHand.position.z -= r.mag * it.magBack - r.away * 0.08;
 
+      // 拉机柄 / 套筒：开枪时随后坐往后跳；空枪换弹最后拉到底再放开（上膛）
+      it.bolt.position.z = it.boltHome.z + Math.max(this.kick, r.rack * 1.4) * it.boltKick;
+
+      // jolt：新弹匣拍进去、机柄放开撞回去时，枪身被震一下
       m.position.set(
-        it.basePos.x + swayX,
-        it.basePos.y + swayY + dip * 0.03,
-        it.basePos.z + this.kick * it.kickBack
+        it.basePos.x + swayX - dip * 0.02,
+        it.basePos.y + swayY + dip * 0.035 + r.jolt * 0.012,
+        it.basePos.z + this.kick * it.kickBack + dip * 0.03 - r.jolt * 0.01
       );
       m.rotation.set(
-        it.baseRot.x + this.kick * it.kickUp + dip * 0.16 - dipSwitch * 0.7,
-        it.baseRot.y + this.sway.x * 2,
-        it.baseRot.z - dip * 0.5     // 换弹时枪身朝内侧倾，弹匣和左手转到镜头这边
+        it.baseRot.x + this.kick * it.kickUp + dip * 0.2 + r.jolt * 0.06 - dipSwitch * 0.7,
+        it.baseRot.y + this.sway.x * 2 + dip * 0.12,
+        it.baseRot.z - dip * 0.55 - r.rack * 0.06   // 换弹时枪身朝内侧倾，弹匣和左手转到镜头这边；上膛时微微一歪
       );
 
       this.flashTimer -= dt;
@@ -583,6 +592,51 @@ Game.Weapon = class Weapon {
 // 滚轮切换的顺序，和按键动作的对应关系
 Game.Weapon.ORDER = ['rifle', 'pistol', 'frag', 'flash', 'smoke'];
 Game.Weapon.ACTIONS = { rifle: 'slotRifle', pistol: 'slotPistol', frag: 'slotFrag', flash: 'slotFlash', smoke: 'slotSmoke' };
+
+// 换弹动作的时间表：都是换弹进度 p（0 ~ 1）上的区间，乘 reloadTime 就是秒。
+// 空枪和非空枪总时长一样（NPC 用同一个 reloadTime），空枪把前面压缩一点，腾出最后一段拉机柄。
+// 枪身回正（tilt 下降）要和左手回护木（grab 下降）同步，否则枪还歪着、左手已经回去，袖子会被拉得很长。
+// 改了时间段要截图看看（docs/testing.md 的逐帧推进），手和弹匣要对得上。
+//   tilt  枪身侧倾抬起 / 回位       grab  左手去抓弹匣 / 回护木
+//   out   旧弹匣抽出               away  左手下去拿新弹匣（离开画面）     in  新弹匣插入
+//   seat  拍实的震动               rack  拉机柄到底（空枪）               release  放开机柄撞回去
+// cues 是音效的时间点，sound 是 audio.js 里的方法名
+Game.Weapon.RELOAD = {
+  normal: {
+    tilt: [0, 0.14, 0.74, 0.92], grab: [0.04, 0.16, 0.74, 0.9], out: [0.16, 0.32], away: [0.3, 0.42, 0.5, 0.6],
+    in: [0.56, 0.7], seat: [0.7, 0.08], rack: null,
+    cues: [{ at: 0.17, sound: 'magOut' }, { at: 0.7, sound: 'magIn' }],
+  },
+  empty: {
+    tilt: [0, 0.12, 0.6, 0.76], grab: [0.03, 0.13, 0.6, 0.74], out: [0.13, 0.27], away: [0.25, 0.35, 0.42, 0.5],
+    in: [0.47, 0.6], seat: [0.6, 0.07], rack: [0.7, 0.8, 0.84],    // 机柄：0.7 开始拉，0.8 拉到底，停到 0.84 放开
+    cues: [{ at: 0.14, sound: 'magOut' }, { at: 0.6, sound: 'magIn' }, { at: 0.72, sound: 'rackBack' }, { at: 0.84, sound: 'rackForward' }],
+  },
+};
+Game.Weapon.REST_POSE = { tilt: 0, grab: 0, mag: 0, away: 0, jolt: 0, rack: 0 };
+{
+  const smooth = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
+  // 梯形：a → b 升到 1，c → d 降回 0
+  const trap = (p, [a, b, c, d]) => smooth((p - a) / (b - a)) * (1 - smooth((p - c) / (d - c)));
+  // 单个脉冲：从 t 开始，持续 w，先冲上去再衰减
+  const pulse = (p, [t, w]) => (p < t || p > t + w ? 0 : Math.sin(((p - t) / w) * Math.PI) * (1 - (p - t) / w));
+
+  // 换弹进度 p → 各个动作的量
+  Game.Weapon.reloadPose = (p, empty) => {
+    const T = empty ? Game.Weapon.RELOAD.empty : Game.Weapon.RELOAD.normal;
+    // 弹匣：抽出时加速（平方），插入时减速，拍实
+    const out = Math.min(1, Math.max(0, (p - T.out[0]) / (T.out[1] - T.out[0])));
+    const inn = smooth((p - T.in[0]) / (T.in[1] - T.in[0]));
+    const mag = p < T.in[0] ? out * out : 1 - inn;
+    let rack = 0, jolt = pulse(p, T.seat);
+    if (T.rack) {
+      const [a, b, c] = T.rack;
+      rack = p < a ? 0 : p < b ? smooth((p - a) / (b - a)) : p < c ? 1 : Math.max(0, 1 - (p - c) / 0.02);   // 放开时一下弹回
+      jolt = Math.max(jolt, pulse(p, [c, 0.08]));
+    }
+    return { tilt: trap(p, T.tilt), grab: trap(p, T.grab), mag, away: trap(p, T.away), jolt, rack };
+  };
+}
 
 // 每把枪在画面里怎么摆、手握在哪。key 和 config.js 的 loadout.rifle / loadout.pistol 一致（找不到时用 ak / beretta 的）。
 // 坐标都是枪自己的局部坐标（-z 枪口，+y 上，单位米），握持坐标系见 gunmodel.js 的 buildArms：

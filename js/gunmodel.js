@@ -304,8 +304,9 @@ Game.GunModel = (function () {
     cyl(0.0085, 0.0095, 0.012, top + 0.006);
     cyl(0.011, 0.011, 0.01, top + 0.016);
 
-    // 保险握片：从引信顶部弯下来，贴着弹体
+    // 保险握片：从引信顶部弯下来，贴着弹体。被手攥着时引信不走，出手时弹开（飞出去的雷上就没有了）
     const spoon = new THREE.Group();
+    spoon.name = 'spoon';
     const lever = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.0016, 0.022), steel);
     lever.position.set(0, top + 0.0225, 0.007);
     spoon.add(lever);

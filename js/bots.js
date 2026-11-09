@@ -694,7 +694,9 @@ Game.Bots = (function () {
 
     // ---- 击杀和回合 ----
     // hit.byBot：被 NPC 的雷炸死（包括自己的），不算玩家的击杀
+    // 玩家的击杀通知 onPlayerKill(hit)：hit 是最后一击（part 部位、explosion 是不是手雷），main.js 拿去算赏金
     onBotKilled(bot, hit = {}) {
+      if (!hit.byBot && this.onPlayerKill) this.onPlayerKill(hit);
       if (this.mode === 'duel' && hit.byBot) {
         this.hud.banner('对手被自己的雷炸死', 1.5);
         this.phase = 'respawning';

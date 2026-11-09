@@ -27,8 +27,8 @@
       <i class="ch-top"></i><i class="ch-bottom"></i><i class="ch-left"></i><i class="ch-right"></i>
     </div>
     <div id="hitmarker"></div>
-    <div id="reload-tip">换弹中…</div>
-    <div id="cook-bar"><i></i></div>
+    <div id="buy-tip"></div>
+    <div id="buy"></div>
 
     <div id="wave-info"></div>
     <div id="banner"></div>
@@ -47,7 +47,8 @@
     </div>
 
     <div id="weapons"></div>
-    <div id="ammo"><span id="ammo-cur">30</span><span id="ammo-max">/ ∞</span></div>
+    <div id="ammo"><span id="ammo-cur">30</span><span id="ammo-max">/ ∞</span><i id="ammo-reload"></i></div>
+    <div id="money"><span class="label">$</span><span id="money-val">0</span><span id="money-gain"></span></div>
     <div id="hint"></div>
   </div>
 
@@ -69,7 +70,7 @@
       <header class="topbar">
         <a class="brand" href="#" data-tab="play">
           <img src="assets/brand/logo-dark.png" alt="" width="63" height="32">
-          <span>DIRECT-STRIKE <small>v0.19</small></span>
+          <span>DIRECT-STRIKE <small>v0.20</small></span>
         </a>
         <nav class="tabs">
           <a href="#" data-tab="play" class="on">作战</a>
@@ -213,6 +214,7 @@
   <script src="js/weapon.js"></script>
   <script src="js/bots.js"></script>
   <script src="js/hud.js"></script>
+  <script src="js/economy.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/main.js"></script>
 </body>

@@ -103,20 +103,21 @@ Game.Config = {
     },
   },
 
-  // 投掷物。count 是每条命 / 每波带几个（训练场不限量）。玩家和 NPC 带一样多
-  // fuse 是拉环后几秒引爆：按住左键就开始倒计时，松开才扔出去。攥太久会在手里炸
+  // 投掷物。count 是开局 / 每条命带几个（训练场不限量），多的要花钱买（见下面的 economy）。玩家和 NPC 开局带一样多
+  // 两道保险：按住左键拔掉拉环，但只要还攥着保险握片引信就不走，攥多久都不会炸；
+  // 松开左键出手，握片弹开，fuse 秒后引爆。人死了手一松，雷掉在脚下，也是从这时开始算
   grenades: {
     throwSpeed: 15,        // 出手速度 m/s
     throwUp: 0.14,         // 出手时比准星略微上抬
     restitution: 0.38,     // 碰撞反弹系数
     groundFriction: 0.68,  // 落地时水平速度保留多少
-    pullTime: 0.2,         // 拉环动作：点一下左键也要做完才出手
+    pullTime: 0.2,         // 拔环动作：点一下左键也要做完才出手
     swingTime: 0.28,       // 挥臂动作总时长
     releaseAt: 0.07,       // 挥臂开始多久后出手
     trailLife: 2.2,        // 飞行轨迹保留几秒
 
     frag: {
-      name: '手雷', count: 1, fuse: 3.0,
+      name: '手雷', count: 1, fuse: 3.0,   // fuse：出手（握片弹开）后几秒爆炸
       radius: 7,           // 爆炸半径；伤害随距离线性衰减，有掩体挡着不受伤
       damage: 150,         // 爆心伤害（2.3 米内必死）
       selfMul: 0.75,       // 炸到自己时伤害乘这个系数
@@ -185,6 +186,17 @@ Game.Config = {
     perWave: 1,            // 每波多几个
     maxAlive: 7,           // 一波最多几个
     wavePause: 4,          // 两波之间休息几秒
+  },
+
+  // 经济（对决和波次，训练场没有）：打死敌人拿赏金，回到自己这条命的出生点买投掷物。逻辑在 economy.js
+  economy: {
+    startMoney: 0,         // 开局有多少钱（开局本来就带着 grenades.*.count 个投掷物）
+    maxMoney: 2000,        // 钱的上限：到了上限再打死人也不涨
+    // 赏金只看最后一击：爆头打死 / 枪打身体或腿打死 / 手雷炸死
+    reward: { head: 300, body: 200, frag: 400 },
+    prices: { frag: 300, flash: 200, smoke: 300 },   // 价格
+    maxCarry: { frag: 2, flash: 2, smoke: 1 },       // 每种最多带几个
+    buyRadius: 3,          // 购买区：出生点周围几米（地上有一圈环）
   },
 
   // 1v1 对决
@@ -259,6 +271,7 @@ Game.Config = {
     slotFlash:  ['Digit4'],
     slotSmoke:  ['Digit5'],
     lastWeapon: ['KeyQ'],       // 切回上一把武器（滚轮也能切枪）
+    buy:        ['KeyB'],       // 在出生点打开购买面板，开着时按投掷物的槽位键购买
     resetStats: ['KeyT'],
   },
 };

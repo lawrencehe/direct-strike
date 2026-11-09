@@ -93,9 +93,15 @@ Game.Audio = class Audio {
   hit()      { this.tone(900, 0.05, 'square', 0.12); }
   headshot() { this.tone(1400, 0.08, 'sine', 0.35); this.tone(2100, 0.14, 'sine', 0.3, 0.05); }
   empty()    { this.click(0, 0.25); }
-  reload(time) { this.click(0.05, 0.3); this.click(time - 0.25, 0.4); }
+  // 换弹的几个动作（weapon.js 在动作做到那一步时调用）
+  magOut()      { this.click(0, 0.28); this.tone(320, 0.06, 'triangle', 0.08); }
+  magIn()       { this.click(0, 0.45); this.click(0.025, 0.25); this.tone(140, 0.08, 'sine', 0.22); }
+  rackBack()    { this.click(0, 0.35); this.tone(600, 0.05, 'square', 0.05); }
+  rackForward() { this.click(0, 0.5); this.click(0.02, 0.3); this.tone(180, 0.07, 'sine', 0.2); }
   swap()     { this.click(0, 0.18); this.click(0.1, 0.12); }
   pullPin()  { this.click(0, 0.22); this.tone(2600, 0.05, 'sine', 0.08, 0.03); }
+  spoon()    { this.tone(3200, 0.09, 'sine', 0.07); this.click(0, 0.15); }   // 握片弹开的"叮"
+  cash()     { this.tone(1700, 0.05, 'sine', 0.15); this.tone(2550, 0.1, 'sine', 0.13, 0.05); }   // 买到东西 / 拿到赏金
   bounce(v)  { this.click(0, Math.min(0.35, 0.05 + v * 0.03)); }
 
   explosion(distance) {

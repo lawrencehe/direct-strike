@@ -74,6 +74,9 @@ function startGame(mapData) {
   const bots = new Game.Bots.Manager({ scene, camera, world, player, audio, hud, effects });
   grenades.bots = bots;
   bots.grenades = grenades;
+  const economy = new Game.Economy({ scene, hud, audio, player, weapon, input });
+  // 赏金只看最后一击怎么打死的
+  bots.onPlayerKill = (hit) => economy.award(hit.explosion ? 'frag' : hit.part === 'head' ? 'head' : 'body');
 
   let mode = null;
   let respawnTimer = 0;   // 对决里玩家阵亡后的重生倒计时
@@ -86,11 +89,11 @@ function startGame(mapData) {
   }
   bots.onChange = refreshShootables;
 
-  // 波次模式：每清完一波回满血、补满子弹
+  // 波次模式：每清完一波回满血、补满子弹，投掷物补到开局数量（多买的不收走）
   bots.onWaveCleared = () => {
     player.health = Game.Config.player.maxHealth;
     hud.setHealth(player.health, Game.Config.player.maxHealth);
-    weapon.refill();
+    weapon.refill(true);
   };
 
   // 当前对局的数据，暂停和结算界面用
@@ -124,7 +127,8 @@ function startGame(mapData) {
   // 阵亡：先让镜头倒下，再决定是重生（对决）还是结算（波次）
   player.onDeath = () => {
     audio.death();
-    weapon.onPlayerDeath();   // 手里攥着拉了环的手雷：掉在脚下
+    weapon.onPlayerDeath();   // 手里攥着拔了环的手雷：掉在脚下
+    economy.onPlayerDeath();
     if (mode === 'duel' && bots.onPlayerKilled()) {
       hud.banner('你被击杀了', 1.5);
       respawnTimer = Game.Config.duel.respawnDelay;
@@ -152,6 +156,7 @@ function startGame(mapData) {
     player.reset();
     weapon.unlimitedThrowables = m === 'range';   // 训练场投掷物不限量，方便练习
     weapon.reset();
+    economy.start(m);
     grenades.clear();
     hud.resetStats();
     hud.setMode(m);
@@ -240,6 +245,7 @@ function startGame(mapData) {
       if (player.alive) {
         player.update(dt, input);
         camera.updateMatrixWorld();
+        economy.update(dt);       // 要在 weapon 之前：购买面板开着时 3 / 4 / 5 是买东西
         weapon.update(dt, input);
       } else {
         player.updateDead(dt);
@@ -295,5 +301,5 @@ function startGame(mapData) {
   };
 
   // 方便在浏览器控制台（F12）里调试，例如输入 game.player.position 查看位置
-  window.game = { scene, camera, renderer, world, targets, input, audio, hud, ui, player, weapon, grenades, effects, bots, startMode };
+  window.game = { scene, camera, renderer, world, targets, input, audio, hud, ui, player, weapon, grenades, effects, bots, economy, startMode };
 }

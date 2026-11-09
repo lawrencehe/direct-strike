@@ -29,7 +29,7 @@ Game.Grenades = class Grenades {
   }
 
   // 出手：从手的位置朝准星略上方丢出去，带上玩家一半的移动速度
-  // fuse 是引信还剩几秒（拉环后攥了多久已经扣掉了）；drop 表示人死了，手雷掉在脚下
+  // 握片在出手时才弹开，所以引信总是从满的 fuse 开始；drop 表示人死了，手雷掉在脚下
   throw(kind, fuse = Game.Config.grenades[kind].fuse, drop = false) {
     const cfg = Game.Config.grenades;
     const cam = this.camera;
@@ -50,8 +50,11 @@ Game.Grenades = class Grenades {
   // 真正把一颗雷放进场景：pos 出手位置、vel 初速度、owner 谁丢的（null = 玩家）
   launch(kind, pos, vel, fuse, owner = null, drop = false) {
     const model = Game.GunModel.buildGrenade(kind).group;
-    const pin = model.getObjectByName('pin');
-    if (pin) pin.visible = false;
+    // 拉环拔掉了，握片也弹开了
+    for (const name of ['pin', 'spoon']) {
+      const part = model.getObjectByName(name);
+      if (part) part.visible = false;
+    }
     model.position.copy(pos);
     model.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     this.scene.add(model);
@@ -64,15 +67,6 @@ Game.Grenades = class Grenades {
       fuse,
       spin: new THREE.Vector3(Math.random() * 12 - 6, Math.random() * 6 - 3, Math.random() * 12 - 6),
     });
-  }
-
-  // 攥太久：就在手边炸
-  explodeInHand(kind) {
-    const cam = this.camera;
-    const pos = cam.position.clone().addScaledVector(new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion), 0.25);
-    if (this.insideBox(pos, this.world.colliders)) pos.copy(cam.position);
-    pos.y -= 0.15;       // detonate 会抬高 0.15
-    this.detonate({ kind, pos, model: new THREE.Group(), owner: null });
   }
 
   insideBox(p, boxes, r = 0) {

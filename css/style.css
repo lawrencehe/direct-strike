@@ -466,22 +466,31 @@ b.enemy { color: var(--enemy) !important; }
 #hitmarker.kill { width: 34px; height: 34px; margin: -17px 0 0 -17px; }
 #hitmarker.kill::before, #hitmarker.kill::after { width: 3px; margin-left: -1.5px; }
 
-#reload-tip {
-  position: absolute; left: 50%; top: calc(50% + 40px);
-  transform: translateX(-50%);
-  font-family: var(--font-m); font-size: 13px; letter-spacing: .15em; color: var(--accent); text-shadow: 0 0 3px #000;
-  display: none;
+/* 在购买区里：准星下方一行提示 */
+#buy-tip {
+  position: absolute; left: 50%; top: calc(50% + 46px); transform: translateX(-50%);
+  font-family: var(--font-m); font-size: 12px; letter-spacing: .12em; color: var(--accent); text-shadow: 0 0 3px #000;
+  display: none; white-space: nowrap;
 }
 
-/* 手雷拉环后的倒计时：快炸了变红 */
-#cook-bar {
-  position: absolute; left: 50%; top: calc(50% + 36px);
-  width: 90px; height: 4px; margin-left: -45px;
-  background: rgba(0, 0, 0, .55); overflow: hidden;
-  display: none;
+/* 购买面板：左侧居中，开着时照样能走能看 */
+#buy {
+  position: absolute; left: 20px; top: 50%; transform: translateY(-50%); width: 250px;
+  padding: 12px 14px 10px; background: rgba(10, 11, 8, .78); border-left: 2px solid var(--accent);
+  font-size: 13px; display: none;
 }
-#cook-bar i { display: block; height: 100%; width: 100%; background: var(--accent); }
-#cook-bar.danger i { background: var(--enemy); }
+#buy h4 {
+  display: flex; justify-content: space-between; margin: 0 0 8px;
+  font-family: var(--font-d); font-size: 18px; font-weight: 700; letter-spacing: .12em;
+}
+#buy h4 b { font-family: var(--font-m); font-weight: 400; color: var(--accent); letter-spacing: 0; }
+#buy div { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-top: 1px solid rgba(255, 255, 255, .06); }
+#buy kbd { min-width: 22px; padding: 1px 5px; font-family: var(--font-m); font-size: 11px; text-align: center; border: 1px solid var(--dim); }
+#buy span { flex: 1; }
+#buy i { font-style: normal; font-family: var(--font-m); font-size: 11px; color: var(--muted); }
+#buy div b { min-width: 46px; text-align: right; font-family: var(--font-m); font-weight: 400; color: var(--accent); }
+#buy div.off { opacity: .38; }
+#buy p { margin: 8px 0 0; font-size: 11px; color: var(--dim); }
 
 /* 左上：本局统计 */
 #stats {
@@ -503,6 +512,33 @@ b.enemy { color: var(--enemy) !important; }
 }
 #ammo.low #ammo-cur { color: var(--enemy); }
 #ammo-max { font-size: 22px; margin-left: 6px; color: var(--muted); font-weight: 400; }
+/* 换弹：数字变暗，底下一条细线从左往右走满（不写字，看手上的动作） */
+#ammo-cur, #ammo-max { transition: opacity .15s; }
+#ammo.reloading #ammo-cur, #ammo.reloading #ammo-max { opacity: .35; }
+#ammo-reload {
+  position: absolute; left: 0; right: 0; bottom: -7px; height: 2px;
+  background: var(--accent); transform-origin: left; transform: scaleX(0); opacity: 0;
+}
+#ammo.reloading #ammo-reload { opacity: 1; }
+
+/* 钱：生命值上方；拿到赏金时旁边飘一行 */
+#money {
+  position: absolute; left: 28px; bottom: 88px;
+  font-family: var(--font-d); font-size: 26px; font-weight: 700; line-height: 1; color: var(--accent);
+  text-shadow: 0 0 6px rgba(0, 0, 0, .8); display: none;
+}
+#money .label { margin-right: 4px; font-size: 20px; }
+#money-gain {
+  display: inline-block; margin-left: 12px; font-family: var(--font-m); font-size: 13px; font-weight: 400; color: var(--ink);
+  opacity: 0;
+}
+#money-gain.show { animation: money-gain 1.8s ease-out forwards; }
+@keyframes money-gain {
+  0% { opacity: 0; transform: translateY(6px); }
+  12% { opacity: 1; transform: none; }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
 
 #weapons {
   position: absolute; right: 28px; bottom: 84px;

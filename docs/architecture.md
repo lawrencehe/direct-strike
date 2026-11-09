@@ -6,7 +6,7 @@
 
 - 没有构建步骤，也没有模块系统。`index.html` 按顺序加载 `vendor/` 和 `js/` 下的脚本，每个文件往全局 `Game` 上挂一个东西
   （`Game.Config`、`Game.Player`、`Game.Weapon`……）。**后加载的可以用先加载的，反过来不行**，新文件要插到正确位置。
-- 顺序：`config → settings → physics → audio → input → textures → effects → truck → world → targets → ragdoll → character → player → gunmodel → grenades → weapon → bots → hud → ui → main`。
+- 顺序：`config → settings → physics → audio → input → textures → effects → truck → world → targets → ragdoll → character → player → gunmodel → grenades → weapon → bots → hud → economy → ui → main`。
   `settings` 紧跟 `config`：它把玩家存在浏览器里的设置写回 `Game.Config`，后面的文件读到的就是玩家的值。
 - `main.js` 先异步加载 `maps/<config.map>.json`、首页选中的主副武器枪模（`GunModel.loadGun`）和第一人称手臂（`GunModel.loadArms`），都加载完才调用 `startGame` 创建所有对象；
   加载页显示进度，任何一个失败，错误显示在加载页上。NPC 模型也是异步加载，加载完首页才允许进对战模式。
@@ -46,7 +46,8 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 `main.js` 的 `frame()` 每帧：
 
 1. `dt` 最长限制 0.05 秒（切出窗口回来不会穿墙）。
-2. 指针锁定时才更新玩法：`player → weapon → targets → bots → grenades`。玩家死了只更新倒地镜头和重生倒计时。
+2. 指针锁定时才更新玩法：`player → economy → weapon → targets → bots → grenades`。玩家死了只更新倒地镜头和重生倒计时。
+   `economy` 必须在 `weapon` 前面：购买面板开着时它用 `input.consumeAction` 吃掉投掷物的槽位键，武器就不会切过去。
 3. 不管锁没锁都更新 `world`（云、动画）和 `hud`，然后 `input.endFrame()` 清掉本帧的"刚按下"。
 4. 渲染两次：先画世界场景，清深度，再画枪模场景（首页和简报不画枪模）。
 
@@ -62,7 +63,13 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 
 - **碰撞**（`physics.js`）：只有轴对齐方块。玩家和 NPC 都是"分轴移动 + 自动上台阶"，台阶上限 `player.stepHeight`。
 - **射击**（`weapon.js`）：射线检测，按命中网格的部位（头/身体/腿）算伤害；散布、后坐力、换弹都在这里。
-  投掷物的动作也在这里：`throwState` 为 `null → 'hold'（按住，引信已经在走）→ 'swing'（出手动画）`，出手后交给 `grenades.js`。
+  换弹：打空且后坐做完（`cooldown <= 0`）自动开始，切枪 `cancelReload`。动作是 `Weapon.RELOAD` 里按换弹进度写的时间段，
+  `Weapon.reloadPose(p, empty)` 换算成枪身倾斜、弹匣、左手、机柄的量；音效按 `cues` 到点才响，被打断就不响（不要用 `audio` 提前排好）。
+  投掷物的动作也在这里：`throwState` 为 `null → 'hold'（拔了环、攥着握片，引信不走）→ 'swing'（出手动画）`，
+  出手瞬间握片弹开，`grenades.throw` 带满引信飞出去。手上不会炸。
+- **经济**（`economy.js`）：`bots.onPlayerKill(hit)` 报告玩家的击杀，`main.js` 按最后一击（`hit.explosion` / `hit.part`）换算成赏金类型交给 `economy.award`。
+  购买区是 `player.spawn` 周围 `economy.buyRadius` 米，地上的环一开始就放进场景、不用时透明度 0（避免中途编译材质）。
+  投掷物数量：`weapon.refill(false)` 回到开局数量（重生、新一局），`refill(true)` 不收走多买的（波次之间）。
 - **投掷物**（`grenades.js`）：方块反弹物理、爆炸伤害（射线判断有无掩体）、闪光按距离和朝向致盲、烟团挡 NPC 视线（`blocksSight`），飞行轨迹是 `Trail` 类。
 - **NPC**：`bots.js` 是状态机 AI（巡逻 → 发现 → 交火），`character.js` 负责模型、动画、持枪姿势、判定盒和死亡；
   死亡时 `character.die(hit)` 创建 `ragdoll.js` 的布娃娃。
@@ -92,6 +99,10 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
   顺序反了会先闪一下暂停菜单。
 - **`window.game` 在开局前是那个 `<canvas id="game">`**（浏览器会把带 id 的元素挂到 `window` 上）。
   测试脚本判断游戏是否就绪要看 `window.game.startMode`，不能只看 `window.game`，`tools/lib/game-page.mjs` 就是这么等的。
+- **换弹动作里枪身回正要和左手回护木同步。** `Weapon.RELOAD` 里 `tilt` 的下降段和 `grab` 的下降段要对齐；
+  枪还侧倾着而左手已经回到护木，手臂 IK 会把第一人称的袖子拉得很长。改了时间段要按进度截图看（`tools/tests/reload-nade-economy.mjs`）。
+- **换弹、投掷的音效不要提前排。** `audio` 是 Web Audio，排好的声音没法取消；中途切枪尾音照样响。按动作进度到点再调（`Weapon.RELOAD.*.cues`）。
+- **测试脚本的 tick 要调 `economy.update`，而且在 `weapon.update` 之前**，和 `main.js` 的帧循环一致，否则购买面板的按键会被武器当成切枪。
 - **glb 枪模换了要重新对手的位置。** 手臂是 `arm.glb`（蒙皮模型），握把、护木的位置写在 `weapon.js` 末尾的 `Weapon.VIEW` 里（`right` / `left`）；
   换模型后用侧视截图（把枪转 90 度）检查手有没有握在握把和护木上。
 - **手臂每帧要 `solve()`。** `gunmodel.js` 的 `buildArms` 按握持坐标系摆手腕骨骼、沿 `armDir` 摆小臂和上臂，手指只在第一次 solve 时自动弯到贴住握把。

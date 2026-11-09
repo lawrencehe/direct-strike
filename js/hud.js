@@ -7,11 +7,12 @@ Game.Hud = class Hud {
   constructor() {
     const $ = (id) => document.getElementById(id);
     this.el = {
-      crosshair: $('crosshair'), hitmarker: $('hitmarker'), reloadTip: $('reload-tip'),
+      crosshair: $('crosshair'), hitmarker: $('hitmarker'), reloadBar: $('ammo-reload'),
       stats: $('stats'), shots: $('stat-shots'), hits: $('stat-hits'), heads: $('stat-heads'),
       acc: $('stat-acc'), kills: $('stat-kills'),
       ammo: $('ammo'), ammoCur: $('ammo-cur'), ammoMax: $('ammo-max'), weapons: $('weapons'),
-      flashWhite: $('flash-white'), cookBar: $('cook-bar'),
+      flashWhite: $('flash-white'),
+      money: $('money'), moneyVal: $('money-val'), moneyGain: $('money-gain'), buyTip: $('buy-tip'), buy: $('buy'),
       health: $('health'), healthVal: $('health-val'), healthBar: $('health-bar'),
       damageFlash: $('damage-flash'), damageDir: $('damage-dir'),
       wave: $('wave-info'), banner: $('banner'), hint: $('hint'),
@@ -37,7 +38,7 @@ Game.Hud = class Hud {
     const key = (a) => this.input ? Game.Input.bindingName(this.input.bindings[a]) : '?';
     const common = `${key('reload')} 换弹 · ${key('lastWeapon')} / 滚轮 切枪`;
     this.el.hint.textContent = battle
-      ? `${common} · Esc 暂停`
+      ? `${common} · ${key('buy')} 出生点购买 · Esc 暂停`
       : `${common} · ${key('resetStats')} 重置统计 · Esc 暂停`;
     this.mode = mode;
     this.damageTimer = this.bannerTimer = 0;
@@ -45,11 +46,18 @@ Game.Hud = class Hud {
     this.el.flashWhite.style.opacity = 0;
   }
 
-  setAmmo(ammo, mag, reloading) {
+  setAmmo(ammo, mag) {
     this.el.ammoCur.textContent = ammo;
     this.el.ammoMax.textContent = '/ ∞';
     this.el.ammo.classList.toggle('low', ammo <= mag * 0.2);
-    this.el.reloadTip.style.display = reloading ? 'block' : 'none';
+  }
+
+  // 换弹进度：弹药数变暗，下面一条细线从左往右走满。progress 0 ~ 1，null 表示没在换弹
+  // （不在准星旁边写字，换弹看手上的动作；这条线只是告诉你还要多久）
+  setReload(progress) {
+    const on = progress !== null;
+    this.el.ammo.classList.toggle('reloading', on);
+    if (on) this.el.reloadBar.style.transform = `scaleX(${Math.min(1, Math.max(0, progress))})`;
   }
 
   // 手上拿的是投掷物：只显示还剩几个
@@ -57,16 +65,38 @@ Game.Hud = class Hud {
     this.el.ammoCur.textContent = count;
     this.el.ammoMax.textContent = '';
     this.el.ammo.classList.remove('low');
-    this.el.reloadTip.style.display = 'none';
+    this.setReload(null);
   }
 
-  // 手雷倒计时：left 是还剩的比例 1 → 0，null 表示隐藏
-  setCook(left) {
-    const on = left !== null;
-    this.el.cookBar.style.display = on ? 'block' : 'none';
-    if (!on) return;
-    this.el.cookBar.firstElementChild.style.width = `${Math.max(0, left) * 100}%`;
-    this.el.cookBar.classList.toggle('danger', left < 0.34);
+  // ---- 经济（economy.js 调用）----
+  setMoney(money, show = true) {
+    this.el.money.style.display = show ? 'block' : 'none';
+    this.el.moneyVal.textContent = money;
+  }
+
+  // 拿到赏金：钱数旁边飘一行 "+$300 爆头"，到了上限显示"钱已到上限"
+  moneyGain(amount, label) {
+    const el = this.el.moneyGain;
+    el.textContent = amount > 0 ? `+$${amount} ${label}` : `${label} · 钱已到上限`;
+    el.classList.remove('show');
+    void el.offsetWidth;   // 重新触发 CSS 动画
+    el.classList.add('show');
+  }
+
+  // 在购买区里：准星下方提示按哪个键买
+  setBuyTip(text) {
+    this.el.buyTip.textContent = text || '';
+    this.el.buyTip.style.display = text ? 'block' : 'none';
+  }
+
+  // 购买面板。rows: [{ key, name, price, count, max, ok }]，null 表示关掉
+  setBuyMenu(rows, money, closeKey) {
+    const el = this.el.buy;
+    el.style.display = rows ? 'block' : 'none';
+    if (!rows) return;
+    el.innerHTML = `<h4>购买<b>$${money}</b></h4>` + rows.map((r) =>
+      `<div class="${r.ok ? '' : 'off'}"><kbd>${r.key}</kbd><span>${r.name}</span><i>${r.count} / ${r.max}</i><b>$${r.price}</b></div>`
+    ).join('') + `<p>${closeKey} 关闭 · 离开出生点自动关闭</p>`;
   }
 
   // 武器栏。slots: [{ action, name, count?, on, empty }]
