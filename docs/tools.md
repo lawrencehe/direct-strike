@@ -41,6 +41,17 @@ tools/img.sh png 输入.png 输出.png
 
 详细参数见各脚本开头，或 `.claude/skills/*/SKILL.md`。输出都写到 `tools/out/`（不进 git）。
 
+## 分析开发者模式的数据
+
+负责人在游戏里录的真机数据上传到 `~/direct-strike-data/devlogs/<编号>/`，用法和输出见 `devmode.md`：
+
+```bash
+node tools/devlog/analyze.mjs --list     # 列出上传
+node tools/devlog/analyze.mjs [编号]     # 报告 + 曲线图 + 标记前后的视频帧，输出到 tools/out/devlog/<编号>/
+```
+
+画图和拆视频帧都用 Playwright 自带的 Chromium，不用另装 ffmpeg。
+
 ## 给角色加 Mixamo 动画
 
 1. 在 Mixamo 下载 **FBX + With Skin**。Without Skin 的文件静止姿态不对，会被工具拒绝。

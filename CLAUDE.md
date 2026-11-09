@@ -15,6 +15,7 @@
 | `docs/architecture.md` | 加载顺序、对象关系、游戏循环、两套场景、**已知的坑** |
 | `docs/decisions.md` | 项目方向和做过的决定（为什么是现在这样） |
 | `docs/testing.md` | `/verify` 和写逐帧推进的测试脚本 |
+| `docs/devmode.md` | 开发者模式：真机录帧数据和画面、上传、分析 |
 | `docs/tools.md` | 工具链安装和用法、开发机限制 |
 | `docs/ui.md` | 界面流程、全屏规则、玩家设置、视觉规范 |
 | `docs/maps.md` | 地图格式 |
@@ -32,7 +33,8 @@
 - 工具链在 `tools/`，安装用 `tools/setup.sh`。
 - 验证用 `/verify`，模型用 `/glb`，图片用 `/img`，骨骼动画用 `/rig`，地图用 `/map`，发布用 `/deploy`，提交推送部署一条龙用 `/ship`。
 - 改完代码或资源要先跑 `/verify`，玩法逻辑的改动再写针对性测试（`docs/testing.md`）。
-- 这台机器没有 GPU：截图和报错可信，帧率不可信。
+- 这台机器没有 GPU：截图和报错可信，帧率不可信。真机上的帧率、动画和手感问题，让负责人用游戏里的开发者模式录下来上传，
+  再用 `node tools/devlog/analyze.mjs` 看报告、曲线和视频帧（`docs/devmode.md`）。
 
 ## 约定
 

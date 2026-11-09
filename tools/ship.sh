@@ -77,10 +77,11 @@ if [ $DEPLOY = 1 ]; then
   for u in / /js/main.js /maps/yard.json /assets/models/human/init_soldier.glb; do
     c=$(curl -s -o /dev/null -w '%{http_code}' "$SITE$u"); [ "$c" = 200 ] || BAD="$BAD $u=$c"
   done
-  for u in /refer/ak.png /.git/HEAD /docs/README.md; do
+  for u in /refer/ak.png /.git/HEAD /docs/README.md /server/api.py; do
     c=$(curl -s -o /dev/null -w '%{http_code}' "$SITE$u"); [ "$c" = 404 ] || BAD="$BAD $u=$c(应为404)"
   done
   curl -s "$SITE/" | grep -q "<small>$CUR</small>" || BAD="$BAD 线上页面不是$CUR"
+  curl -s "$SITE/api/health" | grep -q '"ok": true' || BAD="$BAD 开发接口/api/health不通"
   [ -z "$BAD" ] || { [ "$BR" != main ] && git checkout -q "$BR"; die "线上检查失败：$BAD"; }
   echo "✓ 已部署 $CUR，线上检查通过"
   if [ $LIVE = 1 ]; then

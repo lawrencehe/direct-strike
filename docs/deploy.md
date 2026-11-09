@@ -12,9 +12,11 @@ paseo-relay 的 Caddy 容器（占 80/443，自动签 Let's Encrypt 证书）
   │ 按域名分流：relay.lightup.host → relay 容器；game.lightup.host → fps-game 容器
   ▼
 fps-game 容器（caddy:alpine，只在 Docker 网络 paseo-relay_default 内开 80，gzip 压缩）
-  │ 只读挂载
-  ▼
-/home/donkey/fps-site（deploy.sh 用 rsync 同步过去的纯站点文件）
+  │ 只读挂载                                    │ /api/* 转发
+  ▼                                             ▼
+/home/donkey/fps-site                    fps-api 容器（python:alpine，网络内开 8080，开发者模式的登录和上传）
+（deploy.sh 用 rsync 同步过去的纯站点文件）       │ 代码只读挂载 /home/donkey/fps-api（deploy.sh 同步的 server/）
+                                                 │ 数据挂载 /home/donkey/direct-strike-data/devlogs
 ```
 
 容器 `fps-game` 和站点目录 `fps-site` 保留了项目改名前的名字：relay 的 Caddyfile 写死了 `reverse_proxy fps-game:80`，改容器名要动共享配置，收益只是好看。
@@ -31,7 +33,10 @@ fps-game 容器（caddy:alpine，只在 Docker 网络 paseo-relay_default 内开
 |---|---|
 | `deploy.sh` | 一键发布：rsync 到站点目录 + 拉起容器 |
 | `deploy/compose.yaml` | fps-game 容器定义，网络指向 `paseo-relay_default` |
-| `deploy/Caddyfile` | 容器内部的静态服务配置：根目录、gzip、缓存策略 |
+| `deploy/Caddyfile` | fps-game 的配置：`/api/*` 转给 fps-api，其他出静态文件（根目录、gzip、缓存策略） |
+| `server/api.py` | 开发接口（fps-api 容器里跑），说明见 `devmode.md` |
+| `/home/donkey/direct-strike-data/api.env` | 开发者模式密码 `DEV_PASSWORD`、签名随机串 `API_SECRET`、数据上限 `DATA_QUOTA_GB`。首次 `deploy.sh` 自动生成，不在仓库里 |
+| `/home/donkey/direct-strike-data/devlogs/` | 上传的开发者数据，每次上传一个目录，总量超过上限删最旧的 |
 | `/home/donkey/paseo-relay/Caddyfile` | relay 项目的 Caddy 配置，末尾有 `game.lightup.host` 一段（不在本仓库） |
 
 ## 日常更新
@@ -40,7 +45,10 @@ fps-game 容器（caddy:alpine，只在 Docker 网络 paseo-relay_default 内开
 ./deploy.sh
 ```
 
-rsync 完立刻生效。缓存策略是 `Cache-Control: no-cache`：浏览器每次先向服务器确认文件有没有变，
+静态文件 rsync 完立刻生效。`server/` 有变化时脚本会重启 fps-api；`deploy/Caddyfile` 和容器里的不一致时会重建 fps-game
+（单文件挂载，git 切分支会换掉文件，容器里看到的还是旧的；重建只影响本项目的容器，一两秒，relay 不动）。
+
+缓存策略是 `Cache-Control: no-cache`：浏览器每次先向服务器确认文件有没有变，
 没变就返回 304 用本地缓存。所以推了新版本玩家刷新就能看到，2 MB 的模型又不会被反复下载。
 
 ## 首次接入（已经做过，记录在这里以便重建）
@@ -70,6 +78,8 @@ rsync 完立刻生效。缓存策略是 `Cache-Control: no-cache`：浏览器每
 curl -sI https://game.lightup.host/ | head -1                      # 200
 curl -s -o /dev/null -w '%{http_code}\n' https://game.lightup.host/refer/ak.png   # 必须 404
 curl -s -o /dev/null -w '%{http_code}\n' https://game.lightup.host/.git/HEAD      # 必须 404
+curl -s https://game.lightup.host/api/health                                        # {"ok": true}
+curl -s -o /dev/null -w '%{http_code}\n' https://game.lightup.host/server/api.py   # 必须 404（接口代码不在站点目录里）
 ```
 
 ## 回滚

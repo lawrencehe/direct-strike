@@ -1,10 +1,20 @@
 # 游戏静态服务（容器内部用，不直接对外）。
 # 对外的 HTTPS 和域名由 paseo-relay 的 Caddy 负责，它把 game.lightup.host 反代到这里。
 :80 {
-	root * /srv/game
-	encode zstd gzip
-	# no-cache 不是"不缓存"，而是每次先问服务器文件有没有变：没变回 304，不重新下载。
-	# 这样推了新版本大家立刻看到，老文件又不用重复下。
-	header Cache-Control "no-cache"
-	file_server
+	# 开发接口（开发者模式的登录、上传）转给 fps-api 容器。上传一片视频或帧数据最多 25 MB
+	handle /api/* {
+		request_body {
+			max_size 26MB
+		}
+		reverse_proxy fps-api:8080
+	}
+
+	handle {
+		root * /srv/game
+		encode zstd gzip
+		# no-cache 不是"不缓存"，而是每次先问服务器文件有没有变：没变回 304，不重新下载。
+		# 这样推了新版本大家立刻看到，老文件又不用重复下。
+		header Cache-Control "no-cache"
+		file_server
+	}
 }

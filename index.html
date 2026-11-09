@@ -70,7 +70,7 @@
       <header class="topbar">
         <a class="brand" href="#" data-tab="play">
           <img src="assets/brand/logo-dark.png" alt="" width="63" height="32">
-          <span>DIRECT-STRIKE <small>v0.20</small></span>
+          <span>DIRECT-STRIKE <small>v0.21</small></span>
         </a>
         <nav class="tabs">
           <a href="#" data-tab="play" class="on">作战</a>
@@ -136,6 +136,26 @@
             <!-- 按键表由 ui.js 根据当前绑定生成 -->
             <table class="keys" id="keys"></table>
           </div>
+          <!-- 开发者：录真机上的帧数据和画面，上传给开发分析（js/devlog.js）。要服务器校验密码 -->
+          <div class="set-col set-dev" id="set-dev">
+            <h3>开发者 <small id="dev-state"></small></h3>
+            <div class="dev-locked">
+              <div class="row"><span>密码</span><input type="password" id="dev-pw" autocomplete="off" placeholder="开发者密码"><button class="btn-sm" id="dev-unlock">解锁</button></div>
+            </div>
+            <div class="dev-unlocked">
+              <label class="row"><span>开发者模式</span><input type="checkbox" class="toggle" id="dev-on"><small>录制战斗中每一帧的数据，左上角显示帧率</small></label>
+              <label class="row"><span>录制画面</span><input type="checkbox" class="toggle" id="dev-video"><small>缩小后录最近 30 秒，会占用一些显卡</small></label>
+              <div class="dev-stats" id="dev-stats"></div>
+              <canvas id="dev-graph" height="70"></canvas>
+              <div class="dev-btns">
+                <button class="btn-sm primary" id="dev-upload">上传</button>
+                <button class="btn-sm" id="dev-download">下载到本地</button>
+                <button class="btn-sm" id="dev-clear">清空</button>
+                <a href="#" class="link" id="dev-logout">退出开发者</a>
+              </div>
+              <div id="dev-result"></div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -167,6 +187,7 @@
         <div class="menu-btns" id="pause-menu">
           <button class="primary" id="btn-resume">继续作战</button>
           <button id="btn-pause-settings">设置</button>
+          <button id="btn-pause-dev" style="display:none">开发者数据</button>
           <button id="btn-restart">重新开始</button>
           <button id="btn-quit">返回首页</button>
         </div>
@@ -216,6 +237,7 @@
   <script src="js/hud.js"></script>
   <script src="js/economy.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/devlog.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

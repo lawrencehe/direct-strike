@@ -1,4 +1,4 @@
-# Direct-Strike v0.20
+# Direct-Strike v0.21
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -54,7 +54,8 @@ NPC 死亡是实时物理（布娃娃）：爆头会被打飞，打身体有踉�
 
 **运行 `start.sh`（Windows 用 `start.bat`）**，它会启动一个本地服务并自动打开浏览器。
 不能直接双击打开 `index.html`，浏览器不允许这样读取地图和模型文件。
-手动的话：在本目录打开终端，运行 `python -m http.server 8000`，然后访问 `http://localhost:8000`。
+手动的话：在本目录打开终端，运行 `python3 server/api.py --static . --port 8000`，然后访问 `http://localhost:8000`
+（`python -m http.server 8000` 也能玩，只是没有开发者模式的接口）。
 
 > 为什么不能直接双击 `index.html`？浏览器禁止 `file://` 页面加载 `.glb` 模型文件。
 > 直接双击也能玩，但 NPC 会退化成方块小人。
@@ -95,18 +96,21 @@ direct-strike/
 ├── index.html        页面骨架：画布、HUD、各个界面（加载、首页、简报、暂停、结算），按顺序加载脚本
 ├── start.sh / .bat   一键启动本地服务
 ├── deploy.sh         一键发布到 game.lightup.host（提交推送部署一条龙用 tools/ship.sh）
-├── deploy/           站点容器的 compose 和 Caddyfile
+├── deploy/           站点容器和开发接口容器的 compose、Caddyfile
+├── server/api.py     开发接口（开发者模式的密码校验和上传），只用 Python 标准库；游戏本身不需要它
 ├── docs/             开发文档，索引见 docs/README.md
 │   ├── workflow.md       开发流程：分支、提交、版本号、验证、发布
 │   ├── architecture.md   代码怎么拼在一起、游戏循环、已知的坑
 │   ├── decisions.md      项目方向和做过的决定
 │   ├── testing.md        冒烟验证和写测试脚本
+│   ├── devmode.md        开发者模式：真机录帧数据和画面、上传、分析
 │   ├── tools.md          本地工具链的安装和用法
 │   ├── ui.md             界面流程、全屏规则、玩家设置、视觉规范
 │   ├── maps.md           地图文件格式、怎么改地图、怎么加新地图
 │   └── deploy.md         部署架构、首次接入、回滚
 ├── maps/yard.json    ★ 地图数据：掩体、出生点、巡逻点、靶子
-├── tools/            开发工具（验证、模型、图片、骨骼、地图），不发布；tools/tests/ 是留在仓库里的针对性测试
+├── tools/            开发工具（验证、模型、图片、骨骼、地图），不发布；tools/tests/ 是留在仓库里的针对性测试，
+│                     tools/devlog/analyze.mjs 分析开发者模式上传的数据
 ├── assets-src/       未压缩的模型母版和 Blender 加工脚本，不发布
 ├── CLAUDE.md         给 AI 助手看的项目约定
 ├── css/style.css     界面和 HUD 样式（颜色、字体是开头的 CSS 变量）
@@ -146,6 +150,7 @@ direct-strike/
     ├── hud.js        战斗中的 HUD：准星、命中标记、弹药、生命、受击方向、比分、钱和购买面板
     ├── economy.js    经济：击杀赏金、出生点购买区、购买投掷物
     ├── ui.js         界面流程：加载 → 首页 → 作战简报 → 暂停 / 结算，设置页和改键
+    ├── devlog.js     开发者模式：录每帧数据和画面、帧率浮层、上传（要服务器校验密码）
     └── audio.js      用 Web Audio 实时合成的音效
 ```
 
@@ -169,6 +174,7 @@ direct-strike/
 - **改换弹动作**：`weapon.js` 的 `Weapon.RELOAD`（每个动作在换弹进度里的时间段、音效时间点）
 - **改赏金、价格、钱的上限**：`config.js` 的 `economy`
 - **改界面**：流程和规则见 `docs/ui.md`；结构在 `index.html`，逻辑在 `ui.js`，样式在 `css/style.css`，模式介绍文字在 `ui.js` 末尾的 `MODES`
+- **查真机上的卡顿、动画和手感问题**：游戏里的开发者模式（设置 → 开发者）录下来上传，开发用 `tools/devlog/analyze.mjs` 分析，见 `docs/devmode.md`
 - **改死亡效果**：`config.js` 的 `ragdoll`（爆头打飞的力度、尸体留多久）
 - **改地图**：改 `maps/yard.json`，格式见 `docs/maps.md`；要加新种类的物体再改 `world.js` 的 `builders`
 - **改对决规则**：`config.js` 的 `duel`（赢的杀数、重生时间、对手强度）

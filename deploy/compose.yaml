@@ -1,5 +1,6 @@
 # 游戏站点容器。只负责出静态文件，不占 80/443。
 # 它加入 paseo-relay 的网络，由那边的 Caddy 按域名把 game.lightup.host 转发过来。
+# fps-api 是开发接口（开发者模式的登录和上传），只在 Docker 网络里开 8080，由 fps-game 的 Caddy 把 /api/* 转过去。
 services:
   game:
     image: caddy:2.10.2-alpine
@@ -10,6 +11,22 @@ services:
       - /home/donkey/fps-site:/srv/game:ro
     networks: [relay]
     logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
+  api:
+    image: python:3.13-alpine
+    container_name: fps-api
+    restart: unless-stopped
+    # 和宿主机的 donkey 用户同一个 uid，上传的文件开发这边能直接读、能删
+    user: "1001:1002"
+    command: ["python", "-u", "/app/api.py", "--bind", "0.0.0.0", "--port", "8080", "--data", "/data"]
+    # 密码和签名用的随机串，不进仓库（见 docs/deploy.md 的"开发接口"）
+    env_file: /home/donkey/direct-strike-data/api.env
+    volumes:
+      - /home/donkey/fps-api:/app:ro                        # deploy.sh 同步过去的 server/ 目录
+      - /home/donkey/direct-strike-data/devlogs:/data       # 上传的数据
+    networks: [relay]
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
 networks:
   relay:
     external: true

@@ -235,9 +235,12 @@ function startGame(mapData) {
   const clock = new THREE.Clock();
   let time = 0;
 
+  const dev = Game.DevLog;
   function frame() {
+    const frameStart = performance.now();
     // 限制单帧最长 0.05 秒，防止切出窗口再回来时一下子"穿墙"
-    const dt = Math.min(clock.getDelta(), 0.05);
+    const rawDt = clock.getDelta();
+    const dt = Math.min(rawDt, 0.05);
 
     if (input.locked) {
       time += dt;
@@ -264,6 +267,7 @@ function startGame(mapData) {
     }
     world.update(dt);
     hud.update(dt, player);
+    if (dev.on) dev.sample(rawDt, dt);   // 开发者模式：录这一帧（要在 endFrame 之前，读"刚按下"的键）
     input.endFrame();
 
     renderer.clear();
@@ -273,9 +277,13 @@ function startGame(mapData) {
       renderer.clearDepth();
       renderer.render(weaponScene, weaponCamera);
     }
+    if (dev.on) dev.afterRender(frameStart);   // 补上这一帧花的时间、拷一帧画面
 
     requestAnimationFrame(frame);
   }
+
+  // 开发者模式（设置里输入密码打开）
+  dev.attach({ renderer, input, player, weapon, hud, ui });
 
   // 先摆好场景（训练场）和首页背景的镜头
   startMode('range');

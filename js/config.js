@@ -255,6 +255,24 @@ Game.Config = {
 
   // 默认按键。值是 KeyboardEvent.code（KeyW、ShiftLeft、Space…）或 Mouse0 ~ Mouse4。
   // 玩家在设置里改过的按键会存到浏览器 localStorage，优先级高于这里。
+  // 开发者模式（js/devlog.js）：录真机上的帧数据和画面，上传给开发分析。要服务器校验密码才能打开
+  dev: {
+    api: '/api/dev',       // 开发接口的路径前缀（线上由 fps-game 的 Caddy 转给 fps-api 容器，本地由 start.sh 的服务处理）
+    seconds: 60,           // 内存里保留最近多少秒的帧数据（环形缓冲，满了覆盖最旧的）
+    maxFps: 250,           // 按这个帧率预留缓冲区：seconds × maxFps 帧。帧率更高时保留的秒数会短一些
+    maxEvents: 4000,       // 事件（开火、换弹、切枪、标记…）最多保留多少条
+    markerKey: 'F8',       // 打标记的键：玩的时候觉得"刚才那下不对"就按一下
+    hudInterval: 0.25,     // 战斗浮层多久刷新一次（秒）。每帧刷新会拖慢页面
+    hitchFactor: 2,        // 帧间隔超过中位数的几倍算一次卡顿
+    video: {
+      width: 960,          // 录画面的分辨率（宽；高按屏幕比例），不需要高清，够看清动作就行
+      fps: 30,             // 录画面的帧率
+      bitrate: 1500000,    // 码率（bit/s）：1.5 Mbps，5 秒一片约 1 MB
+      segment: 5,          // 每片多少秒：每片都是一个能单独播放的 webm
+      keep: 6,             // 内存里保留最近几片（6 × 5 = 30 秒）
+    },
+  },
+
   keys: {
     forward:    ['KeyW'],
     back:       ['KeyS'],

@@ -209,7 +209,7 @@ Game.UI = class UI {
   setTab(tab) {
     this.$('scr-home').dataset.tab = tab;
     for (const a of document.querySelectorAll('.tabs [data-tab]')) a.classList.toggle('on', a.dataset.tab === tab);
-    if (tab === 'settings') this.renderKeys();
+    if (tab === 'settings') { this.renderKeys(); if (Game.DevLog) Game.DevLog.renderPanel(); }
   }
 
   deployBlocked() {
@@ -391,6 +391,8 @@ Game.UI = class UI {
     click('btn-quit', () => this.onQuit && this.onQuit());
     click('btn-pause-settings', () => this.openPauseSettings());
     click('btn-pause-back', () => this.closePauseSettings());
+    // 开发者数据：打开暂停里的设置，滚到"开发者"一栏
+    click('btn-pause-dev', () => { this.openPauseSettings(); this.$('set-dev').scrollIntoView({ block: 'start' }); });
 
     click('btn-again', () => this.onRestart && this.onRestart());
     click('btn-home', () => this.onQuit && this.onQuit());
@@ -401,6 +403,7 @@ Game.UI = class UI {
     this.$('pause-settings').appendChild(this.$('settings'));
     this.$('scr-pause').classList.add('with-settings');
     this.renderKeys();
+    if (Game.DevLog) Game.DevLog.renderPanel();
   }
 
   closePauseSettings() {
