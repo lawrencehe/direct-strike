@@ -45,8 +45,9 @@ fps-game 容器（caddy:alpine，只在 Docker 网络 paseo-relay_default 内开
 ./deploy.sh
 ```
 
-静态文件 rsync 完立刻生效。`server/` 有变化时脚本会重启 fps-api；`deploy/Caddyfile` 和容器里的不一致时会重建 fps-game
-（单文件挂载，git 切分支会换掉文件，容器里看到的还是旧的；重建只影响本项目的容器，一两秒，relay 不动）。
+静态文件 rsync 完立刻生效。`server/` 有变化时脚本会重启 fps-api；每次都让 fps-game 的 Caddy 平滑重载配置（正在跑的 Caddy 不会自己重读文件）；
+`deploy/Caddyfile` 和容器里看到的不一致时改为重建 fps-game（单文件挂载，git 切分支会换掉文件，容器里看到的还是旧的；
+重建只影响本项目的容器，一两秒，relay 不动）。
 
 缓存策略是 `Cache-Control: no-cache`：浏览器每次先向服务器确认文件有没有变，
 没变就返回 304 用本地缓存。所以推了新版本玩家刷新就能看到，2 MB 的模型又不会被反复下载。
