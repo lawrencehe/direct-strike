@@ -69,6 +69,7 @@ await g.close();
 
 | 脚本 | 测什么 |
 |---|---|
+| `tools/tests/buy-ux.mjs` | v0.30：买完立刻关面板、再按槽位键切过去；购买区的购物车图标（亮 / 灰 / 收起） |
 | `tools/tests/reload-nade-economy.mjs` | v0.20：自动换弹、换弹中切枪、手雷两道保险、经济（赏金、上限、购买、补给） |
 | `tools/tests/devlog.mjs` | v0.21：开发者模式的解锁、录制开销和零内存分配、事件、录画面的自动关闭保护、上传、分析脚本 |
 | `tools/tests/npc-grenade.mjs` | v0.25：引信从出手算、手雷按露出部位算伤害、推算玩家位置、听枪声、NPC 预演丢雷的准度、雷不卡在 NPC 身上 |

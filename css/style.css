@@ -466,12 +466,24 @@ b.enemy { color: var(--enemy) !important; }
 #hitmarker.kill { width: 34px; height: 34px; margin: -17px 0 0 -17px; }
 #hitmarker.kill::before, #hitmarker.kill::after { width: 3px; margin-left: -1.5px; }
 
-/* 在购买区里：准星下方一行提示 */
-#buy-tip {
-  position: absolute; left: 50%; top: calc(50% + 46px); transform: translateX(-50%);
-  font-family: var(--font-m); font-size: 12px; letter-spacing: .12em; color: var(--accent); text-shadow: 0 0 3px #000;
-  display: none; white-space: nowrap;
+/* 在购买区里：左侧（购买面板弹出的位置）一个购物车图标 + 购买键的键帽，进区滑入、轻轻呼吸；买不起变灰 */
+#buy-cue {
+  position: absolute; left: 20px; top: 50%; width: 46px; height: 46px; margin-top: -23px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(10, 11, 8, .6); border-left: 2px solid var(--accent); color: var(--accent);
+  opacity: 0; transform: translateX(-24px); pointer-events: none;
+  transition: opacity .2s, transform .2s, color .2s, border-color .2s;
 }
+#buy-cue svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; filter: drop-shadow(0 0 2px #000); }
+#buy-cue svg circle { fill: currentColor; stroke: none; }
+#buy-cue kbd {
+  position: absolute; right: -9px; bottom: -7px; min-width: 18px; padding: 0 4px;
+  font-family: var(--font-m); font-size: 10px; line-height: 16px; text-align: center;
+  color: var(--ink); background: rgba(10, 11, 8, .9); border: 1px solid currentColor;
+}
+#buy-cue.show { opacity: 1; transform: none; animation: buy-cue-pulse 1.6s ease-in-out .2s infinite; }
+#buy-cue.poor { color: var(--dim); border-left-color: var(--dim); animation: none; }
+@keyframes buy-cue-pulse { 50% { box-shadow: 0 0 14px rgba(255, 95, 0, .45); } }
 
 /* 购买面板：左侧居中，开着时照样能走能看 */
 #buy {

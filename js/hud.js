@@ -12,7 +12,7 @@ Game.Hud = class Hud {
       acc: $('stat-acc'), kills: $('stat-kills'),
       ammo: $('ammo'), ammoCur: $('ammo-cur'), ammoMax: $('ammo-max'), weapons: $('weapons'),
       flashWhite: $('flash-white'),
-      money: $('money'), moneyVal: $('money-val'), moneyGain: $('money-gain'), buyTip: $('buy-tip'), buy: $('buy'),
+      money: $('money'), moneyVal: $('money-val'), moneyGain: $('money-gain'), buyCue: $('buy-cue'), buyCueKey: $('buy-cue-key'), buy: $('buy'),
       health: $('health'), healthVal: $('health-val'), healthBar: $('health-bar'),
       damageFlash: $('damage-flash'), damageDir: $('damage-dir'),
       wave: $('wave-info'), banner: $('banner'), hint: $('hint'),
@@ -83,10 +83,12 @@ Game.Hud = class Hud {
     el.classList.add('show');
   }
 
-  // 在购买区里：准星下方提示按哪个键买
-  setBuyTip(text) {
-    this.el.buyTip.textContent = text || '';
-    this.el.buyTip.style.display = text ? 'block' : 'none';
+  // 在购买区里：屏幕左侧的购物车图标（不用文字）。state：'ok' 买得起东西（橙色）| 'poor' 买不起（灰）| null 收起
+  setBuyCue(state, keyName) {
+    const el = this.el.buyCue;
+    if (keyName && this.el.buyCueKey.textContent !== keyName) this.el.buyCueKey.textContent = keyName;
+    el.classList.toggle('show', !!state);
+    el.classList.toggle('poor', state === 'poor');
   }
 
   // 购买面板。rows: [{ key, name, price, count, max, ok }]，null 表示关掉
