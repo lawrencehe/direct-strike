@@ -15,7 +15,8 @@
 #   --live-verify    部署后再用无头浏览器验证线上（慢，约 1 分钟）
 #   --skip-verify    跳过本地 verify（只改了文档时会自动跳过）
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# SHIP_DIR：要发布的仓库目录。自动任务跑的是 origin/main 上的 ship.sh 副本（不在仓库里），用它指定 worktree
+cd "${SHIP_DIR:-$(dirname "$0")/..}"
 
 VER="" MSG="" DEPLOY=1 LIVE=0 SKIPV=0 TAG=0 PR=1 CLOSES=""
 while [ $# -gt 0 ]; do
@@ -93,7 +94,9 @@ if [ "$BR" != main ]; then
       if [ -n "$CLOSES" ]; then
         BODY=$(mktemp); gh pr view "$PRNUM" --json body -q .body > "$BODY" || true
         for n in ${CLOSES//,/ }; do grep -qx "Closes #$n" "$BODY" || printf '\nCloses #%s' "$n" >> "$BODY"; done
-        gh pr edit "$PRNUM" --body-file "$BODY" >/dev/null; rm -f "$BODY"
+        # 不用 gh pr edit：gh 2.46 会去读已下线的 Projects (classic)，报 GraphQL 错（#31 上线因此失败），改走 REST
+        gh api -X PATCH "repos/$REPO/pulls/$PRNUM" -F "body=@$BODY" >/dev/null || echo "! 没改成 PR 正文（Closes 没加上，合并后手动关 issue）"
+        rm -f "$BODY"
       fi
     fi
     gh pr merge "$PRNUM" --merge >/dev/null 2>&1 \

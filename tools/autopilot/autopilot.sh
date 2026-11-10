@@ -2,7 +2,8 @@
 # 自动任务：定时检查 GitHub 上负责人交给 Claude 的 issue，一次处理一个。约定和用法见 docs/autopilot.md。
 #
 #   标签流转：交给Claude（排队）→ Claude处理中 → 待验收（PR 已提）/ 等你回复（有问题）
-#   待验收 时负责人评论 "commit push & deploy" → 本脚本跑 ship.sh 合并上线；评论别的 → 当修改意见重新排队
+#   待验收 时负责人评论 "commit push & deploy" 或打 授权部署 → 本脚本跑 ship.sh 合并上线、关 issue；评论别的 → 当修改意见
+#   授权部署 和 交给Claude 一起打（提前授权）→ Claude 做完、改成 待验收 后，同一轮直接上线
 #   等你回复 时负责人评论 → 自动重新排队
 #
 # 用法：tools/autopilot/autopilot.sh [--dry-run]     （systemd 定时器每 30 分钟跑一次，见 tools/autopilot/install.sh）
@@ -22,7 +23,7 @@ MAX_PER_DAY=${AUTOPILOT_MAX_PER_DAY:-5}         # 每天最多启动几次 Claud
 TIMEOUT_MIN=${AUTOPILOT_TIMEOUT_MIN:-90}        # 单个任务最长多少分钟
 COOLDOWN_MIN=${AUTOPILOT_COOLDOWN_MIN:-60}      # 碰到额度限制后歇多久
 MARK='<!-- autopilot -->'
-L_QUEUE=交给Claude L_DOING=Claude处理中 L_ASK=等你回复 L_REVIEW=待验收 L_PRIO=优先
+L_QUEUE=交给Claude L_DOING=Claude处理中 L_ASK=等你回复 L_REVIEW=待验收 L_PRIO=优先 L_AUTH=授权部署
 DRY=0; [ "${1:-}" = --dry-run ] && DRY=1
 
 mkdir -p "$STATE/logs"
@@ -75,6 +76,41 @@ labeled_by() {
     | jq -rs --arg l "$2" '[add[] | select(.event == "labeled" and .label.name == $l)] | last | "\(.actor.login) \(.created_at)"'
 }
 
+# 负责人打了 授权部署（别人打的不算）
+authorized() { [[ ",$(labels_of "$1")," == *",$L_AUTH,"* ]] && [ "$(labeled_by "$1" "$L_AUTH" | cut -d' ' -f1)" = "$OWNER" ]; }
+
+# 上线：跑 origin/main 上的 ship.sh（启动器取到脚本旁边；手动跑时用仓库里的），不启动 Claude。
+# 调用前标签已经是 处理中，worktree 已经在任务分支上
+do_ship() {
+  local ship=$(dirname "$0")/ship.sh; [ -x "$ship" ] || ship=$(dirname "$0")/../ship.sh
+  if [ -z "$BRANCH" ] || [ -z "$VER" ]; then
+    comment "$NUM" "找不到这个任务的分支或版本号（应该记在我上一条\"待验收\"评论里），没法上线。请在 Claude Code 里处理。"
+    relabel "$NUM" "$L_ASK" "$L_DOING,$L_AUTH"; exit 1
+  fi
+  if OUT=$(SHIP_DIR="$WT" "$ship" -c "$NUM" --tag 2>&1 9>&-); then
+    log "#$NUM 已上线 $VER"
+    relabel "$NUM" "" "$L_DOING,$L_AUTH" || true
+    sleep 5   # PR 的 Closes 关 issue 是异步的，等一下；没关上就手动关
+    [ "$(gh issue view "$NUM" --json state -q .state)" = OPEN ] && gh issue close "$NUM" >/dev/null || true
+    comment "$NUM" "已上线 **$VER**：https://game.lightup.host ，issue 已关闭。
+
+\`\`\`
+$(echo "$OUT" | grep -E '^[✓·]')
+\`\`\`
+真机试玩有问题就开新 issue（要我做的话打 \`$L_QUEUE\`）。"
+  else
+    log "#$NUM 上线失败"; echo "$OUT" >> "$STATE/logs/autopilot.log"
+    # 去掉 授权部署，免得每一轮都重试；处理好后负责人重新打标签或评论
+    relabel "$NUM" "$L_REVIEW" "$L_DOING,$L_AUTH"
+    comment "$NUM" "上线没成功，停在这一步：
+
+\`\`\`
+$(echo "$OUT" | tail -15)
+\`\`\`
+线上没有变（失败的话 ship.sh 不会打 tag）。处理好后重新打 \`$L_AUTH\`（或回复 \`commit push & deploy\`）再试，或者在 Claude Code 里处理。"
+  fi
+}
+
 # ---- 0. 上一轮崩掉留下的 处理中 ----
 for n in $(gh issue list --state open --label "$L_DOING" --json number -q '.[].number'); do
   log "#$n 停在 $L_DOING（上一轮异常退出）"
@@ -85,11 +121,13 @@ done
 
 # ---- 1. 找这一轮要做的事：上线 > 修改意见 > 回复后继续 > 排队的新任务 ----
 TASK="" NUM=""
+# 待验收：说了 commit push & deploy → 上线；写了别的 → 修改（有 授权部署 的改完再上线）；没说话但打了 授权部署 → 上线
 for n in $(gh issue list --state open --label "$L_REVIEW" --json number -q 'sort_by(.number) | .[].number'); do
-  r=$(owner_reply "$n"); [ -z "$r" ] && continue
-  if echo "$r" | grep -qiE 'commit[[:space:]]*(,|&|＆|and)?[[:space:]]*push[[:space:]]*(&|＆|and)[[:space:]]*deploy|^/ship'; then
+  r=$(owner_reply "$n")
+  if [ -n "$r" ] && echo "$r" | grep -qiE 'commit[[:space:]]*(,|&|＆|and)?[[:space:]]*push[[:space:]]*(&|＆|and)[[:space:]]*deploy|^/ship'; then
     TASK=ship; NUM=$n; break
   fi
+  if [ -z "$r" ]; then authorized "$n" && { TASK=ship; NUM=$n; break; }; continue; fi
   [ -z "$TASK" ] && { TASK=revise; NUM=$n; }
 done
 if [ -z "$TASK" ]; then
@@ -149,32 +187,7 @@ else
 fi
 
 # ---- 4a. 上线：直接跑 ship.sh，不启动 Claude ----
-if [ "$TASK" = ship ]; then
-  if [ -z "$BRANCH" ] || [ -z "$VER" ]; then
-    comment "$NUM" "找不到这个任务的分支或版本号（应该记在我上一条\"待验收\"评论里），没法上线。请在 Claude Code 里处理。"
-    relabel "$NUM" "$L_ASK" "$L_DOING"; exit 1
-  fi
-  if OUT=$(tools/ship.sh -c "$NUM" --tag 2>&1 9>&-); then
-    log "#$NUM 已上线 $VER"
-    comment "$NUM" "已上线 **$VER**：https://game.lightup.host
-
-\`\`\`
-$(echo "$OUT" | grep -E '^[✓·]')
-\`\`\`
-真机试玩有问题就开新 issue（要我做的话打 \`$L_QUEUE\`）。"
-    gh issue edit "$NUM" --remove-label "$L_DOING" >/dev/null || true
-  else
-    log "#$NUM 上线失败"; echo "$OUT" >> "$STATE/logs/autopilot.log"
-    comment "$NUM" "上线没成功，停在这一步：
-
-\`\`\`
-$(echo "$OUT" | tail -15)
-\`\`\`
-线上没有变（失败的话 ship.sh 不会打 tag）。处理好后回复 \`commit push & deploy\` 再试，或者在 Claude Code 里处理。"
-    relabel "$NUM" "$L_REVIEW" "$L_DOING"
-  fi
-  exit 0
-fi
+[ "$TASK" = ship ] && { do_ship; exit 0; }
 
 # ---- 4b. 开发 / 修改 / 继续：启动 Claude ----
 echo $(( $(cat "$TODAY" 2>/dev/null || echo 0) + 1 )) > "$TODAY"
@@ -191,6 +204,15 @@ RESULT=$(jq -r '.result // empty' "$RUNLOG" 2>/dev/null || tail -c 2000 "$RUNLOG
 log "#$NUM Claude 结束 rc=$RC"
 
 NOW_LABELS=$(labels_of "$NUM")
+# 提前授权过（授权部署）：Claude 做完改成了 待验收，这一轮直接上线，不用等负责人
+if [[ ",$NOW_LABELS," == *",$L_REVIEW,"* ]] && authorized "$NUM"; then
+  log "#$NUM 已授权部署，直接上线"
+  relabel "$NUM" "$L_DOING" "$L_REVIEW"
+  BRANCH=$(meta "$NUM" branch); PR=$(meta "$NUM" pr); VER=$(meta "$NUM" version)
+  git checkout -q "$BRANCH" 2>/dev/null || true
+  [ -n "$(git status --porcelain)" ] && git stash push -q -u -m "autopilot 上线前残留（#$NUM）"
+  do_ship; exit 0
+fi
 if [[ ",$NOW_LABELS," == *",$L_DOING,"* ]]; then   # Claude 没走到最后一步（没改成 待验收 / 等你回复）
   if echo "$RESULT" | grep -qiE 'usage limit|rate limit|limit reached|额度|quota'; then
     echo $(( $(date +%s) + COOLDOWN_MIN * 60 )) > "$STATE/cooldown-until"
