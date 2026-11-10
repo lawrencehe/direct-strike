@@ -13,9 +13,6 @@ Game.Config = {
     weaponFov: 60,         // 枪模单独使用的视野，避免枪被拉伸
     mouseSensitivity: 0.0022,  // 鼠标灵敏度：每移动 1 像素转多少弧度
     fullscreen: true,      // 进入战斗时自动全屏，首页不全屏（浏览器规定必须由点击触发；玩家可在设置里关掉）
-    keyboardLock: true,    // 全屏时接管键盘（Chrome / Edge）：短按 Esc 只暂停不退全屏，长按才退；浏览器快捷键（Ctrl/⌘+W 等）不生效
-    blurPauseDelay: 0.3,   // 窗口失去焦点多久（秒）还没回来就自动暂停（Mac 上 ⌘+空格 弹出聚焦搜索时）
-    lockRetryDelay: 0.15,  // 锁定鼠标被浏览器拒绝后，隔多久（秒）自动再试一次
   },
 
   player: {

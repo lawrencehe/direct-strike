@@ -16,11 +16,7 @@ Game.Input = class Input {
     this.wheel = 0;            // 这一帧的滚轮方向：1 向下，-1 向上（切枪用）
     this.locked = false;
     this.onLockChange = null;
-    this.onLockError = null;   // 浏览器拒绝锁定鼠标，自动重试也没成功
-    this.lockRetry = 0;        // 这次 lock() 还能自动重试几次
-    this.fsPending = false;    // 这次 lock() 发起的全屏请求还没出结果
-    this.afterFs = null;       // 全屏有结果后要做的事（重试锁鼠标）
-    this.keyboardLocked = false;   // 全屏里已经用 Keyboard Lock 接管了 Esc 和浏览器快捷键
+    this.onLockError = null;   // 浏览器拒绝锁定鼠标（例如刚按 Esc 退出又马上点）
 
     this.bindings = Game.Input.loadBindings();
     this.capture = null;       // 正在等待玩家按键来改绑定时的回调
@@ -32,36 +28,12 @@ Game.Input = class Input {
         return;
       }
       if (!this.locked) return;
-      // 接管键盘后（见 syncKeyboardLock）短按 Esc 不再由浏览器处理，自己解锁鼠标进暂停，全屏保留。
-      // 没接管时浏览器已经处理了，这里再调一次也没有副作用
-      if (e.code === 'Escape') { document.exitPointerLock(); return; }
-      // Mac：按住 ⌘ 时别的键不会有 keyup，记下来就会一直"按着"。⌘ 按下时把按住的键全放开，带 ⌘ 的组合键不算游戏按键
-      if (e.code === 'MetaLeft' || e.code === 'MetaRight') { this.releaseAll(); return; }
-      if (e.metaKey) return;
       if (!e.repeat) this.pressed.add(e.code);
       this.down.add(e.code);
       // 这些键在浏览器里有默认行为（滚动、切换焦点…），游戏里要拦下来
       if (e.code === 'Space' || e.code === 'Tab' || e.code.startsWith('Arrow')) e.preventDefault();
     });
-    document.addEventListener('keyup', (e) => {
-      if (e.code === 'MetaLeft' || e.code === 'MetaRight') this.releaseAll();   // ⌘ 按住期间松开的键收不到 keyup
-      else this.down.delete(e.code);
-    });
-
-    // 窗口失去焦点（Mac 的 ⌘+空格 弹出聚焦搜索、⌘+Tab 切走…）：之后的 keyup 收不到，先把按住的键全放开。
-    // 过一会儿焦点还没回来就解锁鼠标进暂停；等一下是因为进出全屏的过渡里焦点可能闪一下
-    window.addEventListener('blur', () => {
-      this.releaseAll();
-      clearTimeout(this.blurTimer);
-      this.blurTimer = setTimeout(() => {
-        if (this.locked && !document.hasFocus()) document.exitPointerLock();
-      }, Game.Config.view.blurPauseDelay * 1000);
-    });
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) return;
-      this.releaseAll();
-      if (this.locked) document.exitPointerLock();
-    });
+    document.addEventListener('keyup', (e) => this.down.delete(e.code));
 
     document.addEventListener('mousemove', (e) => {
       if (!this.locked) return;
@@ -90,78 +62,22 @@ Game.Input = class Input {
 
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === this.element;
-      if (!this.locked) {
-        this.releaseAll();
-        // 进全屏的过渡把刚拿到的锁定弄掉了：等全屏有结果再锁一次
-        if (this.fsPending && this.lockRetry > 0) { this.lockRetry--; this.afterFs = () => this.requestLock(); }
-      }
+      if (!this.locked) this.down.clear();
       if (this.onLockChange) this.onLockChange(this.locked);
     });
-    // 锁定被拒：自动再试一次（正在进全屏就等全屏有结果），还不行才提示玩家
-    document.addEventListener('pointerlockerror', () => {
-      if (this.lockRetry > 0) {
-        this.lockRetry--;
-        if (this.fsPending) this.afterFs = () => this.requestLock();
-        else setTimeout(() => this.requestLock(), Game.Config.view.lockRetryDelay * 1000);
-        return;
-      }
-      if (this.onLockError) this.onLockError();
-    });
-    document.addEventListener('fullscreenchange', () => { this.syncKeyboardLock(); this.settleFullscreen(); });
-  }
-
-  // 把按住的键全部放开（失去焦点、解锁鼠标、按了 ⌘ 时）。开发者模式的按键记录也听这个事件
-  releaseAll() {
-    this.down.clear();
-    this.pressed.clear();
-    document.dispatchEvent(new Event('inputrelease'));
-  }
-
-  // 全屏时用 Keyboard Lock 接管键盘（只有 Chrome / Edge 支持，而且只在全屏里生效）：
-  // - 短按 Esc 交给页面（上面 keydown 里解锁鼠标进暂停），不退出全屏；长按 Esc 才退出全屏
-  // - Ctrl/⌘+W、⌘+T 这类浏览器快捷键不再生效，不会误关标签页
-  // 系统级的快捷键（Mac 的 ⌘+空格、⌘+Tab）网页拦不住，靠上面的失焦处理兜底
-  syncKeyboardLock() {
-    const kb = navigator.keyboard;
-    if (!kb || !kb.lock || !Game.Config.view.keyboardLock) return;
-    if (document.fullscreenElement) {
-      kb.lock().then(() => { this.keyboardLocked = !!document.fullscreenElement; }, () => { this.keyboardLocked = false; });
-    } else {
-      kb.unlock();
-      this.keyboardLocked = false;
-    }
-  }
-
-  // 这次 lock() 的全屏请求有结果了（成功或被拒）：做完等着它的事
-  settleFullscreen() {
-    this.fsPending = false;
-    const f = this.afterFs;
-    this.afterFs = null;
-    if (f) f();
-  }
-
-  requestLock() {
-    if (this.locked) return;
-    const r = this.element.requestPointerLock();
-    if (r && r.catch) r.catch(() => {});   // 失败走 pointerlockerror 事件
+    document.addEventListener('pointerlockerror', () => { if (this.onLockError) this.onLockError(); });
   }
 
   // 锁定鼠标；fullscreen=true 时顺带进入全屏（首页不全屏，进入战斗才全屏）。
   // 两个请求都必须在同一次点击里同步发出（浏览器要求"用户手势"）。
-  // **先锁鼠标再请求全屏**：Chrome 里全屏请求会把这次点击的"用户手势"用掉，而玩家按 Esc 退出锁定之后
-  // 再锁必须有手势，先请求全屏的话锁鼠标就被拒（按 Esc 退出全屏后点"继续"报"没能锁定鼠标"）。
   // 全屏挂在整个页面上而不是 canvas，这样 HUD 和菜单也在全屏里。
   lock(fullscreen) {
     const root = document.documentElement;
-    const wantFs = !!(fullscreen && !document.fullscreenElement && root.requestFullscreen);
-    this.lockRetry = 1;
-    this.afterFs = null;
-    this.fsPending = wantFs;
-    this.requestLock();
-    if (wantFs) {
-      const r = root.requestFullscreen({ navigationUI: 'hide' });
-      if (r && r.catch) r.catch(() => this.settleFullscreen());   // 被拒绝就照常窗口玩
+    if (fullscreen && !document.fullscreenElement && root.requestFullscreen) {
+      root.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});   // 被拒绝就照常窗口玩
     }
+    const r = this.element.requestPointerLock();
+    if (r && r.catch) r.catch(() => {});
   }
 
   // 按物理键查询（一般不用，优先用下面按动作查询的）
