@@ -60,6 +60,9 @@
   起因：v0.10、v0.11 都从功能分支部署过，线上一度比 `main` 新，从 `main` 部署就会回退。
 - **每个上线的版本都打 tag**（2026-11-09，原来只给大版本打）：回滚靠 tag，v0.10 ~ v0.20 一度都没有 tag，回滚无处可回。
   `ship.sh --tag` 部署成功后自动打，已发布的 tag 不移动。见 `workflow.md` 的"版本号"。
+- **项目进展用 GitHub 管**（2026-11-10，v0.26，负责人提的）：需求、bug、待确认、想法用 Issue，一个版本一个 Milestone，合并走 PR，上线建 Release。
+  边界：会变的、要跟进的放 GitHub；方案和决定（为什么这样做）仍在 `requirements/`，因为拉下仓库就要能接手。
+  仓库是公开的，GitHub 上不贴录下的数据和敏感信息。见 `workflow.md` 的"GitHub 上管什么"和 `requirements/v0.26-github-workflow.md`。
 
 - **开发接口 `server/api.py`**（2026-11-09，v0.21）：为开发者模式加了一个只给开发用的小服务（密码换令牌、接收上传），
   线上是 `fps-api` 容器，`fps-game` 的 Caddy 把 `/api/*` 转过去，relay 的配置不动。**游戏本身仍然不需要后端**，接口挂了照样能玩。

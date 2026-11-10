@@ -1,20 +1,18 @@
 # 项目状态
 
 > 最近更新：2026-11-10　｜　**每次做需求都要更新本页**，规则见 `CLAUDE.md` 的"需求文档和项目状态"。
-> 本页只写"现在怎样"，旧内容直接改掉或删掉；历史看 `requirements/` 和 git log。
+> 本页只写"现在怎样"，旧内容直接改掉或删掉；历史看 `requirements/`、GitHub 的 Releases 和 git log。
 
 ## 版本
 
 | | 版本 | 说明 |
 |---|---|---|
 | 线上 https://game.lightup.host | v0.26 | 从 `main` 部署（2026-11-10） |
-| `main` | v0.26 | |
+| `main` | v0.26 | 各版本的改动看 [Releases](https://github.com/lawrencehe/direct-strike/releases) |
 
 ## 进行中
 
-| 需求 | 分支 | 状态 | 文档 |
-|---|---|---|---|
-| （无） | | | |
+正在做的需求看 [开启的 Milestone](https://github.com/lawrencehe/direct-strike/milestones) 和 [开着的 PR](https://github.com/lawrencehe/direct-strike/pulls)。
 
 ## 现在能玩什么
 
@@ -25,23 +23,15 @@
   对决和波次有经济：击杀拿赏金，回出生点按 B 买投掷物。
 - 细节见 `../README.md`。
 
-## 已知问题
+## 已知问题和待办
 
-（玩起来有毛病、还没修的写这里，修好就删掉。代码层面的"坑"写 `architecture.md`。）
+从 v0.26 起记在 GitHub Issues，这里不再手写清单（规则见 `docs/workflow.md`）：
 
-- Mac 上 ⌘+空格（聚焦搜索）网页拦不住：v0.26 起误触后游戏自动暂停、按键不会卡住；要彻底不弹只能在系统设置里改这个快捷键。
-- （v0.22 改了第一人称手臂：手腕最多弯 20°、其余由手肘弯，真机上的观感待负责人确认，见 [v0.22-arm-wrist.md](requirements/v0.22-arm-wrist.md)。）（v0.20 的真实手感还没在有显卡的电脑上试过；v0.21 上线后可以用开发者模式录下来。）
+| 看什么 | 链接 |
+|---|---|
+| 已知问题（玩起来有毛病） | [label: bug](https://github.com/lawrencehe/direct-strike/issues?q=is%3Aopen+label%3Abug) |
+| 等负责人真机试玩、定数值、确认信息 | [label: 待确认](https://github.com/lawrencehe/direct-strike/issues?q=is%3Aopen+label%3A%E5%BE%85%E7%A1%AE%E8%AE%A4) |
+| 要做的需求 | [label: 需求](https://github.com/lawrencehe/direct-strike/issues?q=is%3Aopen+label%3A%E9%9C%80%E6%B1%82) |
+| 以后可能做、负责人还没定 | [label: 想法](https://github.com/lawrencehe/direct-strike/issues?q=is%3Aopen+label%3A%E6%83%B3%E6%B3%95) |
 
-## 待办 / 下一步
-
-（负责人提过、还没做的事。做了就挪到"进行中"。）
-
-- v0.26 待负责人真机确认（Mac + Chrome）：⌘+空格 后自动暂停、按键正常；全屏里短按 Esc 只暂停；退出全屏后点"继续"不再报错。清单见需求文档的"验证"。
-- v0.25 待负责人试玩：手雷引信 2 秒合不合适（`grenades.frag.fuse`）；躲到掩体后 NPC 的雷是不是能炸到人、会不会太准；数值在 `config.js` 的 `bots`（`nadeDelay`、`predictTime`、`hearRange`、`fragMaxMiss`）。
-- v0.20 待负责人确认："收入上限"按存款上限 $2000 做的，价格和携带上限是先定的值（`config.js` 的 `economy`）。
-- 负责人用开发者模式录一段（打开"录制画面"试一下帧率掉多少），开发用 `tools/devlog/analyze.mjs` 看，确认录画面在真机上正常。
-- 待确认：扔完手雷切回枪的那一帧枪模瞬移约 56cm（`weapon.js` 的 `finishThrow`），分析脚本在测试数据里发现，等真机录一段确认。
-- 以后：后台管理系统（玩家登录、数据管理、按玩家开开发者模式），接口加在 `server/api.py` 的 `/api/` 下。
-- 锯短霰弹枪：模型自带手臂和动画，要新增霰弹玩法，等负责人定。
-- `russian_soldier.glb` 没有骨骼，要先绑定才能做对手形象。
-- 换枪区分数值：玩法由负责人定，定了在 `config.js` 的 `loadout` 里写覆盖参数。
+代码层面的"坑"仍写 `architecture.md`。
