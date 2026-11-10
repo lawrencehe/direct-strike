@@ -1,19 +1,23 @@
 #!/usr/bin/env bash
-# 一键"提交 → 并入 main → 推送 → 部署 → 线上检查"。流程约定见 docs/workflow.md，Claude Code 里是 /ship。
+# 一键"提交 → 推送分支 → 建 PR 并在 GitHub 上合并进 main → 部署 → 线上检查 → tag 和 Release"。
+# 流程约定见 docs/workflow.md，Claude Code 里是 /ship。需要 gh 已登录（gh auth status）。
 # 输出尽量少：每步一行，出错才打印细节。
 #
-# 用法：tools/ship.sh [-v vX.Y] [-m 提交信息文件] [--tag] [--no-deploy] [--live-verify] [--skip-verify]
+# 用法：tools/ship.sh [-v vX.Y] [-m 提交信息文件] [-c 6,27] [--tag] [--no-deploy] [--no-pr] [--live-verify] [--skip-verify]
 #   -v vX.Y          发版：把 README.md 标题和 index.html 的 <small> 改成这个版本号
 #   -m 文件          提交信息（首行 "vX.Y：摘要"，版本号必须和 README 一致）。工作区没改动时可省略
+#   -c 6,27          这次 PR 关闭的 issue 编号（逗号分隔），写成 PR 正文里的 "Closes #N"，合并后 GitHub 自动关闭
+#   --no-pr          不走 PR，在本地把分支并入 main 再推送（gh 不能用时的备用办法）
 #   --tag            部署成功后给 main 打 tag（版本号就是 tag 名，带注释 = 提交首行）并推送，回滚靠它（docs/deploy.md）。
 #                    同一个版本的 tag 已经在别的提交上时报错，不移动已发布的 tag
-#   --no-deploy      只提交和推送，不部署（加了 --tag 就在推送 main 后打）
+#   --no-deploy      只提交、合并和推送，不部署（加了 --tag 就在推送 main 后打）
+#                    加了 --tag 时还会建 GitHub Release；同名 Milestone 的 issue 都关了就关掉 Milestone
 #   --live-verify    部署后再用无头浏览器验证线上（慢，约 1 分钟）
 #   --skip-verify    跳过本地 verify（只改了文档时会自动跳过）
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VER="" MSG="" DEPLOY=1 LIVE=0 SKIPV=0 TAG=0
+VER="" MSG="" DEPLOY=1 LIVE=0 SKIPV=0 TAG=0 PR=1 CLOSES=""
 while [ $# -gt 0 ]; do
   case "$1" in
     -v) VER="$2"; shift 2 ;;
@@ -22,11 +26,18 @@ while [ $# -gt 0 ]; do
     --live-verify) LIVE=1; shift ;;
     --skip-verify) SKIPV=1; shift ;;
     --tag) TAG=1; shift ;;
+    -c) CLOSES="$2"; shift 2 ;;
+    --no-pr) PR=0; shift ;;
     *) echo "未知参数：$1"; exit 2 ;;
   esac
 done
 die() { echo "✗ $*"; exit 1; }
 SITE=https://game.lightup.host
+if [ $PR = 1 ]; then
+  gh auth status >/dev/null 2>&1 || die "gh 没登录（gh auth login），或者加 --no-pr 走本地合并"
+  REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner) || die "gh 读不到仓库信息"
+fi
+[ -z "$CLOSES" ] || [[ "$CLOSES" =~ ^[0-9]+(,[0-9]+)*$ ]] || die "-c 的格式应为 6 或 6,27：$CLOSES"
 
 # ---- 1. 版本号 ----
 if [ -n "$VER" ]; then
@@ -61,12 +72,41 @@ else
 fi
 
 # ---- 3. 并入 main 并推送（分支也推，分支不删） ----
+PRNUM=""
 if [ "$BR" != main ]; then
   git push -q -u origin "$BR" && echo "✓ 推送分支 $BR"
-  git checkout -q main
-  git pull -q --ff-only origin main
-  git merge -q --no-edit "$BR" || { git merge --abort 2>/dev/null; git checkout -q "$BR"; die "合并 $BR 到 main 有冲突，已放弃合并"; }
-  echo "✓ $BR 并入 main"
+  if [ $PR = 1 ]; then
+    # 建 PR（这个分支已有开着的 PR 就沿用），在 GitHub 上用合并提交并入 main，不删分支
+    PRNUM=$(gh pr list --head "$BR" --state open --json number -q '.[0].number')
+    if [ -z "$PRNUM" ]; then
+      BODY=$(mktemp)
+      { git log -1 --format=%b | grep -v '^Co-Authored-By' | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' || true
+        if [ -n "$CLOSES" ]; then echo; for n in ${CLOSES//,/ }; do echo "Closes #$n"; done; fi
+      } > "$BODY"
+      MS=(); gh api "repos/$REPO/milestones?state=open&per_page=100" -q '.[].title' | grep -qx "$CUR" && MS=(--milestone "$CUR")
+      URL=$(gh pr create --base main --head "$BR" --title "$(git log -1 --format=%s)" --body-file "$BODY" "${MS[@]}") \
+        || { rm -f "$BODY"; die "建 PR 失败"; }
+      rm -f "$BODY"; PRNUM=${URL##*/}
+      echo "✓ 建 PR #$PRNUM $URL"
+    else
+      echo "· 沿用开着的 PR #$PRNUM"
+      if [ -n "$CLOSES" ]; then
+        BODY=$(mktemp); gh pr view "$PRNUM" --json body -q .body > "$BODY" || true
+        for n in ${CLOSES//,/ }; do grep -qx "Closes #$n" "$BODY" || printf '\nCloses #%s' "$n" >> "$BODY"; done
+        gh pr edit "$PRNUM" --body-file "$BODY" >/dev/null; rm -f "$BODY"
+      fi
+    fi
+    gh pr merge "$PRNUM" --merge >/dev/null 2>&1 \
+      || die "PR #$PRNUM 合并失败（多半是和 main 冲突）：在分支上 git merge origin/main 解决冲突后再跑一次"
+    echo "✓ PR #$PRNUM 已合并进 main"
+    git checkout -q main
+    git pull -q --ff-only origin main || { git checkout -q "$BR"; die "本地 main 拉不下来（本地 main 有没推送的提交？）"; }
+  else
+    git checkout -q main
+    git pull -q --ff-only origin main
+    git merge -q --no-edit "$BR" || { git merge --abort 2>/dev/null; git checkout -q "$BR"; die "合并 $BR 到 main 有冲突，已放弃合并"; }
+    echo "✓ $BR 并入 main（本地合并）"
+  fi
 fi
 git push -q origin main && echo "✓ 推送 main $(git rev-parse --short HEAD)"
 
@@ -105,6 +145,32 @@ if [ $TAG = 1 ]; then
     git tag -a "$CUR" -m "$(git log -1 --format=%s)"
   fi
   git push -q origin "refs/tags/$CUR" && echo "✓ tag $CUR → $(git rev-parse --short HEAD)，已推送"
+
+  # GitHub Release：说明用这个版本第一次提交的正文，附上 PR；已经有了就不动
+  if [ $PR = 1 ]; then
+    if gh release view "$CUR" >/dev/null 2>&1; then
+      echo "· Release $CUR 已存在"
+    else
+      NOTES=$(mktemp)
+      FIRST=$(git log --format='%H %s' main | grep -E "^[0-9a-f]+ $CUR：" | tail -1 | cut -d' ' -f1 || true)
+      { git log -1 --format=%b "${FIRST:-HEAD}" | grep -v '^Co-Authored-By' || true
+        if [ -n "$PRNUM" ]; then printf '\nPR：#%s\n' "$PRNUM"; fi
+        if [ -n "$CLOSES" ]; then printf '需求：#%s\n' "${CLOSES//,/ #}"; fi
+      } > "$NOTES"
+      gh release create "$CUR" --verify-tag --title "$(git log -1 --format=%s "${FIRST:-HEAD}")" --notes-file "$NOTES" --latest >/dev/null \
+        && echo "✓ Release $CUR" || echo "✗ 建 Release 失败，手动：gh release create $CUR --verify-tag"
+      rm -f "$NOTES"
+    fi
+    # 同名 Milestone 的 issue 都关了就关掉它
+    MSN=$(gh api "repos/$REPO/milestones?state=open&per_page=100" -q ".[] | select(.title==\"$CUR\") | \"\\(.number) \\(.open_issues)\"")
+    if [ -n "$MSN" ]; then
+      if [ "${MSN#* }" = 0 ]; then
+        gh api -X PATCH "repos/$REPO/milestones/${MSN%% *}" -f state=closed >/dev/null && echo "✓ Milestone $CUR 已关闭"
+      else
+        echo "· Milestone $CUR 还有 ${MSN#* } 个开着的 issue，没关"
+      fi
+    fi
+  fi
 fi
 
 # 回到原来的分支继续开发

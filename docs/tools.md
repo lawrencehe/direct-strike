@@ -16,6 +16,7 @@ tools/setup.sh
 | gltf-transform | 4.5.1 | glb 优化和编辑，也可以直接用 `npx gltf-transform` |
 | Blender | 5.2.3 LTS | 动画重定向、骨骼处理、减面、建硬表面道具 |
 | pngquant / oxipng / cwebp / ImageMagick / rsvg-convert | 系统版本（oxipng 10.2.1） | 图片处理 |
+| GitHub CLI（`gh`） | 系统版本 | 开 issue、建和合并 PR、建 Release（`ship.sh` 要用）。不在 `setup.sh` 里，负责人自己装好并 `gh auth login`；token 要给本仓库 Issues、Pull requests、Contents 的读写权限 |
 
 ## 资源目录
 
@@ -29,7 +30,7 @@ Blender 读不了 meshopt 压缩过的文件，所以母版不能省。
 ```bash
 node tools/verify.mjs                                 # 验证游戏
 node tools/tests/<需求>.mjs                           # 某个需求的针对性测试（见 docs/testing.md）
-tools/ship.sh -v v0.13 -m 提交信息文件 --tag           # 提交、并入 main、推送、部署、打 tag（见 docs/workflow.md）
+tools/ship.sh -v v0.13 -m 提交信息文件 -c 6 --tag      # 提交、建 PR 并入 main、部署、打 tag、建 Release（见 docs/workflow.md）
 node tools/map-check.mjs [--map 文件]                 # 检查地图，生成俯视图（格式见 docs/maps.md）
 node tools/glb.mjs info 文件.glb                       # 查看模型
 node tools/glb.mjs optimize 输入.glb 输出.glb --drop TPose
