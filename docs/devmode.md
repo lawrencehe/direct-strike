@@ -12,7 +12,8 @@
 3. **觉得哪一下不对，马上按 F8 打个标记**（键在 `config.dev.markerKey`）。开发先看标记前后几秒。
 4. 要看画面上的问题（穿模、手的姿势、贴图），在"开发者"里打开"录制画面"，再复现一次并按 F8。
    录画面要拷画面、编码视频，会占一些显卡；如果明显变卡，它会自动关掉并提示。
-5. 按 Esc 暂停 →"开发者数据"（或回首页的设置页），看统计，点"上传"。上传成功会显示一个编号，例如 `20261109-213000-a3f9c1`，
+   **快捷键 ⇧⌘=（Windows：Ctrl+Shift+=）在哪都能直接打开"开发者"一栏**：战斗中按会先暂停；键在 `config.dev.panelKey`。
+5. 按 Esc 暂停 →"开发者数据"（或按快捷键、回首页的设置页），看统计，点"上传"。上传成功会显示一个编号，例如 `20261109-213000-a3f9c1`，
    把编号告诉开发。上传失败可以先"下载到本地"（只有帧数据）。
 
 只录战斗中（鼠标锁定时）的帧，暂停、菜单不录，所以暂停下来看面板、上传不会把战斗数据挤掉。
@@ -21,7 +22,7 @@
 ## 怎么分析（开发）
 
 ```bash
-node tools/devlog/analyze.mjs --list          # 所有上传：编号、版本、模式、时长、帧率、标记数、视频片数、显卡
+node tools/devlog/analyze.mjs --list          # 所有上传：编号、版本、模式、时长、帧率、标记数、视频片数
 node tools/devlog/analyze.mjs                 # 最新一次
 node tools/devlog/analyze.mjs <编号> --at 12.5,30 --around 2   # 额外看某几个时刻，前后 2 秒
 node tools/devlog/analyze.mjs devlog-xxx.json.gz              # 分析"下载到本地"的文件（或任意目录）
@@ -32,7 +33,7 @@ node tools/devlog/analyze.mjs <编号> --no-video                # 不拆视频�
 
 | 文件 | 内容 |
 |---|---|
-| `report.md` | 设备和浏览器、帧时间统计、最慢的几帧（当时在做什么、CPU 花了多少）、枪模跳变、换弹时长、标记、事件统计 |
+| `report.md` | 画布大小、帧时间统计、最慢的几帧（当时在做什么、CPU 花了多少）、枪模跳变、换弹时长、标记、事件统计 |
 | `overview.png` | 整段的帧间隔，橙色竖线是标记 |
 | `marker-N.png` / `at-T.png` | 标记 / 指定时刻前后的曲线：帧间隔和 CPU、枪模位置、枪模旋转、动作进度（换弹 / 切枪 / 后坐 / 投掷）、左手位置、鼠标和移动速度。每帧一个点，看得出帧率 |
 | `jump-N.png` | 枪模跳变最大的几处，前后 1.5 秒 |
@@ -51,7 +52,7 @@ node tools/devlog/analyze.mjs <编号> --no-video                # 不拆视频�
 
 上传目录 `~/direct-strike-data/devlogs/<编号>/`：
 
-- `meta.json`：服务器写的，收到的时间、IP、客户端给的摘要。
+- `meta.json`：服务器写的，收到的时间和客户端给的摘要（版本、帧数、时长、帧率、标记数、视频片数、模式；别的键服务器丢掉）。
 - `frames.json.gz`：帧数据，见下。
 - `seg-NNN.webm`：画面切片，每片 5 秒，每片都能单独播放（960 宽、30fps、1.5Mbps，参数在 `config.dev.video`）。
 
@@ -60,7 +61,7 @@ node tools/devlog/analyze.mjs <编号> --no-video                # 不拆视频�
 | 键 | 内容 |
 |---|---|
 | `format` / `formatVersion` | `direct-strike-devlog` / 1 |
-| `meta` | 版本、录制时间、浏览器、显卡、核数、屏幕和画布尺寸、是否全屏、模式、选的枪、按键绑定、当时完整的 `Game.Config` |
+| `meta` | 版本、录制时间、画布尺寸和像素比、是否全屏、模式、选的枪、按键绑定、当时完整的 `Game.Config`（v0.21 的旧数据还有浏览器、显卡等，见"隐私"） |
 | `stats` | 浏览器端算的帧时间统计 |
 | `recordCost` | 录制本身每帧花了多少微秒（平均、最大） |
 | `channels` / `weapons` / `actions` | 通道名；`weapon` 通道的下标对应的武器；按键位掩码每一位对应的动作 |
@@ -86,6 +87,20 @@ node tools/devlog/analyze.mjs <编号> --no-video                # 不拆视频�
 | `lhX..Z` / `magY` / `magZ` | 左手、弹匣在枪坐标系里的位置（拿手雷时为空） |
 
 加通道：在 `CH` 里加名字，在 `sample()` 里写值。分析脚本按名字读，旧数据没有的通道是 `undefined`，用之前判断一下。
+
+## 隐私
+
+**只收游戏本身的数据**：游戏画面、帧率和帧时间、游戏运行数据（输入、玩家和武器状态、事件）、游戏设置。
+**不收**玩家的 IP 地址和浏览器环境（浏览器型号和版本、操作系统、显卡型号、CPU 核数、内存、屏幕分辨率、网址）。负责人 2026-11-10 定的规则：
+**数据搜集最小化**，以后加通道、加字段都按这条，拿不准算不算"游戏相关"的先问。
+以后调试确实需要设备信息（比如显卡型号）时，**要先征得玩家同意再收**（例如上传前明确勾选），不能默认收。
+
+- 帧数据的 `meta` 只有版本、画布尺寸和像素比、全屏、模式、装备、按键、`Game.Config`。显示器刷新率不直接读，从帧间隔中位数推。
+- 服务器的 `meta.json` 不记 IP，客户端摘要按白名单（`server/api.py` 的 `CLIENT_KEYS`）留键，旧版页面多传的键丢掉。
+- 接口日志（`docker logs fps-api`）只有时间和请求，没有 IP。
+- 登录限流要按 IP 计数（防止猜密码），这个计数**只在内存里**，10 分钟前的记录随时清掉，不写日志、不落盘，重启就没了。
+- 视频只录 3D 画面（不含 HTML 界面），帧数据里的按键是游戏动作的位掩码，不是键盘原始输入。
+- 代价：分析时不知道对方的显卡和浏览器。帧率、卡顿、CPU 时间照样能看；真要知道显卡，让负责人口头说。
 
 ## 性能设计
 
@@ -122,8 +137,8 @@ node tools/devlog/analyze.mjs <编号> --no-video                # 不拆视频�
 grep DEV_PASSWORD ~/direct-strike-data/api.env            # 现在的密码
 ls -lt ~/direct-strike-data/devlogs | head                # 最近的上传（编号就是目录名）
 du -sh ~/direct-strike-data/devlogs                       # 占了多少（上限 DATA_QUOTA_GB）
-cat ~/direct-strike-data/devlogs/<编号>/meta.json          # 谁、什么时候、什么设备传的
-docker logs --tail 50 fps-api                             # 接口日志（登录、上传、报错）
+cat ~/direct-strike-data/devlogs/<编号>/meta.json          # 什么时候传的、哪个版本、多长
+docker logs --tail 50 fps-api                             # 接口日志（登录、上传、报错；不含 IP）
 ```
 
 不想要的上传直接删目录即可，服务器不另记索引。
@@ -133,7 +148,7 @@ docker logs --tail 50 fps-api                             # 接口日志（登�
 | 看到的提示 / 现象 | 原因和办法 |
 |---|---|
 | "密码不对" | 密码以服务器 `api.env` 为准，改过密码要用新的 |
-| "输错太多次，过 10 分钟再试" | 同一 IP 10 分钟内输错 10 次，等 10 分钟；或 `docker restart fps-api` 清掉计数 |
+| "输错太多次，过 10 分钟再试" | 同一 IP 10 分钟内输错 10 次（只在内存里计数），等 10 分钟；或 `docker restart fps-api` 清掉计数 |
 | "服务器没有开发接口（本地请用 start.sh 启动）" | 本地用别的方式（`python -m http.server`、VS Code 插件）出的页面，没有 `/api/`；线上出现说明 fps-api 没起来，见 `deploy.md` 的"开发接口排查" |
 | 本来解锁了，打开页面变回没解锁 | 令牌失效：过了 30 天，或服务器改了密码 / `API_SECRET`。重新输密码 |
 | "录画面让游戏明显变卡，已自动关闭" | 这台电脑录画面太吃力，帧数据不受影响照常录。要录画面可以先把画质调低再试 |

@@ -468,7 +468,6 @@ Game.DevLog = (() => {
           cell('标记', `${markers}（${C.markerKey}）`),
           cell('录制耗时', `平均 ${(cost.n ? (cost.sum / cost.n) * 1000 : 0).toFixed(0)} µs · 最大 ${(cost.max * 1000).toFixed(0)} µs / 帧`),
           cell('画面', Video.on || Video.segments.length ? `${Video.segments.length} 片 · ${(Video.bytes() / 1048576).toFixed(1)} MB · 已拷 ${Video.shots} 帧` : '未录'),
-          cell('显卡', gpuName()),
         ].join('');
         drawGraph(s);
       },
@@ -527,16 +526,6 @@ Game.DevLog = (() => {
     };
   }
 
-  let gpu = null;
-  function gpuName() {
-    if (gpu !== null || !g) return gpu || '';
-    try {
-      const gl = g.renderer.getContext();
-      const ext = gl.getExtension('WEBGL_debug_renderer_info');
-      gpu = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
-    } catch (e) { gpu = '未知'; }
-    return gpu;
-  }
 
   // ============================================================
   // 接口：解锁、上传
@@ -627,11 +616,10 @@ Game.DevLog = (() => {
     let config = null;
     try { config = JSON.parse(JSON.stringify(Game.Config)); } catch (e) { /* 有循环引用就不带 */ }
     return {
-      version: ver, recordedAt: new Date().toISOString(), url: location.href,
-      userAgent: navigator.userAgent, platform: navigator.platform, cores: navigator.hardwareConcurrency,
-      memoryGB: navigator.deviceMemory || null, gpu: gpuName(),
-      screen: { w: screen.width, h: screen.height, dpr: devicePixelRatio },
-      window: { w: innerWidth, h: innerHeight }, canvas: { w: cv.width, h: cv.height },
+      // 隐私：只录游戏本身的东西（版本、画面大小、设置、帧数据）。不录浏览器、系统、显卡型号、屏幕这些设备信息，
+      // 服务器也不记 IP（docs/devmode.md 的"隐私"）
+      version: ver, recordedAt: new Date().toISOString(),
+      canvas: { w: cv.width, h: cv.height }, pixelRatio: g.renderer.getPixelRatio(),
       fullscreen: !!document.fullscreenElement,
       mode: g.hud.mode, weapons: { rifle: Game.Settings.get('rifle'), pistol: Game.Settings.get('pistol') },
       markers, video: Video.on ? { mime: Video.mime, ...C.video } : null,
@@ -654,7 +642,7 @@ Game.DevLog = (() => {
       const blob = await gzip(JSON.stringify(frames));
       const segs = Video.segments.filter((s) => s.blob);
       const m = frames.meta;
-      const brief = { version: m.version, gpu: m.gpu, userAgent: m.userAgent, frames: count, seconds: frames.stats.seconds,
+      const brief = { version: m.version, frames: count, seconds: frames.stats.seconds,
         fps: frames.stats.fps, markers, videoSegments: segs.length, mode: m.mode };
       const { id } = await api('POST', '/uploads', { meta: brief });
       const total = 1 + segs.length;
@@ -708,6 +696,7 @@ Game.DevLog = (() => {
     document.addEventListener('mousedown', (e) => press(`Mouse${e.button}`));
     document.addEventListener('mouseup', (e) => release(`Mouse${e.button}`));
     document.addEventListener('pointerlockchange', () => { k.down = 0; });
+    document.addEventListener('inputrelease', () => { k.down = 0; });   // 失去焦点、按了 ⌘：input.js 把按住的键全放开
     return k;
   })();
 

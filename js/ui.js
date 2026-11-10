@@ -50,7 +50,7 @@ Game.UI = class UI {
     this.applyCrosshair();
     Game.Settings.onChange((k) => { if (k === 'crosshair') this.applyCrosshair(); });
 
-    // 鼠标锁定失败（比如按 Esc 后立刻点继续，浏览器会拒绝）：提示再点一次
+    // 鼠标锁定失败（比如按 Esc 后立刻点继续，浏览器会拒绝），input.js 自动重试一次也没成功：提示再点一次
     input.onLockError = () => this.toast('没能锁定鼠标，请再点一次');
   }
 
@@ -392,10 +392,30 @@ Game.UI = class UI {
     click('btn-pause-settings', () => this.openPauseSettings());
     click('btn-pause-back', () => this.closePauseSettings());
     // 开发者数据：打开暂停里的设置，滚到"开发者"一栏
-    click('btn-pause-dev', () => { this.openPauseSettings(); this.$('set-dev').scrollIntoView({ block: 'start' }); });
+    click('btn-pause-dev', () => this.openDevPanel());
+    // 快捷键 ⇧⌘=（Windows：Ctrl+Shift+=）：在哪都能直接打开开发者面板。键在 config.dev.panelKey。
+    // 拦掉浏览器默认的"放大页面"
+    document.addEventListener('keydown', (e) => {
+      const k = Game.Config.dev.panelKey;
+      if (!(e.metaKey || e.ctrlKey) || !e.shiftKey || (e.code !== k && !(k === 'Equal' && e.code === 'NumpadAdd'))) return;
+      e.preventDefault();
+      if (!e.repeat && !this.input.capture) this.openDevPanel();
+    });
 
     click('btn-again', () => this.onRestart && this.onRestart());
     click('btn-home', () => this.onQuit && this.onQuit());
+  }
+
+  // 打开设置里的"开发者"一栏：战斗中先解锁鼠标进暂停（main.js 的 onLockChange 会显示暂停页），再打开暂停里的设置
+  openDevPanel() {
+    const reveal = () => this.$('set-dev').scrollIntoView({ block: 'start' });
+    if (this.input.locked) {
+      document.addEventListener('pointerlockchange', () => {
+        if (this.screen === 'pause') { this.openPauseSettings(); reveal(); }
+      }, { once: true });
+      document.exitPointerLock();
+    } else if (this.screen === 'pause') { this.openPauseSettings(); reveal(); }
+    else if (this.screen === 'home') { this.setTab('settings'); reveal(); }
   }
 
   // 暂停里的设置：把首页那块设置面板搬过来，关掉时搬回去

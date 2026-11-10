@@ -17,6 +17,7 @@
 
 | 版本 | 需求 | 状态 | 文档 |
 |---|---|---|---|
+| v0.23 | 开发者模式隐私（不收 IP 和浏览器环境）、⇧⌘= 快捷键打开开发者面板 | 已上线 | [v0.23-dev-privacy.md](v0.23-dev-privacy.md) |
 | v0.22 | 第一人称手臂：手腕不再折成大角度和扭成麻花 | 已上线 | [v0.22-arm-wrist.md](v0.22-arm-wrist.md) |
 | v0.21 | 开发者模式：录制真机数据和画面，上传给开发分析 | 已上线 | [v0.21-dev-mode.md](v0.21-dev-mode.md) |
 | v0.20 | 换弹动作、手雷两道保险、经济系统 | 已上线 | [v0.20-reload-nade-economy.md](v0.20-reload-nade-economy.md) |

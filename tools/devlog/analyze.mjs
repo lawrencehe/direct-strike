@@ -39,7 +39,7 @@ if (LIST) {
     let m = {};
     try { m = JSON.parse(fs.readFileSync(path.join(DATA, id, 'meta.json'))).client || {}; } catch (e) { /* 没有就算了 */ }
     const files = fs.readdirSync(path.join(DATA, id));
-    console.log(`${id}  ${m.version || ''}  ${m.mode || ''}  ${(m.seconds || 0).toFixed?.(0) || ''}s  ${Math.round(m.fps || 0)}fps  标记 ${m.markers ?? '?'}  视频 ${files.filter((f) => f.startsWith('seg-')).length} 片  ${m.gpu || ''}`);
+    console.log(`${id}  ${m.version || ''}  ${m.mode || ''}  ${(m.seconds || 0).toFixed?.(0) || ''}s  ${Math.round(m.fps || 0)}fps  标记 ${m.markers ?? '?'}  视频 ${files.filter((f) => f.startsWith('seg-')).length} 片`);
   }
   process.exit(0);
 }
@@ -138,8 +138,8 @@ const m = J.meta;
 const L = [];
 L.push(`# 开发者数据 ${id}`, '');
 L.push(`- 版本 ${m.version}，模式 ${m.mode}，录制于 ${m.recordedAt}`);
-L.push(`- 设备：${m.gpu}；${m.cores} 核${m.memoryGB ? `，${m.memoryGB}GB` : ''}；屏幕 ${m.screen.w}×${m.screen.h}@${m.screen.dpr}x，画布 ${m.canvas.w}×${m.canvas.h}${m.fullscreen ? '（全屏）' : ''}`);
-L.push(`- 浏览器：${m.userAgent}`);
+// 隐私：v0.22 起不录设备和浏览器（显卡、系统、屏幕），只有画布大小；显示器刷新率看帧间隔中位数
+L.push(`- 画面：画布 ${m.canvas.w}×${m.canvas.h}${m.pixelRatio ? `（像素比 ${m.pixelRatio}）` : ''}${m.fullscreen ? '，全屏' : ''}`);
 L.push(`- 武器：${m.weapons.rifle} / ${m.weapons.pistol}；录制耗时 平均 ${J.recordCost.avgUs.toFixed(1)}µs，最大 ${J.recordCost.maxUs.toFixed(0)}µs`);
 L.push('', '## 帧时间', '');
 L.push(`- ${N} 帧，${(tS[N - 1]).toFixed(1)} 秒；中位 ${median.toFixed(2)}ms（≈ ${hz.toFixed(0)}Hz，多半就是显示器刷新率）`);

@@ -13,6 +13,9 @@ Game.Config = {
     weaponFov: 60,         // 枪模单独使用的视野，避免枪被拉伸
     mouseSensitivity: 0.0022,  // 鼠标灵敏度：每移动 1 像素转多少弧度
     fullscreen: true,      // 进入战斗时自动全屏，首页不全屏（浏览器规定必须由点击触发；玩家可在设置里关掉）
+    keyboardLock: true,    // 全屏时接管键盘（Chrome / Edge）：短按 Esc 只暂停不退全屏，长按才退；浏览器快捷键（Ctrl/⌘+W 等）不生效
+    blurPauseDelay: 0.3,   // 窗口失去焦点多久（秒）还没回来就自动暂停（Mac 上 ⌘+空格 弹出聚焦搜索时）
+    lockRetryDelay: 0.15,  // 锁定鼠标被浏览器拒绝后，隔多久（秒）自动再试一次
   },
 
   player: {
@@ -263,6 +266,7 @@ Game.Config = {
     maxFps: 250,           // 按这个帧率预留缓冲区：seconds × maxFps 帧。帧率更高时保留的秒数会短一些
     maxEvents: 4000,       // 事件（开火、换弹、切枪、标记…）最多保留多少条
     markerKey: 'F8',       // 打标记的键：玩的时候觉得"刚才那下不对"就按一下
+    panelKey: 'Equal',     // 打开开发者面板的快捷键：Mac 上 ⇧⌘ + 这个键，Windows 上 Ctrl+Shift + 这个键（Equal 就是 = 键）
     hudInterval: 0.25,     // 战斗浮层多久刷新一次（秒）。每帧刷新会拖慢页面
     hitchFactor: 2,        // 帧间隔超过中位数的几倍算一次卡顿
     video: {

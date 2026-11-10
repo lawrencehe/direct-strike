@@ -660,3 +660,4 @@ b.enemy { color: var(--enemy) !important; }
 #dev-hud canvas { display: block; margin-top: 4px; width: 160px; height: 34px; }
 #dev-hud .mark { color: var(--accent); font-weight: 400; }
 #dev-hud .rec { color: var(--enemy); font-weight: 400; }
+.set-dev h3 .dev-key { margin-left: 12px; opacity: .55; font-weight: normal; }

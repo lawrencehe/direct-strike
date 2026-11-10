@@ -44,6 +44,7 @@ MAX_FILES_PER_UPLOAD = 64             # 一次上传最多放几个文件
 UPLOAD_OPEN_SECONDS = 3600            # 新建上传后多久内可以往里放文件
 LOGIN_FAILS = 10                      # 同一个 IP 在 LOGIN_WINDOW 秒内最多输错几次
 LOGIN_WINDOW = 600
+CLIENT_KEYS = {'version', 'frames', 'seconds', 'fps', 'markers', 'videoSegments', 'mode'}   # meta.json 里留的客户端摘要
 FILE_NAME = re.compile(r'^(frames\.json\.gz|meta\.json|seg-\d{3}\.(webm|mp4))$')
 UPLOAD_ID = re.compile(r'^\d{8}-\d{6}-[0-9a-f]{6}$')
 
@@ -83,23 +84,28 @@ class Api:
         return claims
 
     # ---------- 登录限流 ----------
+    # 按 IP 计数只在内存里，超过 10 分钟的记录随时清掉，不落盘
     def login_blocked(self, ip):
         now = time.time()
         with self.lock:
-            recent = [t for t in self.fails.get(ip, []) if now - t < LOGIN_WINDOW]
-            self.fails[ip] = recent
-            return len(recent) >= LOGIN_FAILS
+            for k in list(self.fails):
+                recent = [t for t in self.fails[k] if now - t < LOGIN_WINDOW]
+                if recent: self.fails[k] = recent
+                else: del self.fails[k]
+            return len(self.fails.get(ip, [])) >= LOGIN_FAILS
 
     def login_failed(self, ip):
         with self.lock:
             self.fails.setdefault(ip, []).append(time.time())
 
     # ---------- 上传目录 ----------
-    def new_upload(self, meta, ip):
+    def new_upload(self, meta):
         uid = time.strftime('%Y%m%d-%H%M%S') + '-' + secrets.token_hex(3)
         path = os.path.join(self.data_dir, uid)
         os.makedirs(path)
-        info = {'id': uid, 'received': time.strftime('%Y-%m-%dT%H:%M:%S%z'), 'ip': ip, 'client': meta}
+        # 隐私：不记 IP；客户端给的摘要只留游戏相关的键，别的（比如旧版页面带的浏览器、显卡）丢掉
+        client = {k: v for k, v in meta.items() if k in CLIENT_KEYS} if isinstance(meta, dict) else {}
+        info = {'id': uid, 'received': time.strftime('%Y-%m-%dT%H:%M:%S%z'), 'client': client}
         with open(os.path.join(path, 'meta.json'), 'w', encoding='utf-8') as f:
             json.dump(info, f, ensure_ascii=False, indent=1)
         return uid
@@ -150,11 +156,13 @@ def make_handler(api, static_dir):
                 self.send_header('Cache-Control', 'no-cache')
             super().end_headers()
 
+        # 隐私：日志不写 IP，只写时间和请求
         def log_message(self, fmt, *args):
             if self.path.startswith('/api/'):
-                sys.stderr.write('%s %s\n' % (self.client_ip(), fmt % args))
+                sys.stderr.write('%s %s\n' % (time.strftime('%Y-%m-%d %H:%M:%S'), fmt % args))
 
         def client_ip(self):
+            # 只用来给登录限流（内存里，10 分钟后丢掉），不写进日志和文件。
             # 线上经过两层 Caddy，真实 IP 在 X-Forwarded-For 的第一个
             fwd = self.headers.get('X-Forwarded-For')
             return fwd.split(',')[0].strip() if fwd else self.client_address[0]
@@ -239,7 +247,7 @@ def make_handler(api, static_dir):
                 body, err = self.read_json()
                 if err:
                     return self.send_json(err, {'error': '请求格式不对'})
-                uid = api.new_upload(body.get('meta'), self.client_ip())
+                uid = api.new_upload(body.get('meta'))
                 return self.send_json(200, {'id': uid})
             return self.send_json(404, {'error': '没有这个接口'})
 

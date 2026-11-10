@@ -21,6 +21,9 @@ const PORT = 18000 + Math.floor(Math.random() * 1000);
 const api = spawn('python3', [path.join(ROOT, 'server/api.py'), '--static', ROOT, '--port', String(PORT), '--data', DATA], {
   env: { ...process.env, DEV_PASSWORD: 'test-pw', API_SECRET: 'test-secret' }, stdio: ['ignore', 'pipe', 'pipe'],
 });
+let apiLog = '';
+api.stderr.on('data', (d) => { apiLog += d; });
+api.stdout.on('data', (d) => { apiLog += d; });
 await new Promise((r) => setTimeout(r, 800));
 
 const g = await openGame({ width: 1280, height: 720, url: `http://127.0.0.1:${PORT}/` });
@@ -41,6 +44,19 @@ try {
   const stored = await p.evaluate(() => JSON.parse(localStorage.getItem('direct-strike.dev.v1')));
   check(!!stored.token && stored.enabled === true, '令牌存进 localStorage');
   await p.screenshot({ path: path.join(DIR, 'devlog-settings-empty.jpg'), type: 'jpeg', quality: 85 });
+
+  // ---- 快捷键 ⇧⌘= / Ctrl+Shift+=：首页和暂停里都能直接打开开发者面板 ----
+  await p.click('.tabs [data-tab="play"]');
+  await p.keyboard.press('Control+Shift+Equal');
+  check(await p.evaluate(() => document.getElementById('scr-home').dataset.tab === 'settings') && await p.isVisible('#set-dev'), '首页按 Ctrl+Shift+= 打开设置的开发者栏');
+  await p.click('.tabs [data-tab="play"]');
+  await p.keyboard.press('Meta+Shift+Equal');
+  check(await p.evaluate(() => document.getElementById('scr-home').dataset.tab === 'settings'), '首页按 ⇧⌘= 也行');
+  await p.evaluate(() => { game.startMode('range'); game.ui.showPause('range', { stats: { shots: 0 }, accuracy: '-' }); });
+  await p.keyboard.press('Control+Shift+Equal');
+  check(await p.evaluate(() => document.getElementById('scr-pause').classList.contains('with-settings')), '暂停里按快捷键打开开发者栏');
+  await p.screenshot({ path: path.join(DIR, 'devlog-shortcut-pause.jpg'), type: 'jpeg', quality: 85 });
+  await p.evaluate(() => { game.ui.closePauseSettings(); game.ui.goHome(); });
 
   // ---- 每帧开销和内存分配：直接调 sample，热身后用采样堆分析器看 sample 有没有分配内存 ----
   await p.evaluate(() => {
@@ -126,10 +142,18 @@ try {
   const files = dir && fs.existsSync(dir) ? fs.readdirSync(dir).sort() : [];
   check(files.includes('frames.json.gz') && files.includes('meta.json'), '服务器收到帧数据', files.join(' '));
   check(files.some((f) => f.endsWith('.webm')), '服务器收到视频切片');
+  if (files.includes('meta.json')) {
+    const sm = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8'));
+    const txt = JSON.stringify(sm);
+    check(!('ip' in sm) && !/127\.0\.0\.1|userAgent|gpu|Mozilla/.test(txt), '服务器 meta.json 不记 IP 和浏览器', txt.slice(0, 160));
+  }
+  const reqLog = apiLog.split('\n').filter((l) => /"(GET|POST|PUT) /.test(l));   // 请求日志（启动那行有监听地址，不算）
+  check(reqLog.length > 0 && !reqLog.some((l) => /127\.0\.0\.1/.test(l)), '接口日志不记 IP', reqLog[0]);
   if (files.includes('frames.json.gz')) {
     const j = JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(dir, 'frames.json.gz'))));
     check(j.format === 'direct-strike-devlog' && j.t.length > 300 && j.data.vmY.length === j.t.length, '帧数据格式', `${j.t.length} 帧，${j.channels.length} 个通道`);
-    check(j.video.length > 0 && j.meta.gpu, '附带视频索引和显卡信息', j.meta.gpu);
+    check(j.video.length > 0, '附带视频索引', j.video.length);
+    check(!('gpu' in j.meta) && !('userAgent' in j.meta) && !('screen' in j.meta) && !('url' in j.meta), '帧数据不带设备和浏览器信息', Object.keys(j.meta).join(','));
   }
   await p.screenshot({ path: path.join(DIR, 'devlog-uploaded.jpg'), type: 'jpeg', quality: 85 });
 
