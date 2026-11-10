@@ -78,9 +78,40 @@ Game.Hud = class Hud {
   moneyGain(amount, label) {
     const el = this.el.moneyGain;
     el.textContent = amount > 0 ? `+$${amount} ${label}` : `${label} · 钱已到上限`;
-    el.classList.remove('show');
-    void el.offsetWidth;   // 重新触发 CSS 动画
-    el.classList.add('show');
+    el.classList.remove('spend');
+    Hud.replay(el, 'show');
+  }
+
+  // 买东西花了钱：钱数白闪一下，旁边飘 "-$300"（只有数字）
+  moneySpend(amount) {
+    const el = this.el.moneyGain;
+    el.textContent = `-$${amount}`;
+    el.classList.add('spend');
+    Hud.replay(el, 'show');
+    Hud.replay(this.el.money, 'spent');
+  }
+
+  // 重新触发一个只播一次的 CSS 动画
+  static replay(el, cls) {
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+  }
+
+  // 买成功：武器栏里这一格闪亮、放大回弹 economy.boughtPulse 秒（在 renderSlots 里画）
+  pulseSlot(action) {
+    this.slotPulse = { action, t0: performance.now() };
+  }
+
+  // 面板里买不了的那一行：红一下、左右晃
+  buyRowDenied(index) {
+    const row = this.el.buy.querySelectorAll('div')[index];
+    if (row) Hud.replay(row, 'denied');
+  }
+
+  // 不在购买区按了购买键：灰色购物车从左边探出来晃一下又收回
+  buyCueDenied() {
+    Hud.replay(this.el.buyCue, 'denied');
   }
 
   // 在购买区里：屏幕左侧的购物车图标（不用文字）。state：'ok' 买得起东西（橙色）| 'poor' 买不起（灰）| null 收起
@@ -89,6 +120,7 @@ Game.Hud = class Hud {
     if (keyName && this.el.buyCueKey.textContent !== keyName) this.el.buyCueKey.textContent = keyName;
     el.classList.toggle('show', !!state);
     el.classList.toggle('poor', state === 'poor');
+    if (state) el.classList.remove('denied');
   }
 
   // 购买面板。rows: [{ key, name, price, count, max, ok }]，null 表示关掉
@@ -109,10 +141,16 @@ Game.Hud = class Hud {
 
   renderSlots() {
     const name = (a) => this.input ? Game.Input.bindingName(this.input.bindings[a]) : '';
+    // 刚买到的那一格加 bought；武器栏中途重画时用负的 animation-delay 接着播，动画不会从头再来
+    const dur = Game.Config.economy.boughtPulse;
+    const p = this.slotPulse, age = p ? (performance.now() - p.t0) / 1000 : Infinity;
+    if (age >= dur) this.slotPulse = null;
     this.el.weapons.innerHTML = this.slots.map((s) => {
-      const cls = `slot${s.on ? ' on' : ''}${s.empty ? ' empty' : ''}`;
+      const bought = age < dur && s.action === p.action;
+      const cls = `slot${s.on ? ' on' : ''}${s.empty ? ' empty' : ''}${bought ? ' bought' : ''}`;
+      const style = bought ? ` style="animation-duration:${dur}s;animation-delay:-${age.toFixed(3)}s"` : '';
       const count = s.count === undefined ? '' : `<b>${s.count}</b>`;
-      return `<div class="${cls}"><kbd>${name(s.action)}</kbd>${s.name}${count}</div>`;
+      return `<div class="${cls}"${style}><kbd>${name(s.action)}</kbd>${s.name}${count}</div>`;
     }).join('');
   }
 

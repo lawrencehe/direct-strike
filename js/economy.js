@@ -73,20 +73,28 @@ Game.Economy = class Economy {
     if (!this.inZone) {
       this.close();
       this.hud.setBuyCue(null);
+      // 不在购买区按购买键：灰色购物车从左边探出来晃一下又收回，响一声"不行"
+      if (input.wasAction('buy')) { this.hud.buyCueDenied(); this.audio.denied(); }
       return;
     }
     if (input.wasAction('buy')) this.open ? this.close() : this.openMenu();
 
     if (this.open) {
       // 同一帧按了几个键：都吃掉（不切武器），只买第一个
-      let done = false;
+      let done = false, denied = null;
       for (const kind of Economy.ITEMS) {
         const action = Game.Weapon.ACTIONS[kind];
         if (!input.wasAction(action)) continue;
         input.consumeAction(action);
-        if (!done) done = this.buy(kind);
+        if (done) continue;
+        if (this.canBuy(kind)) done = this.buy(kind);
+        else if (!denied) denied = kind;
       }
       if (done) this.close();   // 买成功就关面板，下一次按槽位键就是切过去
+      else if (denied) {        // 买不了：那一行红一下、左右晃，响一声"不行"，面板留着
+        this.audio.denied();
+        this.hud.buyRowDenied(Economy.ITEMS.indexOf(denied));
+      }
     }
 
     // 购物车图标：面板开着时收起；能买得起任何一样亮，买不起灰
@@ -98,12 +106,16 @@ Game.Economy = class Economy {
     return this.money >= cfg.prices[kind] && this.weapon.counts[kind] < cfg.maxCarry[kind];
   }
 
+  // 买一个。买成功的回应（不用文字）：purchase 音效、钱数闪一下并飘 "-$价格"、武器栏里那一格闪亮回弹
   buy(kind) {
-    if (!this.canBuy(kind)) { this.audio.empty(); return false; }
-    this.money -= Game.Config.economy.prices[kind];
+    if (!this.canBuy(kind)) return false;
+    const price = Game.Config.economy.prices[kind];
+    this.money -= price;
+    this.hud.pulseSlot(Game.Weapon.ACTIONS[kind]);   // 先记下，addThrowable 重画武器栏时带上
     this.weapon.addThrowable(kind);
-    this.audio.cash();
+    this.audio.purchase();
     this.hud.setMoney(this.money);
+    this.hud.moneySpend(price);
     this.refreshMenu();
     return true;
   }
