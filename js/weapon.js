@@ -441,6 +441,7 @@ Game.Weapon = class Weapon {
   fire(gun) {
     const cfg = gun.cfg;
     gun.ammo--;
+    if (this.onShot) this.onShot();   // main.js 接到 NPC 的"听声音"
     this.cooldown = cfg.fireInterval;
 
     // 1. 在准星周围的散布圆里随机取一个方向

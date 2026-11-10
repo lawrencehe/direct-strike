@@ -74,6 +74,7 @@ function startGame(mapData) {
   const bots = new Game.Bots.Manager({ scene, camera, world, player, audio, hud, effects });
   grenades.bots = bots;
   bots.grenades = grenades;
+  weapon.onShot = () => bots.hearPlayer(player.position);   // 枪声会暴露玩家的位置
   const economy = new Game.Economy({ scene, hud, audio, player, weapon, input });
   // 赏金只看最后一击怎么打死的
   bots.onPlayerKill = (hit) => economy.award(hit.explosion ? 'frag' : hit.part === 'head' ? 'head' : 'body');

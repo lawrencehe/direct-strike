@@ -72,11 +72,11 @@ r = await p.evaluate(() => {
   const held = { state: w.throwState, flying: G.flying.length, hp: game.player.health, alive: game.player.alive };
   release('Mouse0'); tick(0.2);
   const g0 = G.flying[0];
-  const thrown = g0 ? { fuse: +g0.fuse.toFixed(2), spoon: g0.model.getObjectByName('spoon').visible, pin: g0.model.getObjectByName('pin').visible } : null;
+  const thrown = g0 ? { fuse: +g0.fuse.toFixed(2), full: Game.Config.grenades.frag.fuse, spoon: g0.model.getObjectByName('spoon').visible, pin: g0.model.getObjectByName('pin').visible } : null;
   return { held, thrown };
 });
 check(r.held.state === 'hold' && r.held.flying === 0 && r.held.alive && r.held.hp === 100, '拔环攥 10 秒不炸', r.held);
-check(r.thrown && r.thrown.fuse > 2.7 && !r.thrown.spoon && !r.thrown.pin, '出手后引信从满的开始走，握片和拉环都没了', r.thrown);
+check(r.thrown && r.thrown.fuse > r.thrown.full - 0.3 && !r.thrown.spoon && !r.thrown.pin, '出手后引信从满的开始走，握片和拉环都没了', r.thrown);
 await p.evaluate(() => tick(4));
 
 // ---- 4. 经济 ----

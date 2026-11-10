@@ -9,7 +9,10 @@
 //
 // 装备和玩家一样（config.js 的 weapons 和 grenades）：
 //   AK 打空了，玩家离得近就掏手枪，远了就换弹；脱离交战后收起手枪、把 AK 换满。
-//   手雷 / 闪光：玩家躲起来后，朝最后看见的位置丢（看不到落点就高抛越过掩体）。
+//   手雷 / 闪光：玩家躲起来后，等一小会儿再判断玩家躲到了哪：
+//     按玩家消失时的移动方向往前推（推到墙就停），玩家开枪会暴露位置（听声音）。
+//     出手前用 grenades.simulate 把几种角度、力度都预演一遍（反弹、滚动、引信都算），
+//     挑爆点离目标最近、视线没被挡住的那一种；怎么丢都炸不到就不丢，留着。
 //   丢闪光后背过身去，免得闪到自己。烟雾：血少时丢在自己和玩家之间，然后后撤。
 //
 // "看见"的判断（感知）有三个条件，全部满足才算看见：
@@ -50,7 +53,10 @@ Game.Bots = (function () {
       this.waypoint = null;
       this.seesPlayer = false;
       this.lastSeen = new THREE.Vector3();
-      this.alertTimer = 0;             // 被打后的一段时间里，背后也"看得见"
+      this.lastSeenVel = new THREE.Vector3();   // 最后看见时玩家的水平速度（推算玩家躲到了哪）
+      this.sinceSeen = 0;              // 离最后一次看见（或听见）玩家过了几秒
+      this.nadeDelay = 0;              // 丢失视线后等多久才决定丢不丢雷
+      this.alertTimer = 0;            // 被打后的一段时间里，背后也"看得见"
       this.perceiveTimer = Math.random() * 0.2;
       this.reaction = 0;
       this.burstLeft = 0;
@@ -154,6 +160,7 @@ Game.Bots = (function () {
       // ---- 感知：每 0.15 秒看一次，不用每帧都做射线检测 ----
       this.alertTimer -= dt;
       this.perceiveTimer -= dt;
+      this.sinceSeen += dt;
       if (this.perceiveTimer <= 0) {
         this.perceiveTimer = 0.15;
         this.perceive(dx, dz, dist);
@@ -285,12 +292,49 @@ Game.Bots = (function () {
         this.nadeChecked = false;
         this.state = 'combat';
         this.lastSeen.copy(player.position);
+        this.lastSeenVel.set(player.velocity.x, 0, player.velocity.z);
+        this.sinceSeen = 0;
       } else if (this.seesPlayer) {
         this.seesPlayer = false;
         this.burstLeft = 0;
         this.state = player.alive ? 'search' : 'patrol';
         this.searchTimer = cfg.searchTime;
+        this.nadeDelay = rand(cfg.nadeDelay[0], cfg.nadeDelay[1]);
       }
+    }
+
+    // 听见玩家开枪（pos 是玩家的位置）：看不见玩家时，知道玩家大概在哪了，跑过去找、可以再丢一次雷
+    hear(pos) {
+      const cfg = Game.Config.bots;
+      if (this.seesPlayer || this.blind > 0) return;
+      if (Math.hypot(pos.x - this.pos.x, pos.z - this.pos.z) > cfg.hearRange) return;
+      const a = Math.random() * Math.PI * 2, r = Math.random() * cfg.hearError;   // 听声辨位不会太准
+      this.lastSeen.set(pos.x + Math.cos(a) * r, pos.y, pos.z + Math.sin(a) * r);
+      this.lastSeenVel.set(0, 0, 0);
+      this.sinceSeen = 0;
+      if (this.state !== 'search') this.nadeDelay = rand(cfg.nadeDelay[0], cfg.nadeDelay[1]);
+      this.state = 'search';
+      this.searchTimer = cfg.searchTime;
+      this.nadeChecked = false;
+    }
+
+    // 推算玩家现在在哪：从最后看见的位置沿当时的移动方向往前推（最多推 predictTime 秒），
+    // 碰到墙就停在墙前（人是躲到掩体后面，不会穿墙）
+    guessPlayer() {
+      const cfg = Game.Config.bots;
+      const guess = this.lastSeen.clone();
+      const v = this.lastSeenVel;
+      const speed = Math.hypot(v.x, v.z);
+      if (speed < 0.5) return guess;
+      const len = speed * Math.min(this.sinceSeen + cfg.throwTime, cfg.predictTime);
+      const from = new THREE.Vector3(guess.x, guess.y + 0.5, guess.z);
+      const dir = new THREE.Vector3(v.x / speed, 0, v.z / speed);
+      const ray = this.mgr.raycaster;
+      ray.set(from, dir);
+      ray.far = len + RADIUS + 0.2;
+      const hit = ray.intersectObjects(this.mgr.obstacles, false)[0];
+      const go = hit ? Math.max(0, hit.distance - RADIUS - 0.2) : len;
+      return guess.addScaledVector(dir, go);
     }
 
     // AK 点射：连开几枪，停一下，再连开几枪；手枪一发一发打
@@ -375,24 +419,32 @@ Game.Bots = (function () {
         return;
       }
 
-      // 玩家躲起来了：每次丢失视线只考虑一次，朝最后看见的位置丢手雷或闪光
-      if (this.state !== 'search' || this.nadeChecked) return;
+      // 玩家躲起来了（或开枪暴露了位置）：等一小会儿看玩家往哪躲，再判断一次丢不丢
+      if (this.state !== 'search' || this.nadeChecked || this.sinceSeen < this.nadeDelay) return;
       this.nadeChecked = true;
       if (Math.random() > cfg.grenadeChance) return;
-      const d = Math.hypot(this.lastSeen.x - this.pos.x, this.lastSeen.z - this.pos.z);
+      const guess = this.guessPlayer();
+      const d = Math.hypot(guess.x - this.pos.x, guess.z - this.pos.z);
       const inRange = (r) => d >= r[0] && d <= r[1];
       const options = [];
       if (this.nades.frag > 0 && inRange(cfg.fragRange)) options.push('frag');
       if (this.nades.flash > 0 && inRange(cfg.flashRange)) options.push('flash');
-      if (!options.length) return;
-      this.startThrow(options[randInt(0, options.length - 1)], this.lastSeen.clone());
+      // 随机先试一种，预演下来丢不准就试另一种，都不行就不丢
+      if (options.length === 2 && Math.random() < 0.5) options.reverse();
+      for (const kind of options) {
+        if (this.startThrow(kind, guess)) return;
+      }
     }
 
+    // 预演出一个能丢准的出手方式才真的开始丢，返回是否开始
     startThrow(kind, target) {
+      const plan = this.planThrow(kind, target);
+      if (!plan) return false;
       this.nades[kind]--;
-      this.throwing = { kind, target, t: 0, released: false };
+      this.throwing = { kind, target, plan, t: 0, released: false };
       this.burstLeft = 0;
       this.model.setWeapon(this.weapon, false);   // 腾出手来：枪先收起
+      return true;
     }
 
     updateThrow(dt) {
@@ -404,7 +456,7 @@ Game.Bots = (function () {
       if (!th.released && (facing || th.t > 1.2) && th.t > cfg.throwTime * 0.5) {
         th.released = true;
         th.t = cfg.throwTime * 0.5;
-        this.releaseGrenade(th.kind, th.target);
+        this.mgr.grenades.launch(th.kind, th.plan.pos, th.plan.vel, Game.Config.grenades[th.kind].fuse, this);
       }
       if (th.released && th.t >= cfg.throwTime) {
         this.throwing = null;
@@ -419,23 +471,41 @@ Game.Bots = (function () {
       }
     }
 
-    // 算出手速度：出手速度固定（和玩家一样），只调角度，让雷落在 target。
-    // 看得见落点就平抛（低角度），被掩体挡着就高抛越过去。够不着就按 45 度丢最远
-    releaseGrenade(kind, target) {
-      const G = Game.Config.grenades;
-      const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
+    // 挑出手方式：出手速度固定（和玩家一样），平抛、高抛各试几种"瞄多远"，
+    // 用 grenades.simulate 预演每一种最后在哪炸（反弹、滚动、引信都算进去），挑离 target 最近的。
+    // 爆点和目标之间被墙挡着的不算数（手雷炸不到、闪光闪不到）；手雷还不能炸到自己。
+    // 最好的一种也偏太远（fragMaxMiss / flashMaxMiss）就返回 null：不丢。烟雾只要大概落在那里就行
+    // 返回 { pos 出手位置, vel 出手速度, miss 爆点离目标多远 }
+    planThrow(kind, target) {
+      const cfg = Game.Config.bots, G = Game.Config.grenades;
+      const gr = this.mgr.grenades;
+      const yaw = yawTo(target.x - this.pos.x, target.z - this.pos.z);   // 出手时已经转向目标
+      const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
       const pos = new THREE.Vector3(this.pos.x + fx * 0.35 - fz * 0.15, this.pos.y + 1.55, this.pos.z + fz * 0.35 + fx * 0.15);
       const v = G.throwSpeed, g = 15;   // 重力和 grenades.js 的 stepGrenade 一致
       const dx = target.x - pos.x, dz = target.z - pos.z;
-      const d = Math.max(0.5, Math.hypot(dx, dz) * 0.85);   // 落地后还会滚一段，丢近一点
-      const h = target.y + 0.1 - pos.y;
-      const aim = target.clone(); aim.y += 0.4;
-      const high = !this.mgr.hasLineOfSight(pos, aim);
-      const disc = v ** 4 - g * (g * d * d + 2 * h * v * v);
-      const angle = disc < 0 ? Math.PI / 4 : Math.atan((v * v + (high ? 1 : -1) * Math.sqrt(disc)) / (g * d));
       const hd = Math.hypot(dx, dz) || 1;
-      const vel = new THREE.Vector3(dx / hd * Math.cos(angle) * v, Math.sin(angle) * v, dz / hd * Math.cos(angle) * v);
-      this.mgr.grenades.launch(kind, pos, vel, G[kind].fuse, this);
+      const h = target.y + 0.1 - pos.y;
+      const chest = target.clone(); chest.y += 1;
+      const boxes = gr.collisionBoxes(this);
+      const maxMiss = kind === 'frag' ? cfg.fragMaxMiss : kind === 'flash' ? cfg.flashMaxMiss : Infinity;
+
+      let best = null;
+      for (const high of [false, true]) {
+        for (const k of [0.55, 0.65, 0.75, 0.85, 0.95, 1.05]) {   // 落地后还会滚一段，多数时候要瞄近一点
+          const d = Math.max(0.5, hd * k);
+          const disc = v ** 4 - g * (g * d * d + 2 * h * v * v);
+          const angle = disc < 0 ? Math.PI / 4 : Math.atan((v * v + (high ? 1 : -1) * Math.sqrt(disc)) / (g * d));
+          const vel = new THREE.Vector3(dx / hd * Math.cos(angle) * v, Math.sin(angle) * v, dz / hd * Math.cos(angle) * v);
+          const at = gr.simulate(pos, vel, G[kind].fuse, boxes);
+          if (kind !== 'smoke' && !gr.clearLine(at, chest)) continue;
+          if (kind === 'frag' && gr.exposure(at, this.pos, HEIGHT)) continue;   // 会炸到自己
+          const miss = Math.hypot(at.x - target.x, at.z - target.z);
+          if (!best || miss < best.miss) best = { pos, vel, miss };
+          if (disc < 0) break;   // 够不着：45 度已经是最远，瞄多远都一样
+        }
+      }
+      return best && best.miss <= maxMiss ? best : null;
     }
 
     shoot() {
@@ -595,6 +665,12 @@ Game.Bots = (function () {
 
     aliveBoxes() {
       return this.bots.filter((b) => b.alive).map((b) => b.box);
+    }
+
+    // 玩家开枪了：听得见的 NPC 知道玩家大概在哪（见 Bot.hear）
+    hearPlayer(pos) {
+      if (!this.active || this.phase !== 'fighting') return;
+      for (const b of this.bots) if (b.alive) b.hear(pos);
     }
 
     // ---- 出生点、巡逻点 ----

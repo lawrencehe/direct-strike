@@ -4,7 +4,10 @@
 // 这里只管"丢出去之后"的事：飞行和反弹、飞行轨迹、引爆、伤害、致盲、烟团。
 // 手上的模型和投掷动作在 weapon.js 里。
 //
-// 手雷伤害要看有没有掩体：从爆点朝目标打一条视线，被墙挡住就不受伤。
+// 手雷伤害要看有没有掩体：从爆点朝目标的头、胸、腿各打一条视线，
+// 伤害按露出来的部位比例算（全挡住不受伤，只露腿受 1/3），距离取最近的露出部位。
+// 引信从出手（握片弹开）开始走，飞行时间也算在里面，不是落地后才开始算。
+// simulate() 用和真实飞行一样的物理预演一颗雷会在哪炸，NPC 出手前用它挑角度和力度。
 // 闪光弹看距离和朝向：背对着爆点影响小得多。
 // 玩家和 NPC 都能丢（owner：null 是玩家，否则是丢雷的那个 NPC）。
 // 手雷炸到丢雷的人自己时伤害乘 selfMul；NPC 的雷炸死 NPC 不算玩家的击杀。
@@ -78,10 +81,10 @@ Game.Grenades = class Grenades {
 
   update(dt) {
     if (this.flying.length) {
-      const boxes = this.bots ? this.world.colliders.concat(this.bots.aliveBoxes()) : this.world.colliders;
       // 小步长走，飞得再快也不会穿过薄墙
       const steps = Math.ceil(dt / (1 / 120));
       for (const g of this.flying) {
+        const boxes = this.collisionBoxes(g.owner);
         for (let i = 0; i < steps; i++) this.stepGrenade(g, dt / steps, boxes);
         g.model.position.copy(g.pos);
         g.model.rotation.x += g.spin.x * dt;
@@ -115,6 +118,22 @@ Game.Grenades = class Grenades {
     });
   }
 
+  // 预演：从 pos 以 vel 丢出，fuse 秒后在哪里爆炸（和 update 用同样的步长和碰撞，不出声、不进场景）
+  // 返回的爆点和 detonate 一样抬高了 0.15 米
+  simulate(pos, vel, fuse, boxes = this.collisionBoxes(null)) {
+    const g = { pos: pos.clone(), vel: vel.clone(), spin: new THREE.Vector3(), silent: true };
+    const step = 1 / 120;
+    for (let t = 0; t < fuse; t += step) this.stepGrenade(g, step, boxes);
+    g.pos.y += 0.15;
+    return g.pos;
+  }
+
+  // 雷会撞到的东西：墙、箱子和活着的 NPC，但不算丢雷的那个 NPC 自己（出手点离身体很近，会卡在自己身上）
+  collisionBoxes(owner) {
+    if (!this.bots) return this.world.colliders;
+    return this.world.colliders.concat(this.bots.bots.filter((b) => b.alive && b !== owner).map((b) => b.box));
+  }
+
   // 分轴移动 + 反弹（思路和 physics.js 一样）
   stepGrenade(g, dt, boxes) {
     const cfg = Game.Config.grenades;
@@ -126,7 +145,7 @@ Game.Grenades = class Grenades {
       if (!this.insideBox(g.pos, boxes, r)) continue;
       g.pos[axis] = before;
       const v = Math.abs(g.vel[axis]);
-      if (v > 1.6) this.audio.bounce(v);
+      if (v > 1.6 && !g.silent) this.audio.bounce(v);
       g.vel[axis] *= -cfg.restitution;
       if (axis === 'y' && v > 0) {
         g.vel.x *= cfg.groundFriction;
@@ -168,12 +187,11 @@ Game.Grenades = class Grenades {
     this.audio.explosion(dist);
     this.pulseLight(pos, 0xffb060, 9, 0.35);
 
-    const chest = new THREE.Vector3();
     for (const bot of this.aliveBots()) {
-      chest.copy(bot.pos); chest.y += 1;
-      const d = chest.distanceTo(pos);
-      if (d >= c.radius || !this.clearLine(pos, chest)) continue;
-      const k = 1 - d / c.radius;
+      const e = this.exposure(pos, bot.pos, 1.8);
+      if (!e) continue;
+      const k = (1 - e.dist / c.radius) * e.share;
+      const chest = bot.pos.clone(); chest.y += 1;
       const dir = chest.clone().sub(pos).normalize();
       const result = bot.takeDamage(c.damage * k * (bot === owner ? c.selfMul : 1), {
         part: 'body', point: chest.clone(), dir, explosion: true, force: 0.75 + 1.6 * k, byBot: !!owner,
@@ -198,14 +216,30 @@ Game.Grenades = class Grenades {
     // 玩家：同样要算掩体；离得近时镜头抖一下
     const player = this.player;
     if (player.alive) {
-      const eye = this.camera.position;
-      const d = eye.distanceTo(pos);
+      const d = this.camera.position.distanceTo(pos);
       if (d < 16) player.addRecoil(0.05 * (1 - d / 16), (Math.random() - 0.5) * 0.03 * (1 - d / 16));
-      if (d < c.radius && this.clearLine(pos, eye)) {
-        const dmg = c.damage * (owner ? 1 : c.selfMul) * (1 - d / c.radius);
+      const e = this.exposure(pos, player.position, player.height);
+      if (e) {
+        const dmg = c.damage * (owner ? 1 : c.selfMul) * (1 - e.dist / c.radius) * e.share;
         if (dmg >= 1) player.takeDamage(dmg, pos);
       }
     }
+  }
+
+  // 爆点 pos 能看到一个人（脚底 feet、身高 height）的多少：头、胸、腿三个点各打一条视线。
+  // 返回 { share 露出的比例 0~1, dist 离最近的露出部位多远 }；全挡住或都在爆炸半径外返回 null
+  exposure(pos, feet, height) {
+    const radius = Game.Config.grenades.frag.radius;
+    let seen = 0, dist = Infinity;
+    const p = new THREE.Vector3();
+    for (const h of [height - 0.12, height * 0.6, 0.3]) {
+      p.set(feet.x, feet.y + h, feet.z);
+      const d = p.distanceTo(pos);
+      if (d >= radius || !this.clearLine(pos, p)) continue;
+      seen++;
+      dist = Math.min(dist, d);
+    }
+    return seen ? { share: seen / 3, dist } : null;
   }
 
   // ---------- 闪光弹 ----------
