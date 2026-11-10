@@ -7,8 +7,8 @@
 
 | | 版本 | 说明 |
 |---|---|---|
-| 线上 https://game.lightup.host | v0.27 | 从 `main` 部署（2026-11-10） |
-| `main` | v0.27 | 各版本的改动看 [Releases](https://github.com/lawrencehe/direct-strike/releases) |
+| 线上 https://game.lightup.host | v0.31 | 从 `main` 部署（2026-11-10） |
+| `main` | v0.31 | 各版本的改动看 [Releases](https://github.com/lawrencehe/direct-strike/releases) |
 
 ## 进行中
 
