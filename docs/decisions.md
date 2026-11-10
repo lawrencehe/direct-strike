@@ -63,6 +63,9 @@
 - **项目进展用 GitHub 管**（2026-11-10，v0.26，负责人提的）：需求、bug、待确认、想法用 Issue，一个版本一个 Milestone，合并走 PR，上线建 Release。
   边界：会变的、要跟进的放 GitHub；方案和决定（为什么这样做）仍在 `requirements/`，因为拉下仓库就要能接手。
   仓库是公开的，GitHub 上不贴录下的数据和敏感信息。见 `workflow.md` 的"GitHub 上管什么"和 `requirements/v0.26-github-workflow.md`。
+- **自动任务在开发机上定时跑，不放 GitHub Actions**（2026-11-10，v0.27）：工具链（Blender、verify、deploy）都在开发机；
+  开 issue 只是记录，打 `交给Claude` 才做；一次一个、定时检查不启动 Claude（省额度）；合并上线要负责人评论 `commit push & deploy`。
+  暂不做预览站点（项目还没面向玩家）。见 `autopilot.md`。
 
 - **开发接口 `server/api.py`**（2026-11-09，v0.21）：为开发者模式加了一个只给开发用的小服务（密码换令牌、接收上传），
   线上是 `fps-api` 容器，`fps-game` 的 Caddy 把 `/api/*` 转过去，relay 的配置不动。**游戏本身仍然不需要后端**，接口挂了照样能玩。

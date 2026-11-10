@@ -1,4 +1,4 @@
-# Direct-Strike v0.26
+# Direct-Strike v0.27
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -110,7 +110,7 @@ direct-strike/
 │   └── deploy.md         部署架构、首次接入、回滚
 ├── maps/yard.json    ★ 地图数据：掩体、出生点、巡逻点、靶子
 ├── tools/            开发工具（验证、模型、图片、骨骼、地图），不发布；tools/tests/ 是留在仓库里的针对性测试，
-│                     tools/devlog/analyze.mjs 分析开发者模式上传的数据
+│                     tools/devlog/analyze.mjs 分析开发者模式上传的数据；tools/autopilot/ 定时处理 GitHub 上交给 Claude 的 issue
 ├── assets-src/       未压缩的模型母版和 Blender 加工脚本，不发布
 ├── CLAUDE.md         给 AI 助手看的项目约定
 ├── css/style.css     界面和 HUD 样式（颜色、字体是开头的 CSS 变量）
@@ -174,6 +174,7 @@ direct-strike/
 - **改换弹动作**：`weapon.js` 的 `Weapon.RELOAD`（每个动作在换弹进度里的时间段、音效时间点）
 - **改赏金、价格、钱的上限**：`config.js` 的 `economy`
 - **改界面**：流程和规则见 `docs/ui.md`；结构在 `index.html`，逻辑在 `ui.js`，样式在 `css/style.css`，模式介绍文字在 `ui.js` 末尾的 `MODES`
+- **把需求交给 Claude 自动做**：GitHub issue 打 `交给Claude` 标签，进度看评论，评论 `commit push & deploy` 上线，见 `docs/autopilot.md`
 - **查真机上的卡顿、动画和手感问题**：游戏里的开发者模式（设置 → 开发者）录下来上传，开发用 `tools/devlog/analyze.mjs` 分析，见 `docs/devmode.md`
 - **改死亡效果**：`config.js` 的 `ragdoll`（爆头打飞的力度、尸体留多久）
 - **改地图**：改 `maps/yard.json`，格式见 `docs/maps.md`；要加新种类的物体再改 `world.js` 的 `builders`

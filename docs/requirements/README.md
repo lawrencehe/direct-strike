@@ -18,6 +18,7 @@
 
 | 版本 | 需求 | 状态 | 文档 |
 |---|---|---|---|
+| v0.27 | 自动任务：issue 打 `交给Claude` 由开发机定时交给 Claude 做，一次一个，评论区同步进度，评论 commit push & deploy 上线 | 已上线 | [v0.27-autopilot.md](v0.27-autopilot.md) |
 | v0.26 | 项目管理迁到 GitHub：Issue、PR、Milestone、Release，`ship.sh` 走 PR 合并 | 已上线 | [v0.26-github-workflow.md](v0.26-github-workflow.md) |
 | v0.26 | Mac 误触系统快捷键后按键错乱；Esc 退出全屏后点"继续"报错 | 已上线（待真机确认） | [v0.26-keyboard-fullscreen.md](v0.26-keyboard-fullscreen.md) |
 | v0.25 | NPC 手雷炸不到人：NPC 推算玩家位置、听枪声、预演丢雷；手雷按露出部位算伤害；引信 3 → 2 秒 | 已上线 | [v0.25-npc-grenade.md](v0.25-npc-grenade.md) |

@@ -31,6 +31,7 @@ Blender 读不了 meshopt 压缩过的文件，所以母版不能省。
 node tools/verify.mjs                                 # 验证游戏
 node tools/tests/<需求>.mjs                           # 某个需求的针对性测试（见 docs/testing.md）
 tools/ship.sh -v v0.13 -m 提交信息文件 -c 6 --tag      # 提交、建 PR 并入 main、部署、打 tag、建 Release（见 docs/workflow.md）
+tools/autopilot/install.sh status                       # 自动任务的定时器和日志（见 docs/autopilot.md）
 node tools/map-check.mjs [--map 文件]                 # 检查地图，生成俯视图（格式见 docs/maps.md）
 node tools/glb.mjs info 文件.glb                       # 查看模型
 node tools/glb.mjs optimize 输入.glb 输出.glb --drop TPose

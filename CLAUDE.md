@@ -16,6 +16,7 @@
 | `docs/architecture.md` | 加载顺序、对象关系、游戏循环、两套场景、**已知的坑** |
 | `docs/decisions.md` | 项目方向和做过的决定（为什么是现在这样） |
 | `docs/testing.md` | `/verify` 和写逐帧推进的测试脚本 |
+| `docs/autopilot.md` | 自动任务：issue 打 `交给Claude` 标签由开发机定时交给 Claude 做，一次一个，评论 `commit push & deploy` 上线 |
 | `docs/devmode.md` | 开发者模式：真机录帧数据和画面、上传、分析 |
 | `docs/tools.md` | 工具链安装和用法、开发机限制 |
 | `docs/ui.md` | 界面流程、全屏规则、玩家设置、视觉规范 |
@@ -42,6 +43,7 @@
 - **分支：可以开分支开发，开发完建 PR 并入 `main`，从 `main` 部署。** 分支也推到远端，本地和远端都不删除，保留历史。详见 `docs/workflow.md`。
   用户说"commit push & deploy"时用 `/ship`（`tools/ship.sh`）一次完成：提交 → 推送分支 → 建 PR（`Closes #N`）并在 GitHub 上合并 → 从 `main` 部署 → 线上检查 → tag 和 Release。
 - **GitHub 管进展**：需求、bug、待确认、想法都开 Issue，一个版本一个 Milestone，合并走 PR。仓库是公开的，不往 GitHub 贴录下的数据、密码、玩家信息。
+  **开 issue 只是记录**；打了 `交给Claude` 才由自动任务处理（`docs/autopilot.md`）。手动会话不要去动别的 issue 的这几个标签：`交给Claude`、`Claude处理中`、`等你回复`、`待验收`。
 - 中文：注释、文档、提交信息都用中文。提交信息格式 `vX.Y：一句话摘要`，正文列要点，每个上线的版本都打 tag（`ship.sh --tag`）。
 - 发版时版本号改两处：`README.md` 标题和 `index.html` 的 `<small>vX.Y</small>`。
 - `refer/` 是用户的创意草图，已 gitignore，不要删、不要提交；用户说"看图"就是指这里，动手前先看图。
