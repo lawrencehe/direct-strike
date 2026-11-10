@@ -123,6 +123,9 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 - **手臂的"没弯"要以蒙皮绑定姿势为准，不是 glb 场景里的默认姿势。** `arm.glb` 的默认姿势里左手腕相对绑定姿势自带约 30° 扭转；
   蒙皮是按绑定姿势变形的，所以 `measureArms` 从 `skeleton.boneInverses` 取小臂→手、上臂→小臂的相对旋转。
   小臂、上臂只做最小摆动（`setFromUnitVectors`），不绕自身转，手腕就不会拧成麻花。改了解算跑 `tools/tests/arm-wrist.mjs`。
+- **手的握持朝向决定了小臂往哪伸。** 手腕最多弯 `wristMaxBend`，所以小臂基本顺着手的朝向；朝向不自然，弯折就挪到手肘上，手肘折在画面中间（#11）。
+  步枪左手托护木不能掌心正朝上横着托，要绕护木轴转一点（`weapon.js` 的 `SUPPORT_ROLL`），让手腕在护木左下方；`armDir` 再取和小臂差不多的方向，手肘就在画面外。
+  调了握持朝向跑 `tools/tests/arm-wrist.mjs`，它会检查步枪左手肘在不在画面中间。
 - **`DevLog.sample` 每帧不能新建对象**（包括闭包返回小数、`Set.has`、three.js 的 getter），否则开发者模式自己就会引起垃圾回收卡顿。
   改了它跑 `tools/tests/devlog.mjs`，里面用采样堆分析器检查零分配。
 - **录画面要在渲染之后立刻拷画布。** WebGL 画布没开 `preserveDrawingBuffer`，交给屏幕后就清空了，晚一步拷到的是黑的。
