@@ -99,8 +99,15 @@ if [ "$BR" != main ]; then
     gh pr merge "$PRNUM" --merge >/dev/null 2>&1 \
       || die "PR #$PRNUM 合并失败（多半是和 main 冲突）：在分支上 git merge origin/main 解决冲突后再跑一次"
     echo "✓ PR #$PRNUM 已合并进 main"
-    git checkout -q main
-    git pull -q --ff-only origin main || { git checkout -q "$BR"; die "本地 main 拉不下来（本地 main 有没推送的提交？）"; }
+    # 切到 GitHub 上合并后的 main 来部署。main 已经在别的 worktree 里检出时（自动任务的 worktree）用分离头指针，
+    # 本地 main 留给那个目录；没被占用就照常切到本地 main 并拉到最新
+    git fetch -q origin main
+    if git worktree list --porcelain | grep -qx 'branch refs/heads/main'; then
+      git checkout -q --detach origin/main
+    else
+      git checkout -q main
+      git pull -q --ff-only origin main || { git checkout -q "$BR"; die "本地 main 拉不下来（本地 main 有没推送的提交？）"; }
+    fi
   else
     git checkout -q main
     git pull -q --ff-only origin main
@@ -108,7 +115,8 @@ if [ "$BR" != main ]; then
     echo "✓ $BR 并入 main（本地合并）"
   fi
 fi
-git push -q origin main && echo "✓ 推送 main $(git rev-parse --short HEAD)"
+# PR 合并的已经在 GitHub 上了，不用再推
+if [ "$BR" = main ] || [ $PR = 0 ]; then git push -q origin main && echo "✓ 推送 main $(git rev-parse --short HEAD)"; fi
 
 # ---- 4. 从 main 部署 ----
 if [ $DEPLOY = 1 ]; then
@@ -152,7 +160,7 @@ if [ $TAG = 1 ]; then
       echo "· Release $CUR 已存在"
     else
       NOTES=$(mktemp)
-      FIRST=$(git log --format='%H %s' main | grep -E "^[0-9a-f]+ $CUR：" | tail -1 | cut -d' ' -f1 || true)
+      FIRST=$(git log --format='%H %s' HEAD | grep -E "^[0-9a-f]+ $CUR：" | tail -1 | cut -d' ' -f1 || true)
       { git log -1 --format=%b "${FIRST:-HEAD}" | grep -v '^Co-Authored-By' || true
         if [ -n "$PRNUM" ]; then printf '\nPR：#%s\n' "$PRNUM"; fi
         if [ -n "$CLOSES" ]; then printf '需求：#%s\n' "${CLOSES//,/ #}"; fi

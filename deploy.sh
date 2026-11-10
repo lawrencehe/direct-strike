@@ -7,6 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 SITE=/home/donkey/fps-site
 API=/home/donkey/fps-api
+CONF=/home/donkey/fps-conf          # fps-game 的 Caddyfile 放这里（固定路径，见 deploy/compose.yaml）
 DATA=/home/donkey/direct-strike-data
 
 rsync -a --delete \
@@ -25,10 +26,12 @@ if [ ! -f "$DATA/api.env" ]; then
 fi
 api_changed=$(rsync -a --delete --itemize-changes server/ "$API/" | grep -c '^>f' || true)
 
+# Caddyfile 原地覆盖（cp 不换 inode），单文件挂载的容器能直接看到新内容
+mkdir -p "$CONF"; cp deploy/Caddyfile "$CONF/Caddyfile"
 docker compose -f deploy/compose.yaml up -d
 [ "$api_changed" -gt 0 ] && docker restart fps-api >/dev/null && echo "开发接口已重启"
-# Caddyfile 是单文件挂载：git 切分支会换掉文件，容器里看到的还是旧的，这时要重建 fps-game（一两秒）；
-# 文件是同一个时，容器里能看到新内容，但正在跑的 Caddy 不会自己重读，所以每次都平滑重载一下（不中断）。
+# Caddyfile 是单文件挂载：文件被换掉（不是原地改）时容器里看到的还是旧的，这时要重建 fps-game（一两秒）；
+# 内容一致时，正在跑的 Caddy 也不会自己重读，所以每次都平滑重载一下（不中断）。
 # 只动本项目的 fps-game，relay 的 Caddy 不碰
 if ! docker exec fps-game cat /etc/caddy/Caddyfile 2>/dev/null | cmp -s - deploy/Caddyfile; then
   docker compose -f deploy/compose.yaml up -d --force-recreate game >/dev/null 2>&1 && echo "fps-game 已按新 Caddyfile 重建"

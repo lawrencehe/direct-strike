@@ -7,7 +7,8 @@ services:
     container_name: fps-game
     restart: unless-stopped
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # deploy.sh 每次把 deploy/Caddyfile 原地复制到这里。用固定路径，从哪个目录（含自动任务的 worktree）部署容器配置都一样
+      - /home/donkey/fps-conf/Caddyfile:/etc/caddy/Caddyfile:ro
       - /home/donkey/fps-site:/srv/game:ro
     networks: [relay]
     logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }

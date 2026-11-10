@@ -7,12 +7,12 @@
 
 | | 版本 | 说明 |
 |---|---|---|
-| 线上 https://game.lightup.host | v0.26 | 从 `main` 部署（2026-11-10） |
-| `main` | v0.26 | 各版本的改动看 [Releases](https://github.com/lawrencehe/direct-strike/releases) |
+| 线上 https://game.lightup.host | v0.27 | 从 `main` 部署（2026-11-10） |
+| `main` | v0.27 | 各版本的改动看 [Releases](https://github.com/lawrencehe/direct-strike/releases) |
 
 ## 进行中
 
-正在做的需求看 [开启的 Milestone](https://github.com/lawrencehe/direct-strike/milestones) 和 [开着的 PR](https://github.com/lawrencehe/direct-strike/pulls)。
+交给 Claude 自动做的看标签 `交给Claude` / `Claude处理中` / `待验收`（`autopilot.md`）。正在做的需求看 [开启的 Milestone](https://github.com/lawrencehe/direct-strike/milestones) 和 [开着的 PR](https://github.com/lawrencehe/direct-strike/pulls)。
 
 ## 现在能玩什么
 
