@@ -72,6 +72,7 @@ await g.close();
 | `tools/tests/reload-nade-economy.mjs` | v0.20：自动换弹、换弹中切枪、手雷两道保险、经济（赏金、上限、购买、补给） |
 | `tools/tests/devlog.mjs` | v0.21：开发者模式的解锁、录制开销和零内存分配、事件、录画面的自动关闭保护、上传、分析脚本 |
 | `tools/tests/npc-grenade.mjs` | v0.25：引信从出手算、手雷按露出部位算伤害、推算玩家位置、听枪声、NPC 预演丢雷的准度、雷不卡在 NPC 身上 |
+| `tools/tests/input-focus.mjs` | v0.26：先锁鼠标再全屏、锁定被拒自动重试、全屏接管键盘后短按 Esc 只暂停、失焦和 ⌘ 后按键放开并自动暂停（开发机上约两分钟） |
 | `tools/tests/arm-wrist.mjs` | v0.22：每把枪、换弹中、三种投掷物的手腕相对绑定姿势弯折不超过 `wristMaxBend`、没有扭转 |
 
 ```bash
@@ -83,5 +84,5 @@ node tools/tests/reload-nade-economy.mjs
 - 帧率、卡顿、真实手感：要在有显卡的电脑上用浏览器试玩。负责人试玩时打开开发者模式录下来上传，开发用
   `tools/devlog/analyze.mjs` 看（`devmode.md`）。
 - 录 WebGL 画面：无头 Chromium + 软件渲染下会卡住出帧、录出来是空的。
-- 指针锁定：无头环境没有真实的指针锁定。
+- 指针锁定：无头环境里 `requestPointerLock` 能成功，但模拟不了"玩家按 Esc 让浏览器退出锁定 / 全屏"和系统快捷键抢焦点，这些要真机确认。
 - Safari：目前不支持，也没测。

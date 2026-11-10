@@ -17,6 +17,7 @@
 
 | 版本 | 需求 | 状态 | 文档 |
 |---|---|---|---|
+| v0.26 | Mac 误触系统快捷键后按键错乱；Esc 退出全屏后点"继续"报错 | 已上线（待真机确认） | [v0.26-keyboard-fullscreen.md](v0.26-keyboard-fullscreen.md) |
 | v0.25 | NPC 手雷炸不到人：NPC 推算玩家位置、听枪声、预演丢雷；手雷按露出部位算伤害；引信 3 → 2 秒 | 已上线 | [v0.25-npc-grenade.md](v0.25-npc-grenade.md) |
 | v0.23 | 开发者模式隐私（不收 IP 和浏览器环境）、⇧⌘= 快捷键打开开发者面板 | 已上线 | [v0.23-dev-privacy.md](v0.23-dev-privacy.md) |
 | v0.22 | 第一人称手臂：手腕不再折成大角度和扭成麻花 | 已上线 | [v0.22-arm-wrist.md](v0.22-arm-wrist.md) |

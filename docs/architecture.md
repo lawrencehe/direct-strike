@@ -97,7 +97,14 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 - **死亡的 NPC 还要继续更新**（布娃娃、血泊、尸体下沉），包括对决结束后的 `phase === 'over'`。
 - **受击闪红**：NPC 死亡前要把 `model.flash` 清零，否则尸体会一直发红。
 - **全屏和指针锁定都要用户手势。** `input.lock(fullscreen)` 在按钮的 click 里同步发出两个请求，中间不能 `await`，否则第二个会被拒。
-  全屏挂在 `document.documentElement` 上（不是 canvas），否则 HUD 和菜单不在全屏里。按 Esc 会同时退出全屏和锁定，点"继续"再进。
+  **顺序必须是先锁鼠标、再请求全屏**：Chrome 里全屏请求会用掉这次手势，玩家按 Esc 退出锁定后再锁又必须有手势，反过来写锁鼠标就被拒。
+  锁定失败 `input.js` 会自动重试一次（正在进全屏就等 `fullscreenchange`），还不行才提示。
+  全屏挂在 `document.documentElement` 上（不是 canvas），否则 HUD 和菜单不在全屏里。
+- **全屏时接管键盘（Keyboard Lock，只有 Chrome / Edge）。** `input.syncKeyboardLock` 在进全屏后调 `navigator.keyboard.lock()`：
+  短按 Esc 交给页面（`input.js` 自己 `exitPointerLock` 进暂停，全屏保留），长按才退全屏；浏览器快捷键在全屏里不生效。
+  没有这个接口的浏览器按 Esc 仍会同时退出全屏和锁定，点"继续"再进。系统级快捷键（Mac 的 ⌘+空格、⌘+Tab）哪个浏览器都拦不住。
+- **按下的键可能收不到 keyup。** 窗口失焦之后、Mac 上按住 ⌘ 期间松开的键都没有 `keyup`。`input.releaseAll()` 在失焦、解锁、⌘ 按下和松开时清空按键；
+  失焦 `view.blurPauseDelay` 秒没回来自动暂停。新加"按住"类的状态要跟着 `inputrelease` 事件清掉（`devlog.js` 的按键位掩码就是这样）。
   首页不全屏："进入战斗"时才请求全屏，回首页时退出。
 - **自动弹出的界面要先显示再解锁鼠标。** 结算是 `ui.showResult` 之后才 `exitPointerLock`，`onLockChange(false)` 看到已经有界面就不管；
   顺序反了会先闪一下暂停菜单。

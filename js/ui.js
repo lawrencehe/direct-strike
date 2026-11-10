@@ -50,7 +50,7 @@ Game.UI = class UI {
     this.applyCrosshair();
     Game.Settings.onChange((k) => { if (k === 'crosshair') this.applyCrosshair(); });
 
-    // 鼠标锁定失败（比如按 Esc 后立刻点继续，浏览器会拒绝）：提示再点一次
+    // 鼠标锁定失败（比如按 Esc 后立刻点继续，浏览器会拒绝），input.js 自动重试一次也没成功：提示再点一次
     input.onLockError = () => this.toast('没能锁定鼠标，请再点一次');
   }
 
