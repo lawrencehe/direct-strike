@@ -1,10 +1,12 @@
-# Direct-Strike v0.27
+# Direct-Strike v0.28
 
 ![Direct-Strike](assets/brand/logo.png)
 
 一个纯浏览器运行的第一人称射击游戏。不需要安装任何东西，也不需要联网。
 
 **在线试玩：https://game.lightup.host**
+
+线上版从 `main` 分支部署，版本和本页标题一致；电脑浏览器打开就能玩（键鼠操作），想在本机跑见下面的"怎么运行"。
 
 ## 三种模式
 
