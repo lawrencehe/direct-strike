@@ -8,6 +8,9 @@
 | `models/gun/sg.glb` | SG 手枪，作者 H.John（模型文件内标注作者和 CC0）。同事从网上下载的 CC0 原作，按本项目调整后提供，不登记原作链接（负责人确认，#14） | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：拆成枪身、套筒、弹匣三个部件，补了弹匣体，缩放到全长 0.205 米并调整朝向，材质改不透明，贴图缩到 1024 并转 WebP |
 | `models/human/ukrainian-soldier.glb` | 乌克兰士兵，作者 H.John（模型文件内标注作者和 CC0）。同事从网上下载的 CC0 原作，按本项目调整后提供，不登记原作链接（负责人确认，#14） | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：转 180° 朝向，从 init_soldier.glb 移植 Idle/Walk/Run 动画，透明贴图合进颜色贴图、BLEND 改 MASK，贴图缩到 1024 并转 WebP |
 | `models/human/init_soldier.glb` | three.js 仓库 `examples/models/gltf/Soldier.glb`（r149），角色和动画来自 Mixamo | 随 three.js 以 MIT 协议分发，见 `../vendor/three.LICENSE` |
+| `sound/ak-1.mp3` `ak-2.mp3` `ak-far.mp3`、`m4-*.mp3`、`pistol-*.mp3` | [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) 的 Prepared 版（负责人提供，#45）：AK-47 `C_28P` / `C_31P`，AR-15 `D_32P` / `D_24P`，Walther PPQ `X_39P` / `X_31P` | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：切出单发、淡出、峰值归一化，转单声道 96 kbps mp3 |
+| `sound/mag-out.mp3` `mag-in.mp3` `rack-back.mp3` `rack-forward.mp3` | [Gun reload sounds](https://opengameart.org/content/gun-reload-sounds)，来自 OpenGameArt：`assaultriflereload1.wav`、`gunreload1.wav` | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：切成四个动作、淡出、归一化，转 mp3 |
+| `sound/frag.mp3` `flash.mp3` | [25 CC0 bang / firework SFX](https://opengameart.org/content/25-cc0-bang-firework-sfx)（OpenGameArt）的两段礼炮爆响；手雷再叠一层 Kenney [Sci-fi Sounds](https://kenney.nl/assets/sci-fi-sounds) 的 `low_frequency_explosion_000`（经 [Combat Sound Effects Pack](https://opengameart.org/node/195932) 下载） | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：叠层、剪长度、淡出、归一化，转 mp3 |
 | `../vendor/GLTFLoader.js` | three.js r147 `examples/js/loaders/GLTFLoader.js` | MIT |
 | `../vendor/SkeletonUtils.js` | three.js r147 `examples/js/utils/SkeletonUtils.js` | MIT |
 | `../vendor/meshopt_decoder.js` | meshoptimizer 1.3.0 `meshopt_decoder.cjs` | MIT |
@@ -20,6 +23,8 @@
 
 `assets/models/gun/m4.glb` 由 `assets-src/models/gun/m4.py` 从原始文件 `assets-src/models/gun/m4-download.glb` 加工、再用 `tools/glb.mjs optimize --texture-size 2048` 压缩而成；
 `assets/models/gun/sg.glb` 由 `assets-src/models/gun/sg.py` 从 `assets-src/models/gun/sg-handgun-download.glb` 加工、再用 `--texture-size 1024` 压缩而成。原始文件体积大，不入仓库，只保留在开发机上。
+
+`assets/sound/*.mp3` 由 `assets-src/sound/build.py`（`blender -b --python`）从原始录音剪出来：除枪声库以外的原始文件在 `assets-src/sound/source/`；枪声库原始 wav 共 329 MB，不入仓库，只保留在开发机上的 `assets-src/sound/Prepared SFX Library/`。
 
 `assets/models/gun/ak47.glb` 由 `assets-src/models/gun/ak47.py` 从下载的原始文件 `assets-src/models/gun/ak47-sketchfab.glb` 加工、再用 `tools/glb.mjs optimize` 压缩而成。
 

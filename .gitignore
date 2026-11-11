@@ -15,3 +15,6 @@ assets-src/models/gun/sg-handgun-download.glb
 assets-src/models/gun/sg-handgun/
 # 还没接进游戏的原始下载（锯短霰弹枪 + 手臂动画、另一套第一人称手臂）
 assets-src/models/arm/
+
+# 音效原始素材库（329 MB 的 96kHz wav），只在本机保留；剪好的成品在 assets/sound/，由 assets-src/sound/build.py 生成
+assets-src/sound/Prepared SFX Library/

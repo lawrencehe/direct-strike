@@ -74,6 +74,7 @@ await g.close();
 | `tools/tests/devlog.mjs` | #2：开发者模式的解锁、录制开销和零内存分配、事件、录画面的自动关闭保护、上传、分析脚本 |
 | `tools/tests/npc-grenade.mjs` | #5：引信从出手算、手雷按露出部位算伤害、推算玩家位置、听枪声、NPC 预演丢雷的准度、雷不卡在 NPC 身上 |
 | `tools/tests/input-focus.mjs` | #6：先锁鼠标再全屏、锁定被拒自动重试、全屏接管键盘后短按 Esc 只暂停、失焦和 ⌘ 后按键放开并自动暂停（开发机上约两分钟） |
+| `tools/tests/real-sfx.mjs` | #45：录音全部下载解码、起音在开头；开枪按选的枪放录音、NPC 和爆炸越远越闷越轻；空枪换弹四段按顺序响；没下完时退回合成声 |
 | `tools/tests/arm-wrist.mjs` | #3：每把枪、换弹中、三种投掷物的手腕相对绑定姿势弯折不超过 `wristMaxBend`、没有扭转；#11：步枪左手肘不在画面中间、小臂从画面下方伸出 |
 
 ```bash

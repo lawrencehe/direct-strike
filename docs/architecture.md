@@ -109,7 +109,15 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 - **布娃娃**（`ragdoll.js`）：Verlet 质点 + 距离约束，和地图方块碰撞，每帧把质点位置换算回 Mixamo 骨骼的旋转。
   不同死法（爆头、炸飞、打腿、打身体的三种倒法）只是初始冲量不同，参数在 `config.ragdoll`。
 - **血**（`effects.js`）：血雾是 Sprite；血滴共用一个 `THREE.Points` 环形缓冲；地上的血迹和血泊是逐渐变大的平面。
-- **音效**（`audio.js`）：Web Audio 实时合成，没有音频文件。
+- **音效**（`audio.js`）：Web Audio。枪声、换弹、手雷 / 闪光爆炸放 `assets/sound/` 的录音（#45），其他是实时合成的。
+  - `init()`（点开始时）后台 `fetch` + `decodeAudioData` 全部录音，不等；`sample(名字, {vol, pan, cutoff, rate})` 还没解码好就返回 `false`，
+    每个方法据此退回原来的合成声，所以网络慢或下载失败也照样有声音。
+  - 自己开枪：`config.loadout` 里每把枪的 `sound` 是录音前缀，`<sound>-1 / -2` 随机挑一发、音高抖 ±4%；NPC 开枪放 `<sound>-far`（中距录音，自带回声尾巴），
+    按距离衰减音量、加低通变闷（`audio.samples.muffle`），并分左右声道。爆炸同样按距离变闷。
+  - 录音由 `assets-src/sound/build.py`（`blender -b --python …`，用 Blender 自带的 aud 读写音频，不用装 ffmpeg）从原始素材切出来：
+    找起音、剪空白、淡出、叠层、峰值归一化到 -1 dBFS，压成 96 kbps 单声道 mp3。各段的相对音量在 `config.js` 的 `audio.samples.gain` 调，不改文件。
+    原始枪声库（329 MB）只在开发机的 `assets-src/sound/Prepared SFX Library/`，已 gitignore；其他小素材在 `assets-src/sound/source/` 进仓库。
+  - 开发机没有声卡，好不好听只能负责人真机听；`tools/tests/real-sfx.mjs` 只保证每段解码成功、起音在开头、接线对。
 
 ## 已知的坑
 

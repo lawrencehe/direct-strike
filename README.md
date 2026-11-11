@@ -1,4 +1,4 @@
-# Direct-Strike v0.32
+# Direct-Strike v0.33
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -112,8 +112,8 @@ direct-strike/
 │   └── deploy.md         部署架构、首次接入、回滚
 ├── maps/yard.json    ★ 地图数据：掩体、出生点、巡逻点、靶子
 ├── tools/            开发工具（验证、模型、图片、骨骼、地图），不发布；tools/tests/ 是留在仓库里的针对性测试，
-│                     tools/devlog/analyze.mjs 分析开发者模式上传的数据
-├── assets-src/       未压缩的模型母版和 Blender 加工脚本，不发布
+│                     tools/devlog/analyze.mjs 分析开发者模式上传的数据；tools/autopilot/ 定时处理 GitHub 上交给 Claude 的 issue
+├── assets-src/       未压缩的模型母版和 Blender 加工脚本（音效的剪辑脚本 assets-src/sound/build.py），不发布
 ├── CLAUDE.md         给 AI 助手看的项目约定
 ├── css/style.css     界面和 HUD 样式（颜色、字体是开头的 CSS 变量）
 ├── assets/
@@ -125,6 +125,7 @@ direct-strike/
 │   ├── models/gun/ak47.glb            AK 枪模（Blender 加工，CC BY 4.0，署名见 LICENSES.md）
 │   ├── models/gun/m4.glb              M4 枪模（Blender 加工，assets-src/models/gun/m4.py）
 │   ├── models/gun/sg.glb              SG 手枪枪模（Blender 加工，assets-src/models/gun/sg.py）
+│   ├── sound/                 真实录音的枪声、换弹、爆炸（mp3，CC0，由 assets-src/sound/build.py 剪出来）
 │   └── LICENSES.md          第三方资源的来源和协议，以及怎么换模型
 ├── vendor/
 │   ├── three.min.js         Three.js r149（3D 渲染库，MIT 协议）
@@ -153,7 +154,7 @@ direct-strike/
     ├── economy.js    经济：击杀赏金、出生点购买区、购买投掷物
     ├── ui.js         界面流程：加载 → 首页 → 作战简报 → 暂停 / 结算，设置页和改键
     ├── devlog.js     开发者模式：录每帧数据和画面、帧率浮层、上传（要服务器校验密码）
-    └── audio.js      用 Web Audio 实时合成的音效
+    └── audio.js      音效：枪声、换弹、爆炸放录音（没下完时用合成声顶着），提示音实时合成
 ```
 
 带 ★ 的文件是 FPS 的核心，建议优先阅读。
@@ -174,6 +175,7 @@ direct-strike/
 - **改手和手臂**：模型是 `assets/models/arm/arm.glb`，摆法和手指弯曲在 `gunmodel.js` 的 `buildArms`，握在枪上的位置在 `weapon.js` 的 `Weapon.VIEW`，尺寸在 `config.js` 的 `weapons.arms`
 - **改武器手感和伤害**：`config.js` 的 `weapons`（枪）和 `grenades`（投掷物）
 - **改换弹动作**：`weapon.js` 的 `Weapon.RELOAD`（每个动作在换弹进度里的时间段、音效时间点）
+- **改音效**：录音的音量、远处变闷在 `config.js` 的 `audio.samples`；换素材或切点改 `assets-src/sound/build.py` 再跑（见 `docs/architecture.md` 的"音效"）；提示音在 `audio.js`
 - **改赏金、价格、钱的上限**：`config.js` 的 `economy`
 - **改界面**：流程和规则见 `docs/ui.md`；结构在 `index.html`，逻辑在 `ui.js`，样式在 `css/style.css`，模式介绍文字在 `ui.js` 末尾的 `MODES`
 - **把需求交给 Claude 做**：开 GitHub issue，在 Claude Code 里说"ISSUE 编号"，Claude 接手做到 PR 待验收，说 `commit push & deploy` 上线，见 `docs/workflow.md`

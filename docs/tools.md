@@ -53,6 +53,7 @@ node tools/glb.mjs attach 模型.glb 枪.glb 输出.glb --bone RightHand
 node tools/glb-view.mjs compare 原始.glb 新.glb        # 压缩前后对比
 tools/rig.sh add-anim 模型.glb 动画.fbx --name Jump -o 输出.glb
 tools/img.sh png 输入.png 输出.png
+blender -b --python assets-src/sound/build.py         # 重新剪音效（切点在脚本的 CLIPS 里），输出到 assets/sound/
 ```
 
 详细参数见各脚本开头，或 `.claude/skills/*/SKILL.md`。输出都写到 `tools/out/`（不进 git）。
