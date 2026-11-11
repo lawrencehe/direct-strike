@@ -16,7 +16,22 @@ tools/setup.sh
 | gltf-transform | 4.5.1 | glb 优化和编辑，也可以直接用 `npx gltf-transform` |
 | Blender | 5.2.3 LTS | 动画重定向、骨骼处理、减面、建硬表面道具 |
 | pngquant / oxipng / cwebp / ImageMagick / rsvg-convert | 系统版本（oxipng 10.2.1） | 图片处理 |
-| GitHub CLI（`gh`） | 系统版本 | 开 issue、建和合并 PR、建 Release（`ship.sh` 要用）。不在 `setup.sh` 里，负责人自己装好并 `gh auth login`；token 要给本仓库 Issues、Pull requests、Contents 的读写权限 |
+| GitHub CLI（`gh`） | 系统版本 | 开 issue、建和合并 PR、建 Release（`ship.sh` 要用）。不在 `setup.sh` 里，开发机上登录的是机器账号 primorigin（见下面"GitHub 账号"） |
+
+## GitHub 账号
+
+开发机上 Claude（手动会话和自动任务）用机器账号 **primorigin** 操作 GitHub，负责人 lawrencehe 在网页上操作，两边在 GitHub 上分得开（#46）。
+
+- primorigin 是仓库协作者（Write）。负责人说"给 primorigin 处理"和"给 Claude 处理"是一回事。
+- `gh`：`gh auth login` 登录 primorigin（`gh auth status` 看当前账号）。`autopilot.sh` 认的负责人是仓库主人（`lawrencehe`），不看 gh 登录的是谁。
+- git 推送走 SSH，用 primorigin 名下的密钥 `~/.ssh/id_ed25519_primorigin`（没设密码，定时任务要用）。只配在本仓库，所有 worktree 共用：
+  ```bash
+  git config core.sshCommand "ssh -i ~/.ssh/id_ed25519_primorigin -o IdentitiesOnly=yes"
+  git config user.name primorigin
+  git config user.email primorigin@outlook.com
+  ```
+  `~/.ssh/id_ed25519` 是负责人 lawrencehe 的密钥，本仓库不用它。检查：`ssh -i ~/.ssh/id_ed25519_primorigin -o IdentitiesOnly=yes -T git@github.com` 应该回 `Hi primorigin!`。
+- 换开发机：新建密钥加到 primorigin 的 SSH keys，照上面配。
 
 ## 资源目录
 
