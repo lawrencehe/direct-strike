@@ -1,7 +1,7 @@
 # 项目状态
 
-> 最近更新：2026-11-11　｜　**每次做需求都要更新本页**，规则见 `CLAUDE.md` 的"需求文档和项目状态"。
-> 本页只写"现在怎样"，旧内容直接改掉或删掉；历史看 `requirements/`、GitHub 的 Releases 和 git log。
+> 最近更新：2026-11-11　｜　**每次做完一件事都要更新本页**，规则见 `CLAUDE.md` 的"文档和项目状态"。
+> 本页只写"现在怎样"，旧内容直接改掉或删掉；历史看 GitHub 的 issue、PR、Releases 和 git log。
 
 ## 版本
 
@@ -12,7 +12,7 @@
 
 ## 进行中
 
-交给 Claude 自动做的看标签 `交给Claude` / `Claude处理中` / `待验收` / `上线失败`，上线了的是 `已上线`（`autopilot.md`）。每条 issue 的结论和落到哪份文档看 [issues.md](issues.md)。正在做的需求看 [开启的 Milestone](https://github.com/lawrencehe/direct-strike/milestones) 和 [开着的 PR](https://github.com/lawrencehe/direct-strike/pulls)。
+交给 Claude 自动做的看标签 `交给Claude` / `Claude处理中` / `待验收` / `上线失败`，上线了的是 `已上线`（`autopilot.md`）。正在做的需求看 [开启的 Milestone](https://github.com/lawrencehe/direct-strike/milestones) 和 [开着的 PR](https://github.com/lawrencehe/direct-strike/pulls)。
 
 ## 现在能玩什么
 
@@ -25,7 +25,7 @@
 
 ## 已知问题和待办
 
-从 v0.26 起记在 GitHub Issues，这里不再手写清单（规则见 `docs/workflow.md`）：
+记在 GitHub Issues，这里不手写清单（规则见 `docs/workflow.md`）：
 
 | 看什么 | 链接 |
 |---|---|

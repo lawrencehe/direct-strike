@@ -74,10 +74,10 @@ fi
 
 # ---- 3a. 先把 main 合进分支（#47）----
 # 几个 PR 从同一个旧 main 开出来，前一个上线后，后面的会在版本号和文档登记这几处冲突，GitHub 上合并不了。
-# 只有这几处冲突时自动解决：版本号、status.md 取分支自己的（逐段，不冲突的地方照常合并），需求列表两边都留（分支的在上）。
+# 只有这几处冲突时自动解决：版本号、status.md 取分支自己的（逐段，不冲突的地方照常合并）。LEDGER_UNION 里的文件两边都留（现在没有）。
 # 别的文件冲突就放弃合并、退出，交给人处理。
 LEDGER_OURS="README.md index.html docs/status.md"
-LEDGER_UNION="docs/requirements/README.md"
+LEDGER_UNION=""
 sync_main() {
   git fetch -q origin main
   git merge-base --is-ancestor origin/main HEAD && return 0
