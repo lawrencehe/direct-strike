@@ -132,6 +132,7 @@ Game.GunModel = (function () {
   }
   const loaded = {};
   const isGunLoaded = (path) => !path || !!loaded[path];
+  const loadedGun = (path) => loaded[path] || null;   // NPC 用：已经下载好的枪模场景，没有就 null
 
   // slot：'rifle' | 'pistol'，按 config 里当前选的枪造一把。返回 { group, muzzle, bolt, mag, boltHome, magHome }
   function buildGun(slot) {
@@ -592,5 +593,5 @@ Game.GunModel = (function () {
     return { group: g.clone(true) };
   }
 
-  return { loadGun, isGunLoaded, buildGun, loadArms, buildPistol, buildGrenade, buildArms, GRIP_RADIUS, environment };
+  return { loadGun, isGunLoaded, loadedGun, buildGun, loadArms, buildPistol, buildGrenade, buildArms, GRIP_RADIUS, environment };
 })();

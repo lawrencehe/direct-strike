@@ -301,6 +301,12 @@ function startGame(mapData) {
   // NPC 模型是异步加载的，加载完才允许进入对战模式
   Game.Character.load().then((ok) => ui.setNpcReady(ok));
 
+  // NPC 每次出生随机拿 loadout 里的一把主武器、一把副武器（#54）。玩家没选的枪等首页出来后在后台下载，
+  // 不拖慢首次加载；没下载完之前 NPC 只从已经加载好的枪里挑（bots.js 的 pickGuns）
+  for (const slot of ['rifle', 'pistol']) {
+    for (const g of Object.values(Game.Config.loadout[slot])) Game.GunModel.loadGun(g.model).catch(() => {});
+  }
+
   // 首页换了装备（settings 已经把选择写回 Game.Config）：下载新模型，好了再换上。
   // 下载期间 ui 不让进入战斗；返回的 Promise 结束时 ui 刷新首页
   ui.onLoadout = (slot) => {

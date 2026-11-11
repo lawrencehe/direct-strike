@@ -144,7 +144,38 @@ Game.Character = (function () {
   // 手枪双手平举在胸前：握把在 (0.08, 1.35, -0.42) 附近，减去握把在枪里的位置就是枪的原点
   const PISTOL_POS = new THREE.Vector3(0.08, 1.4, -0.49);
 
-  // NPC 手里的手枪：用代码拼的默认手枪（gunmodel.js 的 buildPistol），不跟着玩家选的枪换。造一次，之后每个 NPC 克隆
+  // NPC 手里的枪和玩家用同一套（config.js 的 loadout）：每个 NPC 出生时由 bots.js 随机挑一把主武器、一把副武器（#54）。
+  // 有 glb 枪模的（AK、M4、SG）克隆已经加载好的模型；默认手枪是代码拼的（gunmodel.js 的 buildPistol）；
+  // glb 还没下载完或加载失败时退回方块步枪 / 默认手枪。
+  // 右手握把、左手托哪里，直接用第一人称的握持点（weapon.js 的 Weapon.VIEW[key].right / left），每把枪不用再量一遍。
+  // 方块枪的握把在枪里的位置：glb 枪要摆到握把落在同一点，手臂姿势才和方块枪一样
+  const BLOCK_GRIP = { rifle: new THREE.Vector3(0.02, -0.1, 0.06), pistol: new THREE.Vector3(0, -0.066, 0.075) };
+  // 左手：第一人称是从侧上方托着护木 / 包住握把，第三人称把手往左下挪一点，托在护木下面
+  const GUARD_SHIFT = { rifle: new THREE.Vector3(-0.03, -0.06, 0), pistol: new THREE.Vector3(-0.01, -0.004, -0.005) };
+
+  // slot：'rifle' | 'pistol'，key：loadout 里的枪名。返回 { group, muzzle, grip, guard, stockZ, muzzleZ, offset }
+  function buildGun(slot, key) {
+    const entry = Game.Config.loadout[slot][key];
+    const scene = entry && entry.model ? Game.GunModel.loadedGun(entry.model) : null;
+    const view = Game.Weapon && Game.Weapon.VIEW[key];
+    if (scene && view) return glbGun(slot, scene, view);
+    return slot === 'rifle' ? buildRifle() : buildPistol();
+  }
+
+  function glbGun(slot, scene, view) {
+    const g = scene.clone(true);   // 网格、材质共用缓存，只复制节点
+    g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.userData.shared = true; } });
+    g.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(g);
+    const at = (v) => { const o = new THREE.Object3D(); o.position.copy(v); g.add(o); return o; };
+    const muzzle = g.getObjectByName('muzzle');
+    const grip = at(view.right.pos);
+    const guard = at(view.left.pos.clone().add(GUARD_SHIFT[slot]));
+    // stockZ / muzzleZ：死后脱手掉落时，布娃娃用这两个点代表整把枪（见 ragdoll.js）
+    return { group: g, muzzle, grip, guard, stockZ: box.max.z, muzzleZ: muzzle.position.z, offset: BLOCK_GRIP[slot].clone().sub(view.right.pos) };
+  }
+
+  // 默认手枪造一次，之后每个 NPC 克隆
   let pistolProto = null;
   function buildPistol() {
     if (!pistolProto) {
@@ -156,15 +187,15 @@ Game.Character = (function () {
     const muzzle = at(pistolProto.muzzle.x, pistolProto.muzzle.y, pistolProto.muzzle.z);
     const grip = at(0, -0.066, 0.075);
     const guard = at(-0.01, -0.07, 0.07);   // 左手从另一侧包住握把
-    // stockZ / muzzleZ：死后脱手掉落时，布娃娃用这两个点代表整把枪（见 ragdoll.js）
     return { group: g, muzzle, grip, guard, stockZ: 0.1, muzzleZ: -0.15 };
   }
 
-  // 两把枪都挂在 parent 下，只显示手上那把。返回 { rifle, pistol }
-  function buildGuns(parent, riflePos, pistolPos) {
-    const guns = { rifle: buildRifle(), pistol: buildPistol() };
+  // 两把枪都挂在 parent 下，只显示手上那把。guns = { rifle: key, pistol: key }。返回 { rifle, pistol }
+  function buildGuns(parent, riflePos, pistolPos, keys) {
+    const guns = { rifle: buildGun('rifle', keys.rifle), pistol: buildGun('pistol', keys.pistol) };
     guns.rifle.group.position.copy(riflePos);
     guns.pistol.group.position.copy(pistolPos);
+    for (const g of Object.values(guns)) if (g.offset) g.group.position.add(g.offset);
     guns.pistol.group.visible = false;
     parent.add(guns.rifle.group, guns.pistol.group);
     return guns;
@@ -176,7 +207,7 @@ Game.Character = (function () {
     for (const [k, g] of Object.entries(model.guns)) g.group.visible = show && k === key;
   }
 
-  // 用几个方块拼一把步枪，返回 { group, muzzle, grip, guard }
+  // 备用：glb 枪模没加载好时，用几个方块拼一把步枪，返回 { group, muzzle, grip, guard }
   function buildRifle() {
     const dark = new THREE.MeshStandardMaterial({ color: 0x24262a, roughness: 0.5, metalness: 0.6 });
     const mid = new THREE.MeshStandardMaterial({ color: 0x45494f, roughness: 0.6, metalness: 0.4 });
@@ -215,7 +246,7 @@ Game.Character = (function () {
 
   // ---------------- glTF 士兵 ----------------
   class SoldierModel {
-    constructor() {
+    constructor(guns) {
       this.root = new THREE.Group();
       this.root.rotation.order = 'YXZ';
       this.hitMeshes = [];
@@ -264,7 +295,7 @@ Game.Character = (function () {
       // 枪挂在"躯干"组里，躯干跟着瞄准方向转，腿可以朝别处
       this.torso = new THREE.Group();
       this.root.add(this.torso);
-      this.guns = buildGuns(this.torso, RIFLE_POS, PISTOL_POS);
+      this.guns = buildGuns(this.torso, RIFLE_POS, PISTOL_POS, guns);
       equip(this, 'rifle');
 
       // 判定盒
@@ -432,7 +463,7 @@ Game.Character = (function () {
 
   // ---------------- 方块小人（备用） ----------------
   class BlockModel {
-    constructor() {
+    constructor(guns) {
       const mats = {
         shirt: new THREE.MeshStandardMaterial({ color: 0x4f5a3c, roughness: 0.9 }),
         pants: new THREE.MeshStandardMaterial({ color: 0x3b3f46, roughness: 0.9 }),
@@ -467,7 +498,7 @@ Game.Character = (function () {
       box(0.12, 0.12, 0.45, 0.24, 1.3, -0.2, mats.shirt, 'body');
       box(0.12, 0.12, 0.4, -0.12, 1.3, -0.32, mats.shirt, 'body');
 
-      this.guns = buildGuns(root, new THREE.Vector3(0.1, 1.36, -0.2), new THREE.Vector3(0.08, 1.42, -0.45));
+      this.guns = buildGuns(root, new THREE.Vector3(0.1, 1.36, -0.2), new THREE.Vector3(0.08, 1.42, -0.45), guns);
       equip(this, 'rifle');
 
       this.walkPhase = 0;
@@ -541,8 +572,9 @@ Game.Character = (function () {
     }
   }
 
-  function create() {
-    return asset ? new SoldierModel() : new BlockModel();
+  // guns = { rifle: key, pistol: key }：手上拿哪两把枪（loadout 里的名字）
+  function create(guns) {
+    return asset ? new SoldierModel(guns) : new BlockModel(guns);
   }
 
   return { load, create };
