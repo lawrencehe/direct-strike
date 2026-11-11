@@ -18,6 +18,7 @@
 
 | 版本 | 需求 | 状态 | 文档 |
 |---|---|---|---|
+| v0.30（工具） | Claude 用机器账号 primorigin 操作 GitHub，和负责人分开（#46） | 已完成 | [v0.30-machine-account.md](v0.30-machine-account.md) |
 | v0.30 | 购买体验：买完立刻关面板；购买区的文字提示换成购物车图标 | 已上线 | [v0.30-buy-ux.md](v0.30-buy-ux.md) |
 | v0.29 | 步枪左手托护木改成从左下方斜着包上去，小臂从画面下方伸出，手肘不再折在画面中间（#11） | 已上线 | [v0.29-left-arm-pose.md](v0.29-left-arm-pose.md) |
 | v0.28 | README 在线地址下补一行说明（线上从 main 部署、版本、怎么玩） | 已上线 | [v0.28-readme-online-url.md](v0.28-readme-online-url.md) |

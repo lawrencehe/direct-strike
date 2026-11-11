@@ -24,11 +24,11 @@
 - `已上线` 只代表合并部署成功、线上检查通过；真机效果有问题开新 issue。
 - 开发机上测不了的（手感、帧率、真机全屏），Claude 会另开 `待确认` issue 列出来，上线后你试。
 - 没有预览站点（项目还没面向玩家，负责人 2026-11-10 定的），所以"验收"看的是 PR 描述和截图说明，真机效果上线后看。
-- **通知**：Claude 用的是你的 GitHub 账号发评论，GitHub 不会给你推送"自己"的评论。
-  看进度就看 issue 列表的标签，或者收藏这几个筛选：
+- **账号和通知**：Claude 用机器账号 **primorigin** 操作 GitHub（提交、PR、合并、评论、改标签，2026-11-11 起，#46），
+  负责人是 lawrencehe。所以 Claude 的评论、PR 会推送通知给你。也可以收藏这几个筛选看进度：
   [待验收](https://github.com/lawrencehe/direct-strike/issues?q=is%3Aopen+label%3A%E5%BE%85%E9%AA%8C%E6%94%B6)、
   [等你回复](https://github.com/lawrencehe/direct-strike/issues?q=is%3Aopen+label%3A%E7%AD%89%E4%BD%A0%E5%9B%9E%E5%A4%8D)。
-  以后想要推送通知，可以给 Claude 单独建一个 GitHub 账号（机器人账号）。
+  开发机上的配置见 `tools.md` 的"GitHub 账号"。
 
 ## 规矩（脚本和提示词保证）
 
@@ -38,8 +38,8 @@
 - 碰到 Claude 的**额度限制**：留言、把任务放回队列，歇 60 分钟再试。
 - 单个任务**最长 90 分钟**，超时停下并留言。
 - **只认负责人**：只有仓库主人打的 `交给Claude`、`授权部署` 才算数（别人没有打标签的权限，脚本还会再查打标签的人）；
-  Claude 的评论第一行带 `<!-- autopilot -->`，脚本靠它区分"负责人说的"和"Claude 说的"。
-  手动会话里用你的账号发的评论（不带这个标记）也会被当成"负责人回复"，所以对 `等你回复` / `待验收` 的 issue 手动评论时注意。
+  "负责人说的"只算 lawrencehe 的评论；Claude（primorigin）的评论自然排除在外。
+  Claude 的评论第一行仍带 `<!-- autopilot -->`，换账号之前用负责人账号发的旧评论靠它区分。
 - Claude **不合并、不部署**，只提 PR；不扩大范围，需求不清楚就提问；不碰红线。权限模式是 `auto`（危险操作会被拦下），不用 `bypassPermissions`。
 - 在专用 worktree `/home/donkey/direct-strike-autopilot` 里做，不碰手动会话的目录。上一轮残留的改动会收进 `git stash`，不删。
 - 排队顺序：`优先` 的先做，然后按打 `交给Claude` 的时间。同一轮里上线 > 修改意见 > 回复后继续 > 新任务。
