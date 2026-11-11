@@ -19,7 +19,7 @@ REPO_DIR=${AUTOPILOT_REPO:-$(cd "$(dirname "$0")/../.." && pwd)}
 PROMPT_FILE=${AUTOPILOT_PROMPT:-$(dirname "$0")/prompt.md}
 WT=${AUTOPILOT_WORKTREE:-/home/donkey/direct-strike-autopilot}     # 自动任务专用的 worktree，不碰手动会话的目录
 STATE=${AUTOPILOT_STATE:-$HOME/.local/state/direct-strike-autopilot}
-MAX_PER_DAY=${AUTOPILOT_MAX_PER_DAY:-5}         # 每天最多启动几次 Claude（开发和修改都算，上线不算）
+MAX_PER_DAY=${AUTOPILOT_MAX_PER_DAY:-10}        # 每天最多接手几个新任务（只数新开工的 issue；继续、修改、上线不算，启动 Claude 的次数不限）
 TIMEOUT_MIN=${AUTOPILOT_TIMEOUT_MIN:-90}        # 单个任务最长多少分钟
 COOLDOWN_MIN=${AUTOPILOT_COOLDOWN_MIN:-60}      # 碰到额度限制后歇多久
 MARK='<!-- autopilot -->'
@@ -154,10 +154,10 @@ fi
 [ -z "$TASK" ] && { echo "没有要做的"; exit 0; }
 log "这一轮：#$NUM $TASK"
 
-# ---- 2. 每天的上限（上线不启动 Claude，不算） ----
+# ---- 2. 每天的上限：只数新接手的任务（develop），已经接手的 issue 继续做、按意见改、上线都不算 ----
 TODAY="$STATE/count-$(date +%F)"
-if [ "$TASK" != ship ] && [ "$(cat "$TODAY" 2>/dev/null || echo 0)" -ge "$MAX_PER_DAY" ]; then
-  log "今天已经启动了 $MAX_PER_DAY 次 Claude，明天再做 #$NUM"
+if [ "$TASK" = develop ] && [ "$(cat "$TODAY" 2>/dev/null || echo 0)" -ge "$MAX_PER_DAY" ]; then
+  log "今天已经接手了 $MAX_PER_DAY 个新任务，明天再做 #$NUM"
   if [ ! -f "$STATE/notified-$(date +%F)" ] && [ $DRY = 0 ]; then
     comment "$NUM" "今天自动处理的任务数到上限了（$MAX_PER_DAY 个），这个明天接着做。想马上做，在 Claude Code 里说\"做 #$NUM\"。"
     touch "$STATE/notified-$(date +%F)"
@@ -193,7 +193,7 @@ fi
 [ "$TASK" = ship ] && { do_ship; exit 0; }
 
 # ---- 4b. 开发 / 修改 / 继续：启动 Claude ----
-echo $(( $(cat "$TODAY" 2>/dev/null || echo 0) + 1 )) > "$TODAY"
+[ "$TASK" = develop ] && echo $(( $(cat "$TODAY" 2>/dev/null || echo 0) + 1 )) > "$TODAY"
 PROMPT=$(REPO="$REPO" NUM="$NUM" TASK="$TASK" BRANCH="$BRANCH" PR="$PR" VER="$VER" MARK="$MARK" \
          L_REVIEW="$L_REVIEW" L_ASK="$L_ASK" L_DOING="$L_DOING" L_QUEUE="$L_QUEUE" \
          envsubst '$REPO $NUM $TASK $BRANCH $PR $VER $MARK $L_REVIEW $L_ASK $L_DOING $L_QUEUE' < "$PROMPT_FILE")
