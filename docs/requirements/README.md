@@ -19,6 +19,7 @@
 | 版本 | 需求 | 状态 | 文档 |
 |---|---|---|---|
 | v0.29 | 步枪左手托护木改成从左下方斜着包上去，小臂从画面下方伸出，手肘不再折在画面中间（#11） | 已上线 | [v0.29-left-arm-pose.md](v0.29-left-arm-pose.md) |
+| v0.28 | README 在线地址下补一行说明（线上从 main 部署、版本、怎么玩） | 已上线 | [v0.28-readme-online-url.md](v0.28-readme-online-url.md) |
 | v0.27 | 自动任务：issue 打 `交给Claude` 由开发机定时交给 Claude 做，一次一个，评论区同步进度，评论 commit push & deploy 上线 | 已上线 | [v0.27-autopilot.md](v0.27-autopilot.md) |
 | v0.26 | 项目管理迁到 GitHub：Issue、PR、Milestone、Release，`ship.sh` 走 PR 合并 | 已上线 | [v0.26-github-workflow.md](v0.26-github-workflow.md) |
 | v0.26 | Mac 误触系统快捷键后按键错乱；Esc 退出全屏后点"继续"报错 | 已上线（待真机确认） | [v0.26-keyboard-fullscreen.md](v0.26-keyboard-fullscreen.md) |

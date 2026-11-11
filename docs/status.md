@@ -1,18 +1,18 @@
 # 项目状态
 
-> 最近更新：2026-11-10　｜　**每次做需求都要更新本页**，规则见 `CLAUDE.md` 的"需求文档和项目状态"。
+> 最近更新：2026-11-11　｜　**每次做需求都要更新本页**，规则见 `CLAUDE.md` 的"需求文档和项目状态"。
 > 本页只写"现在怎样"，旧内容直接改掉或删掉；历史看 `requirements/`、GitHub 的 Releases 和 git log。
 
 ## 版本
 
 | | 版本 | 说明 |
 |---|---|---|
-| 线上 https://game.lightup.host | v0.29 | 从 `main` 部署 |
+| 线上 https://game.lightup.host | v0.29 | 从 `main` 部署（2026-11-11） |
 | `main` | v0.29 | 各版本的改动看 [Releases](https://github.com/lawrencehe/direct-strike/releases) |
 
 ## 进行中
 
-交给 Claude 自动做的看标签 `交给Claude` / `Claude处理中` / `待验收`（`autopilot.md`）。正在做的需求看 [开启的 Milestone](https://github.com/lawrencehe/direct-strike/milestones) 和 [开着的 PR](https://github.com/lawrencehe/direct-strike/pulls)。
+交给 Claude 自动做的看标签 `交给Claude` / `Claude处理中` / `待验收` / `上线失败`，上线了的是 `已上线`（`autopilot.md`）。正在做的需求看 [开启的 Milestone](https://github.com/lawrencehe/direct-strike/milestones) 和 [开着的 PR](https://github.com/lawrencehe/direct-strike/pulls)。
 
 ## 现在能玩什么
 
