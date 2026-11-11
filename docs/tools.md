@@ -20,11 +20,11 @@ tools/setup.sh
 
 ## GitHub 账号
 
-开发机上 Claude（手动会话和自动任务）用机器账号 **primorigin** 操作 GitHub，负责人 lawrencehe 在网页上操作，两边在 GitHub 上分得开（#46）。
+开发机上 Claude 用机器账号 **primorigin** 操作 GitHub，负责人 lawrencehe 在网页上操作，两边在 GitHub 上分得开（#46）。
 
 - primorigin 是仓库协作者（Write）。负责人说"给 primorigin 处理"和"给 Claude 处理"是一回事。
-- `gh`：`gh auth login` 登录 primorigin（`gh auth status` 看当前账号）。`autopilot.sh` 认的负责人是仓库主人（`lawrencehe`），不看 gh 登录的是谁。
-- git 推送走 SSH，用 primorigin 名下的密钥 `~/.ssh/id_ed25519_primorigin`（没设密码，定时任务要用）。只配在本仓库，所有 worktree 共用：
+- `gh`：`gh auth login` 登录 primorigin（`gh auth status` 看当前账号）。
+- git 推送走 SSH，用 primorigin 名下的密钥 `~/.ssh/id_ed25519_primorigin`（没设密码）。只配在本仓库，所有 worktree 共用：
   ```bash
   git config core.sshCommand "ssh -i ~/.ssh/id_ed25519_primorigin -o IdentitiesOnly=yes"
   git config user.name primorigin
@@ -46,7 +46,6 @@ Blender 读不了 meshopt 压缩过的文件，所以母版不能省。
 node tools/verify.mjs                                 # 验证游戏
 node tools/tests/<需求>.mjs                           # 某个需求的针对性测试（见 docs/testing.md）
 tools/ship.sh -v v0.13 -m 提交信息文件 -c 6 --tag      # 提交、建 PR 并入 main、部署、打 tag、建 Release（见 docs/workflow.md）
-tools/autopilot/install.sh status                       # 自动任务的定时器和日志（见 docs/autopilot.md）
 node tools/map-check.mjs [--map 文件]                 # 检查地图，生成俯视图（格式见 docs/maps.md）
 node tools/glb.mjs info 文件.glb                       # 查看模型
 node tools/glb.mjs optimize 输入.glb 输出.glb --drop TPose

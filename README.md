@@ -178,7 +178,7 @@ direct-strike/
 - **改音效**：录音的音量、远处变闷在 `config.js` 的 `audio.samples`；换素材或切点改 `assets-src/sound/build.py` 再跑（见 `docs/architecture.md` 的"音效"）；提示音在 `audio.js`
 - **改赏金、价格、钱的上限**：`config.js` 的 `economy`
 - **改界面**：流程和规则见 `docs/ui.md`；结构在 `index.html`，逻辑在 `ui.js`，样式在 `css/style.css`，模式介绍文字在 `ui.js` 末尾的 `MODES`
-- **把需求交给 Claude 自动做**：GitHub issue 打 `交给Claude` 标签，进度看评论，评论 `commit push & deploy` 上线，见 `docs/autopilot.md`
+- **把需求交给 Claude 做**：开 GitHub issue，在 Claude Code 里说"ISSUE 编号"，Claude 接手做到 PR 待验收，说 `commit push & deploy` 上线，见 `docs/workflow.md`
 - **查真机上的卡顿、动画和手感问题**：游戏里的开发者模式（设置 → 开发者）录下来上传，开发用 `tools/devlog/analyze.mjs` 分析，见 `docs/devmode.md`
 - **改死亡效果**：`config.js` 的 `ragdoll`（爆头打飞的力度、尸体留多久）
 - **改地图**：改 `maps/yard.json`，格式见 `docs/maps.md`；要加新种类的物体再改 `world.js` 的 `builders`

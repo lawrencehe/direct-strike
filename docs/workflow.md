@@ -27,8 +27,7 @@
 
 规则：
 
-- **开 issue 只是记录**；打 `交给Claude` 标签才交给自动任务做（开发机每 30 分钟检查，一次一个），流程见 `autopilot.md`。
-  对应标签：`交给Claude`（排队）、`Claude处理中`、`等你回复`、`待验收`、`优先`、`授权部署`（同意上线，自动合并部署并关 issue）、`上线失败`、`已上线`（ship.sh 部署成功后打）。
+- **开 issue 只是记录**；负责人在会话里指定编号，Claude 才做那一条（见下面"负责人指定 issue"）。
 - **新会话开工前**看 `status.md` 和开着的 issue：`gh issue list`（`--label 待确认` 之类筛选）。
 - 负责人提的新需求、发现的问题，先开 issue（写负责人原话），再动手。
 - 需求做完，遗留的问题都开成 issue（写"来源：#N"）。需要真机确认的也开一条 `待确认`。
@@ -36,6 +35,30 @@
 - **仓库是公开的**：issue、PR、Release 里不贴开发者模式录的数据和视频、服务器密码和令牌、玩家信息；
   只写现象、结论和上传编号。
 - v0.1 ~ v0.25 的 Release、v0.20 ~ v0.25 的 Milestone 和需求 issue（#1 ~ #5）是 2026-11-10 补建的，当时还没走 PR。
+
+## 负责人指定 issue（`/issue`）
+
+负责人新开 Claude Code 会话，说"ISSUE51"（或 `#51`、"做 51"、"继续 51"），Claude 就用 `/issue` skill 做这一条、跟进到上线。
+**Claude 不自己挑 issue，也不定时拉取**（#58）：原来的定时自动任务（#29）实践下来效果不理想，已删除。
+
+| 负责人做什么 | 会发生什么 |
+|---|---|
+| 开 issue | 只是记录 |
+| 在会话里说"ISSUE N" | Claude 看 issue 到哪一步；新任务就留"已接手"评论（打算怎么做、版本、分支），标签 `Claude处理中` |
+| — | 有问题当场问你，结论记在 issue 评论里；你要走开就留言提问、标 `等你回复`，下次说"ISSUE N"接着做 |
+| — | 做完：提 PR（`Closes #N`），评论"改了什么、怎么验证的、要你真机试什么"，标 `待验收` |
+| 提修改意见（会话里说，或写在 issue 里再说"ISSUE N"） | 在同一个分支和 PR 上改 |
+| 说 `commit push & deploy` | `/ship`：合并上线、打 tag、建 Release，issue 关闭并标 `已上线`、评论"✅ 已上线 vX.Y" |
+
+- 标签：`Claude处理中`、`等你回复`、`待验收` 表示进度，`已上线` 由 `ship.sh` 打。`已上线` 只代表合并部署成功、线上检查通过；真机效果有问题开新 issue。
+  `交给Claude`、`优先`、`授权部署`、`上线失败` 是定时自动任务用的，不再使用（`ship.sh` 上线时仍会顺手摘掉）。
+- 每个 issue 在自己的 worktree `/home/donkey/direct-strike-issue-N` 里做，`tools/node_modules` 软链接到主目录（verify 要用）。
+  几个会话同时做不同 issue 互不干扰；做完不删。
+- 版本号开工时就定：`main` 的版本和开着的 PR 占用的版本取最大的加一，写进分支名、`README.md` 和 `index.html`，`status.md` 写成上线后的样子。
+  几个 PR 同时等上线时**按版本号从小到大上**；版本号比 `main` 旧的会被 `ship.sh` 拦下（版本号不倒退）。
+  前一个上线后，后面的 PR 和 `main` 在版本号、`status.md` 这几处冲突是正常的，`ship.sh` 合并前会自动解决（#47）。
+- 本机 gh 2.46 的 `gh pr edit`、`gh issue view --comments`、`gh pr view`（不带 `--json`）会报 Projects (classic) 的 GraphQL 错，
+  查东西带 `--json`，改 PR 正文走 `gh api -X PATCH`。
 
 ## 分支
 
@@ -49,7 +72,7 @@
 
 **分支不删除**，本地和远端都保留，留着完整的开发历史。直接在 `main` 上做的小改动没有 PR，提交信息里写 `#N` 关联 issue 就行。
 
-**同时做两个需求时用 `git worktree` 分开目录**（例如 `git worktree add ../direct-strike-v0.27 -b v0.27-xxx main`）。
+**同时做两个需求时用 `git worktree` 分开目录**（`/issue` 每个 issue 一个，见上；手动的例如 `git worktree add ../direct-strike-v0.27 -b v0.27-xxx main`）。
 同一个目录里两个会话同时改，`ship.sh` 的 `git add -A` 会把另一个会话没做完的改动一起提交（v0.23、v0.26 都出过）。
 
 ## 提交信息
