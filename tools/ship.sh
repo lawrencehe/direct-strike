@@ -72,9 +72,53 @@ else
   echo "✓ 提交 $(git log --oneline -1)"
 fi
 
+# ---- 3a. 先把 main 合进分支（#47）----
+# 几个 PR 从同一个旧 main 开出来，前一个上线后，后面的会在版本号和文档登记这几处冲突，GitHub 上合并不了。
+# 只有这几处冲突时自动解决：版本号、status.md 取分支自己的（逐段，不冲突的地方照常合并），需求列表两边都留（分支的在上）。
+# 别的文件冲突就放弃合并、退出，交给人处理。
+LEDGER_OURS="README.md index.html docs/status.md"
+LEDGER_UNION="docs/requirements/README.md"
+sync_main() {
+  git fetch -q origin main
+  git merge-base --is-ancestor origin/main HEAD && return 0
+  local mainver; mainver=$(git show origin/main:README.md | head -1 | grep -oE 'v[0-9]+\.[0-9]+' || true)
+  if [ -n "$mainver" ] && [ "$mainver" != "$CUR" ] && [ "$(printf '%s\n%s\n' "$mainver" "$CUR" | sort -V | tail -1)" = "$mainver" ]; then
+    die "分支版本 $CUR 比 main 上的 $mainver 旧，上线会让版本号倒退：用 -v 改成更新的版本号，或者先上线版本号小的 PR"
+  fi
+  if git merge -q --no-edit origin/main >/dev/null 2>&1; then
+    git commit -q --amend -m "$CUR：合并 main" >/dev/null
+    echo "✓ 合并 main 进分支（没有冲突）"; return 0
+  fi
+  local f bad="" fixed=""
+  for f in $(git diff --name-only --diff-filter=U); do
+    case " $LEDGER_OURS $LEDGER_UNION " in *" $f "*) ;; *) bad="$bad $f" ;; esac
+  done
+  if [ -n "$bad" ]; then git merge --abort; die "和 main 冲突，不是版本登记，要人来解决：$bad"; fi
+  local tmp; tmp=$(mktemp -d)
+  for f in $(git diff --name-only --diff-filter=U); do
+    git show ":1:$f" > "$tmp/base" 2>/dev/null || : > "$tmp/base"
+    git show ":2:$f" > "$tmp/ours"; git show ":3:$f" > "$tmp/theirs"
+    case " $LEDGER_UNION " in *" $f "*) mode=--union ;; *) mode=--ours ;; esac
+    git merge-file -q $mode "$tmp/ours" "$tmp/base" "$tmp/theirs" || true
+    cp "$tmp/ours" "$f"; git add "$f"; fixed="$fixed $f"
+  done
+  rm -rf "$tmp"
+  grep -lE '^(<<<<<<<|>>>>>>>) ' $LEDGER_OURS $LEDGER_UNION 2>/dev/null && { git merge --abort; die "自动解决后还有冲突标记，已放弃合并"; }
+  git commit -q -m "$CUR：合并 main，自动解决版本号和文档登记的冲突" -m "冲突文件：$fixed"
+  echo "✓ 合并 main 进分支，自动解决了：$fixed"
+}
+
 # ---- 3. 并入 main 并推送（分支也推，分支不删） ----
 PRNUM=""
 if [ "$BR" != main ]; then
+  if [ $PR = 1 ]; then
+    PRE=$(git rev-parse HEAD); sync_main
+    # 合并后的代码没验证过：除非只动了文档或指定跳过，再跑一次 verify
+    if [ $SKIPV = 0 ] && git diff --name-only "$PRE" HEAD | grep -qvE '^(docs/|\.claude/|.*\.md$)'; then
+      OUT=$(node tools/verify.mjs --modes menu,duel 2>&1) || { echo "$OUT" | tail -8; die "合并 main 后 verify 没通过（分支上已有合并提交，没推送）"; }
+      echo "✓ 合并后 verify：$(echo "$OUT" | tail -1)"
+    fi
+  fi
   git push -q -u origin "$BR" && echo "✓ 推送分支 $BR"
   if [ $PR = 1 ]; then
     # 建 PR（这个分支已有开着的 PR 就沿用），在 GitHub 上用合并提交并入 main，不删分支
