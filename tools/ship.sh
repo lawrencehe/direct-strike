@@ -15,7 +15,8 @@
 #   --live-verify    部署后再用无头浏览器验证线上（慢，约 1 分钟）
 #   --skip-verify    跳过本地 verify（只改了文档时会自动跳过）
 set -euo pipefail
-cd "$(dirname "$0")/.."
+# SHIP_DIR：要发布的仓库目录。自动任务跑的是 origin/main 上的 ship.sh 副本（不在仓库里），用它指定 worktree
+cd "${SHIP_DIR:-$(dirname "$0")/..}"
 
 VER="" MSG="" DEPLOY=1 LIVE=0 SKIPV=0 TAG=0 PR=1 CLOSES=""
 while [ $# -gt 0 ]; do
@@ -93,7 +94,9 @@ if [ "$BR" != main ]; then
       if [ -n "$CLOSES" ]; then
         BODY=$(mktemp); gh pr view "$PRNUM" --json body -q .body > "$BODY" || true
         for n in ${CLOSES//,/ }; do grep -qx "Closes #$n" "$BODY" || printf '\nCloses #%s' "$n" >> "$BODY"; done
-        gh pr edit "$PRNUM" --body-file "$BODY" >/dev/null; rm -f "$BODY"
+        # 不用 gh pr edit：gh 2.46 会去读已下线的 Projects (classic)，报 GraphQL 错（#31 上线因此失败），改走 REST
+        gh api -X PATCH "repos/$REPO/pulls/$PRNUM" -F "body=@$BODY" >/dev/null || echo "! 没改成 PR 正文（Closes 没加上，合并后手动关 issue）"
+        rm -f "$BODY"
       fi
     fi
     gh pr merge "$PRNUM" --merge >/dev/null 2>&1 \
@@ -179,6 +182,22 @@ if [ $TAG = 1 ]; then
       fi
     fi
   fi
+fi
+
+# ---- 6. issue 收尾：部署成功才做。关闭、去掉流程标签、打 已上线、评论"已上线"（手动 /ship 和自动任务都走这里）----
+if [ $DEPLOY = 1 ] && [ $PR = 1 ] && [ -n "$CLOSES" ]; then
+  sleep 3   # PR 的 Closes 关 issue 是异步的，先等一下
+  for n in ${CLOSES//,/ }; do
+    [ "$(gh issue view "$n" --json state -q .state)" = OPEN ] && gh issue close "$n" >/dev/null
+    # 用 REST 改标签（gh issue edit 在 gh 2.46 上可能碰到 Projects (classic) 的错）；没有的标签删不掉，忽略
+    for l in 交给Claude Claude处理中 等你回复 待验收 授权部署 上线失败; do
+      gh api -X DELETE "repos/$REPO/issues/$n/labels/$l" >/dev/null 2>&1 || true
+    done
+    gh api -X POST "repos/$REPO/issues/$n/labels" -f "labels[]=已上线" >/dev/null || echo "! #$n 没打上 已上线 标签"
+    gh issue comment "$n" --body "$(printf '<!-- autopilot -->\n✅ **已上线 %s**：%s\n\n%s已合并进 main 并部署，线上检查通过，issue 已关闭。\n真机试玩有问题就开新 issue（要 Claude 做的话打 `交给Claude`）。' \
+      "$CUR" "$SITE" "${PRNUM:+PR #$PRNUM }")" >/dev/null || echo "! #$n 没发成已上线评论"
+    echo "✓ #$n 已关闭，标为 已上线"
+  done
 fi
 
 # 回到原来的分支继续开发

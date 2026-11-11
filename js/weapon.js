@@ -650,13 +650,17 @@ Game.Weapon.REST_POSE = { tilt: 0, grab: 0, mag: 0, away: 0, jolt: 0, rack: 0 };
 {
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
   const tilt = (a) => new THREE.Quaternion().setFromEuler(new THREE.Euler(a, 0, 0));
-  // 左手托护木时掌心朝上（护木轴线是 z），用基向量直接写朝向
-  const cradle = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(0, 1, 0), V(0, 0, -1), V(-1, 0, 0)));
+  // 左手托护木（护木轴线是 z）：先摆成掌心正朝上，再绕护木轴往右转 SUPPORT_ROLL，让手从左下方斜着包住护木。
+  // 掌心正朝上时手指横着朝右、手腕在护木正左边，小臂只能水平往左伸，手肘折在画面中间（#11）；
+  // 转过来以后手腕到了护木左下方，小臂顺着从画面左下角伸出去，手肘在画面外。
+  const SUPPORT_ROLL = 30 * Math.PI / 180;
+  const cradle = new THREE.Quaternion().setFromAxisAngle(V(0, 0, 1), SUPPORT_ROLL)
+    .multiply(new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(0, 1, 0), V(0, 0, -1), V(-1, 0, 0))));
 
   Game.Weapon.VIEW = {
     ak: {
       right: { R: 0.024, pos: V(0, -0.052, 0.13), quat: tilt(-0.25), armDir: V(0.35, -0.6, 0.72) },
-      left: { R: 0.036, pos: V(0, 0.022, -0.215), quat: cradle, armDir: V(-0.5, -0.55, 0.67) },
+      left: { R: 0.036, pos: V(0, 0.022, -0.215), quat: cradle, armDir: V(-0.62, -0.58, 0.53) },
       leftGrab: V(0, -0.13, -0.095),
       scale: 0.75, basePos: V(0.155, -0.15, -0.5), baseRot: new THREE.Euler(0.0, 0.07, 0.0),
       boltKick: 0.07, magDrop: 0.16, magBack: 0.05, magTilt: 0.5,
@@ -664,7 +668,7 @@ Game.Weapon.REST_POSE = { tilt: 0, grab: 0, mag: 0, away: 0, jolt: 0, rack: 0 };
     },
     m4: {
       right: { R: 0.024, pos: V(0, -0.1, 0.11), quat: tilt(-0.35), armDir: V(0.35, -0.6, 0.72) },
-      left: { R: 0.034, pos: V(0, 0.0, -0.2), quat: cradle, armDir: V(-0.5, -0.55, 0.67) },
+      left: { R: 0.034, pos: V(0, 0.0, -0.2), quat: cradle, armDir: V(-0.62, -0.58, 0.53) },
       leftGrab: V(0, -0.13, -0.03),
       scale: 0.75, basePos: V(0.155, -0.15, -0.46), baseRot: new THREE.Euler(0.0, 0.07, 0.0),
       boltKick: 0.03, magDrop: 0.16, magBack: 0.02, magTilt: 0.3,

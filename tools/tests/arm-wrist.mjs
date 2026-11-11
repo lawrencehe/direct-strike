@@ -1,5 +1,6 @@
 // v0.22 的针对性测试：第一人称手臂的手腕不弯折过度、不扭转（gunmodel.js 的 buildArms().solve）。
 // 每把枪 / 手雷、换弹中左手去抓弹匣时，量手腕骨骼相对蒙皮绑定姿势转了多少，拆成"弯折"和"绕小臂的扭转"。
+// v0.29（#11）：步枪左手托护木时，小臂从画面下方伸出去、手肘不在画面里（以前小臂水平往左，手肘折在画面中间）。
 // 用法（在仓库根目录）：node tools/tests/arm-wrist.mjs
 import { openGame } from '../lib/game-page.mjs';
 const g = await openGame({ width: 1280, height: 720 });
@@ -45,6 +46,18 @@ await p.evaluate(() => {
     }
     return out;
   };
+  // 步枪左臂在画面里的样子：手肘在屏幕上的位置（NDC，-1 是画面下沿 / 左沿）、小臂（手腕 → 手肘）在枪模相机里的方向
+  window.leftArmView = (model) => {
+    let sk = null;
+    model.traverse((o) => { if (!sk && o.isSkinnedMesh) sk = o.skeleton; });
+    const cam = game.weapon.weaponCamera;
+    cam.updateMatrixWorld();
+    const B = (n) => sk.bones.find((b) => b.name.startsWith('L_' + n + '_'));
+    const P = (b) => new THREE.Vector3().setFromMatrixPosition(b.matrixWorld);
+    const e = P(B('elbow')).project(cam);
+    const fore = cam.worldToLocal(P(B('elbow'))).sub(cam.worldToLocal(P(B('wrist')))).normalize();
+    return { elbowX: +e.x.toFixed(2), elbowY: +e.y.toFixed(2), foreDown: +(-fore.y).toFixed(2) };
+  };
 });
 
 const maxBend = await p.evaluate(() => Game.Config.weapons.arms.wristMaxBend);
@@ -57,6 +70,14 @@ for (const [rifle, pistol] of [['m4', 'sg'], ['ak', 'beretta']]) {
   await p.waitForFunction(([r, s]) => game.weapon.guns.rifle.key === r && game.weapon.guns.pistol.key === s, [rifle, pistol], { timeout: 60000 });
   for (const [key, slot, name] of [['Digit1', 'rifle', rifle], ['Digit2', 'pistol', pistol]]) {
     judge(name, await p.evaluate(([k, slot]) => { press(k); tick(1.2); return measure(game.weapon.guns[slot].model); }, [key, slot]));
+    if (slot === 'rifle') {
+      const v = await p.evaluate(() => leftArmView(game.weapon.guns.rifle.model));
+      // 手肘在画面下沿附近或以外；小臂往下伸（方向的向下分量 ≥ 0.4，以前是 0.2 左右、几乎水平）
+      check(v.elbowY <= -0.9 || v.elbowX <= -1, `${name} 左手肘不在画面中间`, v);
+      check(v.foreDown >= 0.4, `${name} 左小臂从画面下方伸出`, v);
+      await p.waitForTimeout(600);
+      await p.screenshot({ path: `tools/out/tests/arm-${name}.jpg`, type: 'jpeg', quality: 85 });
+    }
     // 换弹到一半：左手去抓弹匣
     judge(`${name} 换弹中`, await p.evaluate((slot) => {
       const it = game.weapon.guns[slot]; it.ammo = 0; tick(0.5);
