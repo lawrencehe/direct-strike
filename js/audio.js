@@ -101,6 +101,10 @@ Game.Audio = class Audio {
   swap()     { this.click(0, 0.18); this.click(0.1, 0.12); }
   pullPin()  { this.click(0, 0.22); this.tone(2600, 0.05, 'sine', 0.08, 0.03); }
   spoon()    { this.tone(3200, 0.09, 'sine', 0.07); this.click(0, 0.15); }   // 握片弹开的"叮"
+  // 买成功："咔"一下加两声上扬的亮音，比赏金的 cash() 响、明显
+  purchase() { this.click(0, 0.45); this.tone(1320, 0.07, 'triangle', 0.32); this.tone(1980, 0.2, 'triangle', 0.3, 0.07); this.click(0.07, 0.25); }
+  // 买不了（钱不够 / 带满 / 不在购买区）：低沉的两下"嗡"
+  denied()   { this.tone(190, 0.09, 'square', 0.1); this.tone(150, 0.13, 'square', 0.09, 0.1); }
   cash()     { this.tone(1700, 0.05, 'sine', 0.15); this.tone(2550, 0.1, 'sine', 0.13, 0.05); }   // 买到东西 / 拿到赏金
   bounce(v)  { this.click(0, Math.min(0.35, 0.05 + v * 0.03)); }
 

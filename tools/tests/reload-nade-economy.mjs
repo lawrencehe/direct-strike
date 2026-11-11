@@ -99,16 +99,19 @@ r = await p.evaluate(() => {
   const e = game.economy, w = game.weapon, pl = game.player;
   w.equipNow('rifle');
   pl.position.copy(pl.spawn); tick(0.1);
-  const zone = e.inZone, tip = document.getElementById('buy-tip').textContent;
+  const zone = e.inZone, tip = document.getElementById('buy-cue').classList.contains('show');
   press('KeyB'); tick(1 / 60);
   const open = e.open;
   const before = { ...w.counts };
+  // 买成功面板就关了（v0.30），再买要重新按 B；买不了面板不关
   press('Digit3'); tick(1 / 60);
-  press('Digit3'); tick(1 / 60);       // 上限 2，第二次应该买不了（开局 1 + 1）
+  press('KeyB'); tick(1 / 60); press('Digit3'); tick(1 / 60);
+  press('KeyB'); tick(1 / 60); press('Digit3'); tick(1 / 60);   // 上限 2，这次买不了，面板还开着
   press('Digit4'); tick(1 / 60);
+  press('KeyB'); tick(1 / 60);         // 截面板用
   return { zone, tip, open, before, after: { ...w.counts }, money: e.money, current: w.current, pending: w.pending };
 });
-check(r.zone && r.open && r.tip.includes('购买'), '出生点里按 B 打开面板', r);
+check(r.zone && r.open && r.tip, '出生点里按 B 打开面板', r);
 check(r.after.frag === 2 && r.after.flash === 2 && r.money === 2000 - (2 - r.before.frag) * 300 - 200, '买到手雷和闪光，扣钱正确，手雷上限 2', r);
 check(r.current === 'rifle' && !r.pending, '面板开着时按 3/4 是买东西，不切武器', { current: r.current, pending: r.pending });
 await p.waitForTimeout(700);
