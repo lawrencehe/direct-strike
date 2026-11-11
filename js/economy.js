@@ -1,17 +1,17 @@
 // ============================================================
-// 经济：打死敌人拿赏金，回到自己的出生点买投掷物
+// 经济：打死敌人拿赏金，回到自己的出生点买子弹和投掷物
 //
-// 只在对决和波次里有（训练场投掷物不限量，不需要钱）。参数在 config.js 的 economy。
+// 只在对决和波次里有（训练场子弹和投掷物不限量，不需要钱）。参数在 config.js 的 economy（数值见 #7）。
 //   赏金：只看最后一击是怎么打死的（爆头 / 枪打身体或腿 / 手雷炸死），NPC 被自己的雷炸死不算。
-//   钱有上限，到了上限再打死人也不涨。钱跟着整局走，死了不清零；开新一局清零。
+//   钱有上限，到了上限再打死人也不涨。开局 startMoney；钱跟着整局走，死了不清零，重生时不足 startMoney 补到 startMoney。
 //   购买区：玩家这条命出生的那个点，周围 buyRadius 米内，地上有一圈橙色的环。
 //   进了购买区，屏幕左侧滑出一个购物车图标（带购买键的键帽），能买得起东西时亮橙色，买不起时变灰；不写文字提示。
-//   在购买区里按"购买"键（默认 B）打开面板，面板开着时按投掷物自己的槽位键（默认 3 / 4 / 5）买一个，
-//   这一下不会切到那个投掷物；买成功面板立刻关掉，再按一次槽位键就能切过去（买不了时面板不关，响一声）。
+//   在购买区里按"购买"键（默认 B）打开面板，面板开着时按武器栏的槽位键买：1 / 2 买 AK / 手枪一个弹匣的子弹（进备弹），
+//   3 / 4 / 5 买一个投掷物。这一下不会切枪；买成功面板立刻关掉，再按一次槽位键就能切过去（买不了时面板不关，响一声）。
 //   走出购买区、死了、再按一次购买键也都会关掉面板。
-//   能带几个有上限（economy.maxCarry），满了买不了。
+//   能带多少有上限（投掷物 economy.maxCarry，子弹 weapons.maxMags 个弹匣），满了买不了；离子弹上限不到一个弹匣就只补到上限、按发收钱。
 //
-// 死了重生时投掷物回到开局的数量（多买的随人一起没了），波次之间补给不收走多买的。
+// 死了重生时子弹和投掷物回到开局的数量（多买的随人一起没了），波次之间补给不收走多买的。
 // ============================================================
 Game.Economy = class Economy {
   constructor({ scene, hud, audio, player, weapon, input }) {
@@ -42,6 +42,13 @@ Game.Economy = class Economy {
     this.hud.setBuyCue(null);
     this.hud.setMoney(this.money, this.enabled);
     this.ring.material.opacity = 0;
+  }
+
+  // 重生（main.js 的 respawnPlayer）：钱不足开局的数补到开局的数，多的保留
+  onRespawn() {
+    if (!this.enabled) return;
+    this.money = Math.max(this.money, Game.Config.economy.startMoney);
+    this.hud.setMoney(this.money);
   }
 
   // 打死一个敌人。kind：'head' 爆头 | 'body' 枪打身体或腿 | 'frag' 手雷炸死
@@ -101,18 +108,32 @@ Game.Economy = class Economy {
     this.hud.setBuyCue(this.open ? null : (Economy.ITEMS.some((k) => this.canBuy(k)) ? 'ok' : 'poor'), key('buy'));
   }
 
-  canBuy(kind) {
+  isGun(kind) { return kind === 'rifle' || kind === 'pistol'; }
+
+  // 子弹这次买几发：一个弹匣，离上限不到一个弹匣就只补到上限
+  rounds(kind) { return Math.min(this.weapon.guns[kind].cfg.magSize, this.weapon.ammoRoom(kind)); }
+
+  // 这一下要花多少钱。子弹满了的时候按一个弹匣算（面板上照样显示价格）
+  price(kind) {
     const cfg = Game.Config.economy;
-    return this.money >= cfg.prices[kind] && this.weapon.counts[kind] < cfg.maxCarry[kind];
+    if (!this.isGun(kind)) return cfg.prices[kind];
+    return (this.rounds(kind) || this.weapon.guns[kind].cfg.magSize) * cfg.bulletPrice;
   }
 
-  // 买一个。买成功的回应（不用文字）：purchase 音效、钱数闪一下并飘 "-$价格"、武器栏里那一格闪亮回弹
+  canBuy(kind) {
+    const cfg = Game.Config.economy;
+    const room = this.isGun(kind) ? this.rounds(kind) > 0 : this.weapon.counts[kind] < cfg.maxCarry[kind];
+    return room && this.money >= this.price(kind);
+  }
+
+  // 买一个弹匣 / 一个投掷物。买成功的回应（不用文字）：purchase 音效、钱数闪一下并飘 "-$价格"、武器栏里那一格闪亮回弹
   buy(kind) {
     if (!this.canBuy(kind)) return false;
-    const price = Game.Config.economy.prices[kind];
+    const price = this.price(kind);
     this.money -= price;
-    this.hud.pulseSlot(Game.Weapon.ACTIONS[kind]);   // 先记下，addThrowable 重画武器栏时带上
-    this.weapon.addThrowable(kind);
+    this.hud.pulseSlot(Game.Weapon.ACTIONS[kind]);   // 先记下，addAmmo / addThrowable 重画武器栏时带上
+    if (this.isGun(kind)) this.weapon.addAmmo(kind, this.rounds(kind));
+    else this.weapon.addThrowable(kind);
     this.audio.purchase();
     this.hud.setMoney(this.money);
     this.hud.moneySpend(price);
@@ -142,13 +163,19 @@ Game.Economy = class Economy {
     if (!this.open) return;
     const cfg = Game.Config.economy;
     const name = (a) => Game.Input.bindingName(this.input.bindings[a]);
-    const rows = Economy.ITEMS.map((kind) => ({
-      key: name(Game.Weapon.ACTIONS[kind]), name: Game.Config.grenades[kind].name,
-      price: cfg.prices[kind], count: this.weapon.counts[kind], max: cfg.maxCarry[kind], ok: this.canBuy(kind),
-    }));
+    const w = this.weapon;
+    const rows = Economy.ITEMS.map((kind) => {
+      const gun = w.guns[kind];
+      return gun
+        // 子弹：一次买一个弹匣，数量是"枪里 + 备弹 / 上限"（发）
+        ? { key: name(Game.Weapon.ACTIONS[kind]), name: `${gun.cfg.name} 弹匣`, price: this.price(kind),
+            count: gun.ammo + gun.reserve, max: w.maxRounds(kind), ok: this.canBuy(kind) }
+        : { key: name(Game.Weapon.ACTIONS[kind]), name: Game.Config.grenades[kind].name, price: this.price(kind),
+            count: w.counts[kind], max: cfg.maxCarry[kind], ok: this.canBuy(kind) };
+    });
     this.hud.setBuyMenu(rows, this.money, name('buy'));
   }
 };
 
-Game.Economy.ITEMS = ['frag', 'flash', 'smoke'];
+Game.Economy.ITEMS = ['rifle', 'pistol', 'frag', 'flash', 'smoke'];   // 面板里的顺序，和武器栏一致
 Game.Economy.LABELS = { head: '爆头', body: '击杀', frag: '手雷击杀' };

@@ -90,7 +90,7 @@ function startGame(mapData) {
   }
   bots.onChange = refreshShootables;
 
-  // 波次模式：每清完一波回满血、补满子弹，投掷物补到开局数量（多买的不收走）
+  // 波次模式：每清完一波回满血，子弹和投掷物至少补到开局数量、枪里换满（多买的不收走）
   bots.onWaveCleared = () => {
     player.health = Game.Config.player.maxHealth;
     hud.setHealth(player.health, Game.Config.player.maxHealth);
@@ -147,6 +147,7 @@ function startGame(mapData) {
     player.setSpawn(bots.playerSpawn());
     player.reset();
     weapon.respawn();
+    economy.onRespawn();
     hud.setHealth(player.health, Game.Config.player.maxHealth);
   }
 
@@ -155,7 +156,8 @@ function startGame(mapData) {
     respawnTimer = 0;
     player.setSpawn(m === 'range' ? world.rangeSpawn : world.spawns[0]);
     player.reset();
-    weapon.unlimitedThrowables = m === 'range';   // 训练场投掷物不限量，方便练习
+    weapon.unlimitedThrowables = m === 'range';   // 训练场投掷物和备弹不限量，方便练习
+    weapon.unlimitedAmmo = m === 'range';
     weapon.reset();
     economy.start(m);
     grenades.clear();

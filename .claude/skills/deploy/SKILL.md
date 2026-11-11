@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: 把游戏发布到 https://game.lightup.host（本机）。用户说"部署 / 上线 / 发布 / 更新线上"时用。包含发布、验证、回滚和故障排查。
+description: deploy.sh 本身的说明：线上回滚、故障排查、只重新发布 main 当前版本。用户说"deploy / 部署 / 上线"要发新改动时用 /ship（全套提交推送合并部署），不用这个。
 ---
 
 # 部署到 game.lightup.host

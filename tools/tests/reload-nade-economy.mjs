@@ -1,4 +1,4 @@
-// v0.20 的针对性测试：自动换弹、换弹中切枪、手雷两道保险、经济（赏金、上限、购买、补给）。
+// v0.20 的针对性测试：自动换弹、换弹中切枪、手雷两道保险、经济（赏金、上限、购买、补给）。数值按 #7 更新过；子弹相关见 economy-ammo.mjs
 // 用法（在仓库根目录）：node tools/tests/reload-nade-economy.mjs
 // 截图在 tools/out/tests/：reload-a ~ e 是空枪换弹的几个阶段，buy-menu 是购买面板。说明见 docs/testing.md
 import { mkdirSync } from 'node:fs';
@@ -31,7 +31,7 @@ await p.evaluate(() => {
 // ---- 1. 打空自动换弹 ----
 let r = await p.evaluate(() => {
   const w = game.weapon;
-  w.guns.rifle.ammo = 1;
+  w.guns.rifle.ammo = 1; w.guns.rifle.reserve = 90;   // 开局没有备弹（#7），先塞一些才能换
   press('Mouse0'); hold('Mouse0'); tick(1 / 60); release('Mouse0');
   const afterShot = w.guns.rifle.ammo;
   tick(0.15);
@@ -92,7 +92,7 @@ r = await p.evaluate(() => {
   out.capped = e.money;
   return out;
 });
-check(r.start === 0 && r.head === 300 && r.leg === 500 && r.frag === 900 && r.selfKill === 900, '赏金：爆头 300 / 普通 200 / 手雷 400，NPC 自己炸死不算', r);
+check(r.start === 600 && r.head === 1100 && r.leg === 1400 && r.frag === 1700 && r.selfKill === 1700, '赏金：开局 600，爆头 500 / 普通 300 / 手雷 300，NPC 自己炸死不算（#7）', r);
 check(r.capped === 2000, '钱封顶 2000', r.capped);
 
 r = await p.evaluate(() => {
@@ -112,7 +112,7 @@ r = await p.evaluate(() => {
   return { zone, tip, open, before, after: { ...w.counts }, money: e.money, current: w.current, pending: w.pending };
 });
 check(r.zone && r.open && r.tip, '出生点里按 B 打开面板', r);
-check(r.after.frag === 2 && r.after.flash === 2 && r.money === 2000 - (2 - r.before.frag) * 300 - 200, '买到手雷和闪光，扣钱正确，手雷上限 2', r);
+check(r.after.frag === 2 && r.after.flash === 1 && r.money === 2000 - (2 - r.before.frag) * 300 - 200, '买到手雷和闪光，扣钱正确，手雷上限 2', r);
 check(r.current === 'rifle' && !r.pending, '面板开着时按 3/4 是买东西，不切武器', { current: r.current, pending: r.pending });
 await p.waitForTimeout(700);
 await p.screenshot({ path: `${OUT}buy-menu.jpg`, type: 'jpeg', quality: 85 });
@@ -126,7 +126,7 @@ check(!r.open && r.menu === 'none', '走出购买区面板自动关掉', r);
 
 // 重生回到开局数量，钱保留
 r = await p.evaluate(() => { game.weapon.respawn(); return { counts: { ...game.weapon.counts }, money: game.economy.money }; });
-check(r.counts.frag === 1 && r.counts.flash === 1 && r.money === 1200, '重生：投掷物回到开局数量，钱保留', r);
+check(r.counts.frag === 1 && r.counts.flash === 0 && r.money === 1200, '重生：投掷物回到开局数量，钱保留', r);
 
 // 波次之间补给不收走多买的
 r = await p.evaluate(() => { game.weapon.counts.frag = 2; game.weapon.refill(true); return game.weapon.counts.frag; });

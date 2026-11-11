@@ -74,7 +74,7 @@ check(near && far && far.cutoff < near.cutoff && far.vol < near.vol && near.pan 
 const reload = await p.evaluate(() => {
   press('Digit1'); tick(0.5);
   const w = game.weapon;
-  w.guns[w.current].ammo = 0;
+  w.guns[w.current].ammo = 0; w.guns[w.current].reserve = 30;   // 没备弹不换弹（#7）
   played.length = 0;
   press('KeyR'); tick(Game.Config.weapons.rifle.reloadTime + 0.5);
   return played.map((x) => x.name);

@@ -48,6 +48,9 @@ Game.Config = {
     recoilRecover: 5,      // 停火后枪口回正速度
     switchOut: 0.12,       // 切枪：收枪用时
     switchIn: 0.2,         // 切枪：掏枪用时
+    // 子弹（对决和波次；训练场不限量）。玩家和 NPC 一样：每条命只有枪里那一个弹匣，没有备弹，多的要花钱买（economy.bulletPrice）。NPC 买不了（#7）
+    spareMags: 0,          // 开局 / 每条命除了枪里那个，还带几个备用弹匣
+    maxMags: 3,            // 每把枪最多带几个弹匣的子弹（含枪里那个）：AK 90 发、手枪 30 发
 
     // 第一人称手臂（所有武器共用一套模型，每把武器各摆一份）
     arms: {
@@ -91,7 +94,7 @@ Game.Config = {
       model: null,           // null = 代码拼的几何体（gunmodel.js 的 buildPistol）
       auto: false,
       fireInterval: 0.16,
-      magSize: 15,
+      magSize: 10,
       reloadTime: 1.25,
       baseSpread: 0.002,
       moveSpread: 0.018,
@@ -107,7 +110,7 @@ Game.Config = {
     },
   },
 
-  // 投掷物。count 是开局 / 每条命带几个（训练场不限量），多的要花钱买（见下面的 economy）。玩家和 NPC 开局带一样多
+  // 投掷物。count 是开局 / 每条命带几个（训练场不限量），多的要花钱买（见下面的 economy）。玩家和 NPC 开局带一样多：一枚手雷，闪光和烟雾要买（#7）
   // 两道保险：按住左键拔掉拉环，但只要还攥着保险握片引信就不走，攥多久都不会炸；
   // 松开左键出手，握片弹开，fuse 秒后引爆。人死了手一松，雷掉在脚下，也是从这时开始算
   grenades: {
@@ -127,13 +130,13 @@ Game.Config = {
       selfMul: 0.75,       // 炸到自己时伤害乘这个系数
     },
     flash: {
-      name: '闪光', count: 1, fuse: 2.0,
+      name: '闪光', count: 0, fuse: 2.0,
       radius: 20,
       playerBlind: 3.8,    // 玩家正对爆点、距离很近时致盲几秒
       botBlind: 3.2,       // NPC 致盲几秒（期间不开枪、站在原地）
     },
     smoke: {
-      name: '烟雾', count: 1, fuse: 2.0,
+      name: '烟雾', count: 0, fuse: 2.0,
       radius: 3.8,         // 烟团半径：NPC 看不穿，也就不会开枪
       duration: 14,        // 持续几秒
     },
@@ -155,7 +158,8 @@ Game.Config = {
   },
 
   // NPC 敌人（对战模式）
-  // NPC 的装备和玩家一样：AK + 手枪 + 三种雷各 grenades.*.count 个。
+  // NPC 的装备和玩家一样：AK + 手枪（枪里各一个弹匣，weapons.spareMags 个备用弹匣）+ 三种雷各 grenades.*.count 个。
+  // NPC 没有经济买不了东西：两把枪都打空了就背离玩家跑开，不再交战。
   // 枪的射速、弹匣、换弹时间、各部位伤害都直接用上面 weapons 里的数值，这里只管 NPC 怎么用
   bots: {
     health: 100,
@@ -198,14 +202,15 @@ Game.Config = {
     wavePause: 4,          // 两波之间休息几秒
   },
 
-  // 经济（对决和波次，训练场没有）：打死敌人拿赏金，回到自己这条命的出生点买投掷物。逻辑在 economy.js
+  // 经济（对决和波次，训练场没有）：打死敌人拿赏金，回到自己这条命的出生点买子弹和投掷物。逻辑在 economy.js。数值是负责人定的（#7）
   economy: {
-    startMoney: 0,         // 开局有多少钱（开局本来就带着 grenades.*.count 个投掷物）
-    maxMoney: 2000,        // 钱的上限：到了上限再打死人也不涨（负责人说的"收入上限"按存款上限理解，待确认，#7）
-    // 赏金只看最后一击：爆头打死 / 枪打身体或腿打死 / 手雷炸死
-    reward: { head: 300, body: 200, frag: 400 },
-    prices: { frag: 300, flash: 200, smoke: 300 },   // 价格（先定的值，待负责人确认，#7）
-    maxCarry: { frag: 2, flash: 2, smoke: 1 },       // 每种最多带几个（同上）
+    startMoney: 600,       // 开局有多少钱；每次重生不足这个数补到这个数，多的保留（连着被杀的人不会一直没钱买东西）
+    maxMoney: 2000,        // 存款上限：到了上限再打死人也不涨
+    // 赏金只看最后一击（之前打掉的血不给钱）：爆头打死 / 其他打死（枪打身体或腿）/ 手雷炸死（算普通击杀）
+    reward: { head: 500, body: 300, frag: 300 },
+    prices: { frag: 300, flash: 200, smoke: 300 },   // 投掷物价格
+    maxCarry: { frag: 2, flash: 2, smoke: 1 },       // 投掷物每种最多带几个
+    bulletPrice: 2,        // 子弹一发多少钱。一次买一个弹匣（AK 30 发 $60、手枪 10 发 $20），离上限（weapons.maxMags）不到一个弹匣就只补到上限
     buyRadius: 3,          // 购买区：出生点周围几米（地上有一圈环）
     boughtPulse: 0.7,      // 买成功后武器栏里那一格闪亮、放大回弹几秒（同时钱数闪一下、旁边飘 "-$价格"）
   },

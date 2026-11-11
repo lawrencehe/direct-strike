@@ -1,6 +1,6 @@
 ---
 name: issue
-description: 做负责人指定的 GitHub issue 并跟进到上线。负责人说"ISSUE51 / issue 51 / #51 / 做 51 / 继续 51"时用：看 issue 到哪一步、接手、开发、提 PR 等验收，负责人说 commit push & deploy 再上线。
+description: 做负责人指定的 GitHub issue 并跟进到上线。负责人说"ISSUE51 / issue 51 / #51 / 做 51 / 继续 51"时用：看 issue 到哪一步、接手、开发、提 PR 等验收，负责人说 deploy（或 commit push & deploy）再上线。
 ---
 
 # 做负责人指定的 issue
@@ -74,7 +74,7 @@ gh pr create --base main --title "<提交首行>" --body-file <PR 正文文件> 
 
 ## 5. 上线
 
-负责人说 `commit push & deploy`（或"上线"）才上线，用 `/ship`，在 worktree 里跑：
+负责人说 `deploy`（或 `commit push & deploy`、"上线"，都是全套）才上线，用 `/ship`，在 worktree 里跑：
 
 ```bash
 cd $WT && tools/ship.sh -c N --tag                 # 已经提交过、只差上线
@@ -118,7 +118,7 @@ cd $WT && tools/ship.sh -m <提交信息文件> -c N --tag   # 还有没提交�
 - 开发机测不了、要你真机试的：……（已开 #<编号>）
 
 **下一步**
-- 觉得可以：在 Claude Code 里说 `commit push & deploy`，我合并上线（版本 vX.Y）、关 issue。
+- 觉得可以：在 Claude Code 里说 `deploy`，我合并上线（版本 vX.Y）、关 issue。
 - 要改：在会话里说，或写在这里再说"ISSUE N"。
 ```
 
