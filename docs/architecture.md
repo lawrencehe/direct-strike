@@ -149,6 +149,14 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 - **枪模在第一帧之前就要摆好位置**，否则界面背后会看到一把巨大的枪：`weapon.js` 的 `buildModels` 里按 `basePos / baseRot` 初始化。
 - **死亡的 NPC 还要继续更新**（布娃娃、血泊、尸体下沉），包括对决结束后的 `phase === 'over'`。
 - **受击闪红**：NPC 死亡前要把 `model.flash` 清零，否则尸体会一直发红。
+- **中弹反应**（#60，参数在 `config.hitReaction`，玩家和 NPC 同一套）：
+  - 硬直：枪打中 `stunBullet` 秒，手雷按伤害（`stunPerDamage`，最多 `stunMax`）。硬直完 `stunImmune` 秒内再被枪打中不再硬直，**不加这个，AK 一梭子能把人一直定住**；手雷不受免疫限制。
+  - 玩家（`player.js` 的 `hitReaction`）：硬直时移动输入当没按（按加速度刹住）、不能跳，`weapon.js` 看 `player.stunned` 不让开枪、不让拔环；**转视角不锁**（锁了像卡顿）。
+    镜头 `punchPitch` 上抬、`punchRoll` 往远离攻击者的一侧歪，叠在 `camera.rotation` 上按 `punchRecover` 回正；手里的枪 `weapon.onHurt` 往下一沉。
+    被手雷炸到要传 `takeDamage(dmg, pos, { explosion: true })`，否则按枪伤算硬直。
+  - NPC（`bots.js` 的 `hitReaction`）：硬直时站住、不开枪、不丢雷（正在丢的雷等硬直完接着丢），点射被打断；死了不走这里，看布娃娃。
+    `character.js` 的 `flinch` / `applyFlinch`：第一节脊柱和头绕"上 × 子弹方向"转一下（0.06 秒到最大，`botFlinchTime` 秒回来），手的 IK 还拉在枪上，所以只有上半身往后仰；方块小人整个往后仰。
+  - 测试：`tools/tests/hit-reaction.mjs`。
 - **全屏和指针锁定都要用户手势。** `input.lock(fullscreen)` 在按钮的 click 里同步发出两个请求，中间不能 `await`，否则第二个会被拒。
   **顺序必须是先锁鼠标、再请求全屏**：Chrome 里全屏请求会用掉这次手势，玩家按 Esc 退出锁定后再锁又必须有手势，反过来写锁鼠标就被拒。
   锁定失败 `input.js` 会自动重试一次（正在进全屏就等 `fullscreenchange`），还不行才提示。

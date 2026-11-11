@@ -610,11 +610,21 @@ b.enemy { color: var(--enemy) !important; }
 #health-val { font-family: var(--font-d); font-size: 44px; font-weight: 700; line-height: 1; }
 /* 血条分成小格 */
 #health .bar {
-  height: 6px; margin-top: 6px; background: rgba(0, 0, 0, .5);
+  position: relative; height: 6px; margin-top: 6px; background: rgba(0, 0, 0, .5);
   -webkit-mask: repeating-linear-gradient(90deg, #000 0 20px, transparent 20px 22px);
   mask: repeating-linear-gradient(90deg, #000 0 20px, transparent 20px 22px);
 }
-#health-bar { display: block; height: 100%; width: 100%; background: var(--ink); transition: width .15s; }
+#health-bar { position: relative; display: block; height: 100%; width: 100%; background: var(--ink); transition: width .15s; }
+/* 中弹：掉的那一截先亮着留一会儿再缩回去（#60），在血条下面一层 */
+#health-trail { position: absolute; left: 0; top: 0; height: 100%; width: 100%; background: #ff6a4d; }
+/* 中弹：血量数字闪红、弹一下 */
+#health-val.hit { animation: hp-hit .45s ease-out; }
+@keyframes hp-hit {
+  0% { color: #ff4b3a; transform: translateX(-3px) scale(1.18); }
+  25% { transform: translateX(3px) scale(1.1); }
+  100% { transform: none; }
+}
+#health-val { display: inline-block; transform-origin: left bottom; }
 #health.low #health-val { color: var(--enemy); }
 #health.low #health-bar { background: var(--enemy); }
 
@@ -625,6 +635,17 @@ b.enemy { color: var(--enemy) !important; }
 #damage-flash {
   position: absolute; inset: 0; opacity: 0;
   background: radial-gradient(ellipse at center, transparent 45%, rgba(200, 0, 0, .75) 100%);
+}
+
+/* 中弹溅血（#60）：画面四角几团暗红的血迹，中弹时按伤害显出来再慢慢淡掉；每次随机翻转，看着不一样 */
+#damage-blood {
+  position: absolute; inset: 0; opacity: 0; pointer-events: none;
+  background:
+    radial-gradient(circle at 4% 10%, rgba(120, 0, 0, .85) 0 7%, rgba(150, 0, 0, .45) 12%, transparent 22%),
+    radial-gradient(circle at 96% 82%, rgba(120, 0, 0, .8) 0 6%, rgba(150, 0, 0, .4) 11%, transparent 20%),
+    radial-gradient(circle at 12% 94%, rgba(110, 0, 0, .7) 0 4%, transparent 14%),
+    radial-gradient(circle at 88% 6%, rgba(110, 0, 0, .6) 0 3%, transparent 12%),
+    radial-gradient(ellipse at center, transparent 55%, rgba(90, 0, 0, .55) 100%);
 }
 
 /* 受击方向：围绕准星旋转的红色弧 */

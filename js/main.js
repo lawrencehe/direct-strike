@@ -121,7 +121,8 @@ function startGame(mapData) {
 
   player.onDamage = (amount, fromPos) => {
     hud.setHealth(player.health, Game.Config.player.maxHealth);
-    hud.showDamage(fromPos);
+    hud.showDamage(fromPos, amount);
+    weapon.onHurt(amount);
     audio.hurt();
   };
 

@@ -221,7 +221,7 @@ Game.Grenades = class Grenades {
       const e = this.exposure(pos, player.position, player.height);
       if (e) {
         const dmg = c.damage * (owner ? 1 : c.selfMul) * (1 - e.dist / c.radius) * e.share;
-        if (dmg >= 1) player.takeDamage(dmg, pos);
+        if (dmg >= 1) player.takeDamage(dmg, pos, { explosion: true });
       }
     }
   }

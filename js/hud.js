@@ -13,8 +13,8 @@ Game.Hud = class Hud {
       ammo: $('ammo'), ammoCur: $('ammo-cur'), ammoMax: $('ammo-max'), weapons: $('weapons'),
       flashWhite: $('flash-white'),
       money: $('money'), moneyVal: $('money-val'), moneyGain: $('money-gain'), buyCue: $('buy-cue'), buyCueKey: $('buy-cue-key'), buy: $('buy'),
-      health: $('health'), healthVal: $('health-val'), healthBar: $('health-bar'),
-      damageFlash: $('damage-flash'), damageDir: $('damage-dir'),
+      health: $('health'), healthVal: $('health-val'), healthBar: $('health-bar'), healthTrail: $('health-trail'),
+      damageFlash: $('damage-flash'), damageBlood: $('damage-blood'), damageDir: $('damage-dir'),
       wave: $('wave-info'), banner: $('banner'), hint: $('hint'),
     };
     this.input = null;   // main.js 设置，用来显示当前绑定的按键名
@@ -22,6 +22,10 @@ Game.Hud = class Hud {
     this.bannerTimer = 0;
     this.damageTimer = 0;
     this.damageFrom = null;
+    this.blood = 0;          // 画面边缘血迹的浓度（#60）
+    this.trailHp = 100;      // 血条后面那一截停在哪（掉血前的血量），慢慢缩到当前血量
+    this.trailWait = 0;
+    this.maxHp = 100;
     this.flashTimer = 0;
     this.flashFade = 1;
     this.flashPeak = 0;
@@ -43,6 +47,8 @@ Game.Hud = class Hud {
     this.mode = mode;
     this.damageTimer = this.bannerTimer = 0;
     this.flashTimer = 0;
+    this.blood = 0;
+    this.el.damageBlood.style.opacity = 0;
     this.el.flashWhite.style.opacity = 0;
   }
 
@@ -176,13 +182,27 @@ Game.Hud = class Hud {
     this.el.healthVal.textContent = Math.ceil(hp);
     this.el.healthBar.style.width = `${(hp / max) * 100}%`;
     this.el.health.classList.toggle('low', hp <= max * 0.3);
+    this.maxHp = max;
+    this.hp = hp;
+    if (hp >= this.trailHp) { this.trailHp = hp; this.trailWait = 0; this.drawTrail(); }   // 回血 / 重生：直接到位
   }
 
-  // 受伤：屏幕边缘闪红 + 一个指向攻击者的红色弧
-  showDamage(fromPos) {
+  drawTrail() {
+    this.el.healthTrail.style.width = `${(this.trailHp / this.maxHp) * 100}%`;
+  }
+
+  // 受伤：屏幕边缘闪红 + 一个指向攻击者的红色弧；四角溅血、血条掉的那一截留一会儿、血量数字闪一下（#60）
+  showDamage(fromPos, amount = 30) {
     this.damageTimer = 1;
     this.damageFrom = fromPos.clone();
     this.el.damageFlash.style.opacity = 0.6;
+    this.blood = Math.min(1, Math.max(this.blood, 0.35 + amount / 60));
+    this.el.damageBlood.style.transform = `scale(${Math.random() < 0.5 ? -1 : 1}, ${Math.random() < 0.5 ? -1 : 1})`;
+    this.trailWait = Game.Config.hitReaction.trailDelay;
+    const v = this.el.healthVal;
+    v.classList.remove('hit');
+    void v.offsetWidth;   // 重新触发动画
+    v.classList.add('hit');
   }
 
   setWave(wave, alive, total) {
@@ -259,6 +279,16 @@ Game.Hud = class Hud {
     this.el.banner.style.opacity = Math.max(0, Math.min(1, this.bannerTimer * 2));
 
     this.damageTimer = Math.max(0, this.damageTimer - dt);
+    const hr = Game.Config.hitReaction;
+    if (this.blood > 0) {
+      this.blood = Math.max(0, this.blood - dt / hr.bloodFade);
+      this.el.damageBlood.style.opacity = this.blood;
+    }
+    if (this.trailWait > 0) this.trailWait -= dt;
+    else if (this.trailHp > this.hp) {
+      this.trailHp = Math.max(this.hp, this.trailHp - hr.trailSpeed * dt);
+      this.drawTrail();
+    }
     const flash = parseFloat(this.el.damageFlash.style.opacity) || 0;
     this.el.damageFlash.style.opacity = Math.max(0, flash - dt * 2);
 
