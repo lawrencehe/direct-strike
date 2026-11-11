@@ -10,6 +10,7 @@
 | **PR** | 一个版本改了什么、验证结果；正文写 `Closes #N`，合并时自动关掉需求 issue |
 | **Milestone** | 一个版本一个（名字就是 `vX.Y`），需求 issue 和 PR 挂上去；上线后关掉 |
 | **Release** | 每个上线的版本一个，`ship.sh --tag` 自动建 |
+| **`docs/issues.md`**（仓库里） | 每条 issue 提炼后的结论和现状，链到落地的文档、版本、PR。处理过的 issue 都要登记（`CLAUDE.md` 第 7 条） |
 | `docs/requirements/` | 方案和决定、改动、验证（为什么这样做），开头链接 issue 和 PR |
 | `docs/status.md` | 版本、现在能玩什么；已知问题和待办只放指向 Issue 的链接 |
 

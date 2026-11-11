@@ -18,9 +18,10 @@
 
 | 版本 | 需求 | 状态 | 文档 |
 |---|---|---|---|
+| v0.32（工具） | 每个 issue 都提炼成项目文档，建 issue 索引 `docs/issues.md`（#51） | 已完成 | [v0.32-issue-index.md](v0.32-issue-index.md) |
 | v0.32 | M4 素材来源改成"同事提供、不登记原作链接"；定规则：没有原作链接的模型都这样写，授权符合要求就能用 | 已上线 | [v0.32-m4-license.md](v0.32-m4-license.md) |
 | v0.31 | 补登 sg.glb、ukrainian-soldier.glb 的素材来源：同事提供的 CC0 原作，不登记原作链接 | 已上线 | [v0.31-asset-license.md](v0.31-asset-license.md) |
-| v0.30（工具） | 上线前自动把 main 合进分支，版本号和文档登记的冲突自动解决（#47） | 已完成 | [v0.30-ship-auto-merge.md](v0.30-ship-auto-merge.md) |
+| v0.30（工具） | 上线前自动把 main 合进分支，版本号和文档登记的冲突自动解决（#47） | 已上线 | [v0.30-ship-auto-merge.md](v0.30-ship-auto-merge.md) |
 | v0.30（工具） | Claude 用机器账号 primorigin 操作 GitHub，和负责人分开（#46） | 已上线 | [v0.30-machine-account.md](v0.30-machine-account.md) |
 | v0.30 | 购买体验：买完立刻关面板；购买区的文字提示换成购物车图标 | 已上线 | [v0.30-buy-ux.md](v0.30-buy-ux.md) |
 | v0.29 | 步枪左手托护木改成从左下方斜着包上去，小臂从画面下方伸出，手肘不再折在画面中间（#11） | 已上线 | [v0.29-left-arm-pose.md](v0.29-left-arm-pose.md) |
