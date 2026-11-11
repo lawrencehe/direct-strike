@@ -7,8 +7,8 @@
 
 | | 版本 | 说明 |
 |---|---|---|
-| 线上 https://game.lightup.host | v0.36 | 从 `main` 部署（2026-11-11） |
-| `main` | v0.36 | 各版本的改动看 [Releases](https://github.com/lawrencehe/direct-strike/releases) |
+| 线上 https://game.lightup.host | v0.37 | 从 `main` 部署（2026-11-11） |
+| `main` | v0.37 | 各版本的改动看 [Releases](https://github.com/lawrencehe/direct-strike/releases) |
 
 ## 进行中
 
@@ -16,7 +16,7 @@ Claude 在做的 issue 看标签 `Claude处理中` / `等你回复` / `待验收
 
 ## 现在能玩什么
 
-- 模式：训练场、1v1 对决、波次。地图只有一张 `yard`。
+- 模式：训练场、1v1 对决、波次。地图只有一张 `yard`：地面和水泥是真实材质（破旧、有污渍），集装箱、沙袋等道具还是程序画的，正在换模型（#50）。
 - 装备：主武器 AK / M4，副武器 手枪 / SG 手枪，开局枪里各一个弹匣（没有备弹，子弹要买）和一枚手雷，闪光 / 烟雾要买；对手形象 乌克兰士兵 / 特种兵。换枪只换外观，数值相同。
 - NPC 和玩家同一套装备和数值，每次出生随机拿一把主武器、一把副武器；NPC 没有经济买不了东西，两把枪打空了就跑开。
   没看见你时边走边张望，搜索先去推算的位置、再查附近看不到的角落。

@@ -58,6 +58,7 @@ Game.Config = {
   graphics: {
     shadowMapSize: 2048,   // 阴影贴图分辨率。卡的话改成 1024
     exposure: 1.0,         // 画面整体亮度
+    mapEnvIntensity: 0.5,  // 地图物体的环境光（HDRI）强度：越大越亮、金属反光越明显，0 等于不用（#50）
   },
 
   // 武器。枪的参数按把写，共用的放外面

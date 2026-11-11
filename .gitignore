@@ -18,3 +18,6 @@ assets-src/models/arm/
 
 # 音效原始素材库（329 MB 的 96kHz wav），只在本机保留；剪好的成品在 assets/sound/，由 assets-src/sound/build.py 生成
 assets-src/sound/Prepared SFX Library/
+
+# 地图材质的原始下载（Poly Haven 2k jpg），由 assets-src/maps/*/fetch_textures.py 重新下载
+assets-src/maps/*/download/

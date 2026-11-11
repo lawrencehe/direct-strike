@@ -5,6 +5,9 @@
   "bounds": { "minX": -17.5, "maxX": 17.5, "minZ": -23.5, "maxZ": 23.5 },
   "shadowRange": 34,
 
+  "surfaces": { "asphalt": 2.2, "concreteFloor": 5, "concrete": 4, "dirt": 2 },
+  "environment": "env.hdr",
+
   "pads": [
     { "x": 0, "z": 14, "w": 14, "d": 7 },
     { "x": 0, "z": -14, "w": 14, "d": 7 }
