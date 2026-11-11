@@ -112,7 +112,7 @@ direct-strike/
 │   └── deploy.md         部署架构、首次接入、回滚
 ├── maps/yard.json    ★ 地图数据：掩体、出生点、巡逻点、靶子
 ├── tools/            开发工具（验证、模型、图片、骨骼、地图），不发布；tools/tests/ 是留在仓库里的针对性测试，
-│                     tools/devlog/analyze.mjs 分析开发者模式上传的数据；tools/autopilot/ 定时处理 GitHub 上交给 Claude 的 issue
+│                     tools/devlog/analyze.mjs 分析开发者模式上传的数据
 ├── assets-src/       未压缩的模型母版和 Blender 加工脚本（音效的剪辑脚本 assets-src/sound/build.py），不发布
 ├── CLAUDE.md         给 AI 助手看的项目约定
 ├── css/style.css     界面和 HUD 样式（颜色、字体是开头的 CSS 变量）
