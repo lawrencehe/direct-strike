@@ -15,7 +15,6 @@
 | `docs/architecture.md` | 加载顺序、对象关系、游戏循环、两套场景、**已知的坑** |
 | `docs/decisions.md` | 项目方向和做过的决定（为什么是现在这样） |
 | `docs/testing.md` | `/verify` 和写逐帧推进的测试脚本 |
-| `docs/autopilot.md` | 自动任务：issue 打 `交给Claude` 标签由开发机定时交给 Claude 做，一次一个，打 `授权部署`（或评论 `commit push & deploy`）上线 |
 | `docs/devmode.md` | 开发者模式：真机录帧数据和画面、上传、分析 |
 | `docs/tools.md` | 工具链安装和用法、开发机限制 |
 | `docs/ui.md` | 界面流程、全屏规则、玩家设置、视觉规范 |
@@ -32,7 +31,7 @@
 ## 开发工具
 
 - 工具链在 `tools/`，安装用 `tools/setup.sh`。
-- 验证用 `/verify`，模型用 `/glb`，图片用 `/img`，骨骼动画用 `/rig`，地图用 `/map`，发布用 `/deploy`，提交推送部署一条龙用 `/ship`。
+- 做负责人指定的 issue 用 `/issue`，验证用 `/verify`，模型用 `/glb`，图片用 `/img`，骨骼动画用 `/rig`，地图用 `/map`，发布用 `/deploy`，提交推送部署一条龙用 `/ship`。
 - 改完代码或资源要先跑 `/verify`，玩法逻辑的改动再写针对性测试（`docs/testing.md`）。
 - 这台机器没有 GPU：截图和报错可信，帧率不可信。真机上的帧率、动画和手感问题，让负责人用游戏里的开发者模式录下来上传，
   再用 `node tools/devlog/analyze.mjs` 看报告、曲线和视频帧（`docs/devmode.md`）。
@@ -43,7 +42,8 @@
   用户说"commit push & deploy"时用 `/ship`（`tools/ship.sh`）一次完成：提交 → 推送分支 → 建 PR（`Closes #N`）并在 GitHub 上合并 → 从 `main` 部署 → 线上检查 → tag 和 Release。
 - **GitHub 管进展**：需求、bug、待确认、想法都开 Issue，一个版本一个 Milestone，合并走 PR。仓库是公开的，不往 GitHub 贴录下的数据、密码、玩家信息。
   **Claude 在 GitHub 上用机器账号 `primorigin`**（负责人是 `lawrencehe`），负责人说"给 primorigin 处理"和"给 Claude 处理"一样，配置见 `docs/tools.md`。
-  **开 issue 只是记录**；打了 `交给Claude` 才由自动任务处理（`docs/autopilot.md`）。手动会话不要去动别的 issue 的这几个标签：`交给Claude`、`Claude处理中`、`等你回复`、`待验收`、`授权部署`、`上线失败`（`已上线` 由 ship.sh 打）。
+  **开 issue 只是记录**；负责人在会话里说"ISSUE51 / #51 / 做 51"才做那一条，用 `/issue` skill 走完接手 → 开发 → PR 待验收 → 上线，Claude 不自己挑 issue（`docs/workflow.md`）。
+  流程标签（`Claude处理中`、`等你回复`、`待验收`）只改负责人指定的那条 issue 的，`已上线` 由 ship.sh 打。
 - 中文：注释、文档、提交信息都用中文。提交信息格式 `vX.Y：一句话摘要`，正文列要点，每个上线的版本都打 tag（`ship.sh --tag`）。
 - 发版时版本号改两处：`README.md` 标题和 `index.html` 的 `<small>vX.Y</small>`。
 - `refer/` 是用户的创意草图，已 gitignore，不要删、不要提交；用户说"看图"就是指这里，动手前先看图。

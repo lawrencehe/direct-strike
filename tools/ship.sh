@@ -15,7 +15,7 @@
 #   --live-verify    部署后再用无头浏览器验证线上（慢，约 1 分钟）
 #   --skip-verify    跳过本地 verify（只改了文档时会自动跳过）
 set -euo pipefail
-# SHIP_DIR：要发布的仓库目录。自动任务跑的是 origin/main 上的 ship.sh 副本（不在仓库里），用它指定 worktree
+# SHIP_DIR：要发布的仓库目录，默认是脚本所在的仓库
 cd "${SHIP_DIR:-$(dirname "$0")/..}"
 
 VER="" MSG="" DEPLOY=1 LIVE=0 SKIPV=0 TAG=0 PR=1 CLOSES=""
@@ -146,7 +146,7 @@ if [ "$BR" != main ]; then
     gh pr merge "$PRNUM" --merge >/dev/null 2>&1 \
       || die "PR #$PRNUM 合并失败（多半是和 main 冲突）：在分支上 git merge origin/main 解决冲突后再跑一次"
     echo "✓ PR #$PRNUM 已合并进 main"
-    # 切到 GitHub 上合并后的 main 来部署。main 已经在别的 worktree 里检出时（自动任务的 worktree）用分离头指针，
+    # 切到 GitHub 上合并后的 main 来部署。main 已经在别的 worktree 里检出时（比如主目录）用分离头指针，
     # 本地 main 留给那个目录；没被占用就照常切到本地 main 并拉到最新
     git fetch -q origin main
     if git worktree list --porcelain | grep -qx 'branch refs/heads/main'; then
@@ -228,7 +228,7 @@ if [ $TAG = 1 ]; then
   fi
 fi
 
-# ---- 6. issue 收尾：部署成功才做。关闭、去掉流程标签、打 已上线、评论"已上线"（手动 /ship 和自动任务都走这里）----
+# ---- 6. issue 收尾：部署成功才做。关闭、去掉流程标签、打 已上线、评论"已上线"----
 if [ $DEPLOY = 1 ] && [ $PR = 1 ] && [ -n "$CLOSES" ]; then
   sleep 3   # PR 的 Closes 关 issue 是异步的，先等一下
   for n in ${CLOSES//,/ }; do
@@ -238,7 +238,7 @@ if [ $DEPLOY = 1 ] && [ $PR = 1 ] && [ -n "$CLOSES" ]; then
       gh api -X DELETE "repos/$REPO/issues/$n/labels/$l" >/dev/null 2>&1 || true
     done
     gh api -X POST "repos/$REPO/issues/$n/labels" -f "labels[]=已上线" >/dev/null || echo "! #$n 没打上 已上线 标签"
-    gh issue comment "$n" --body "$(printf '<!-- autopilot -->\n✅ **已上线 %s**：%s\n\n%s已合并进 main 并部署，线上检查通过，issue 已关闭。\n真机试玩有问题就开新 issue（要 Claude 做的话打 `交给Claude`）。' \
+    gh issue comment "$n" --body "$(printf '✅ **已上线 %s**：%s\n\n%s已合并进 main 并部署，线上检查通过，issue 已关闭。\n真机试玩有问题就开新 issue（要 Claude 做就在 Claude Code 里说 ISSUE 编号）。' \
       "$CUR" "$SITE" "${PRNUM:+PR #$PRNUM }")" >/dev/null || echo "! #$n 没发成已上线评论"
     echo "✓ #$n 已关闭，标为 已上线"
   done
