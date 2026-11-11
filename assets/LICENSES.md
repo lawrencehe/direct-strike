@@ -11,6 +11,12 @@
 | `sound/ak-1.mp3` `ak-2.mp3` `ak-far.mp3`、`m4-*.mp3`、`pistol-*.mp3` | [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) 的 Prepared 版（负责人提供，#45）：AK-47 `C_28P` / `C_31P`，AR-15 `D_32P` / `D_24P`，Walther PPQ `X_39P` / `X_31P` | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：切出单发、淡出、峰值归一化，转单声道 96 kbps mp3 |
 | `sound/mag-out.mp3` `mag-in.mp3` `rack-back.mp3` `rack-forward.mp3` | [Gun reload sounds](https://opengameart.org/content/gun-reload-sounds)，来自 OpenGameArt：`assaultriflereload1.wav`、`gunreload1.wav` | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：切成四个动作、淡出、归一化，转 mp3 |
 | `sound/frag.mp3` `flash.mp3` | [25 CC0 bang / firework SFX](https://opengameart.org/content/25-cc0-bang-firework-sfx)（OpenGameArt）的两段礼炮爆响；手雷再叠一层 Kenney [Sci-fi Sounds](https://kenney.nl/assets/sci-fi-sounds) 的 `low_frequency_explosion_000`（经 [Combat Sound Effects Pack](https://opengameart.org/node/195932) 下载） | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：叠层、剪长度、淡出、归一化，转 mp3 |
+| `maps/yard/textures/asphalt_*.webp` | [Tarred Gravel](https://polyhaven.com/a/tarred_gravel)，作者 Dimitrios Savva，来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：2k jpg 转 WebP |
+| `maps/yard/textures/concreteFloor_*.webp` | [Concrete Floor Damaged 01](https://polyhaven.com/a/concrete_floor_damaged_01)，作者 Rob Tuytel，来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：2k jpg 转 WebP |
+| `maps/yard/textures/concrete_*.webp` | [Dirty Concrete](https://polyhaven.com/a/dirty_concrete)，作者 Rob Tuytel，来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：2k jpg 转 WebP |
+| `maps/yard/textures/dirt_*.webp` | [Dirt](https://polyhaven.com/a/dirt)，作者 Charlotte Baglioni，来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：2k jpg 转 WebP |
+| `maps/yard/env.hdr` | [Abandoned Parking](https://polyhaven.com/a/abandoned_parking)（1k HDRI），作者 Sergej Majboroda，来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。未改动 |
+| `../vendor/RGBELoader.js` | three.js r147 `examples/js/loaders/RGBELoader.js` | MIT |
 | `../vendor/GLTFLoader.js` | three.js r147 `examples/js/loaders/GLTFLoader.js` | MIT |
 | `../vendor/SkeletonUtils.js` | three.js r147 `examples/js/utils/SkeletonUtils.js` | MIT |
 | `../vendor/meshopt_decoder.js` | meshoptimizer 1.3.0 `meshopt_decoder.cjs` | MIT |
@@ -44,7 +50,9 @@ CC BY 授权要求署名：作者、原作链接、授权名称、是否修改�
 `brand/` 下是项目自己的 logo（由用户提供，原图不入仓库），不是第三方资源；`logo-dark.png` 由同一张原图去白底、黑色改骨白生成。
 `ui/maps/` 下的地图预览图是游戏自己的截图。
 
-其余贴图、音效由代码实时生成（`js/textures.js`、`js/audio.js`），没有外部文件。
+`assets/maps/yard/` 下的材质和 HDRI 由 `assets-src/maps/yard/fetch_textures.py` 从 Poly Haven 下载、转换而成；原始下载在 `assets-src/maps/yard/download/`，不入仓库，随时可重新下载。
+
+其余贴图（集装箱、沙袋、远景楼房等）、音效由代码实时生成（`js/textures.js`、`js/audio.js`），没有外部文件。
 
 ## 换模型
 

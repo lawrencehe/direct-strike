@@ -21,7 +21,59 @@ Game.World = (function () {
   async function loadMap(name) {
     const res = await fetch(`maps/${name}.json`);
     if (!res.ok) throw new Error(`地图 ${name} 加载失败（HTTP ${res.status}）`);
-    return res.json();
+    const map = await res.json();
+    await loadAssets(name, map);
+    return map;
+  }
+
+  // ---------- 真实材质（#50） ----------
+  // 地图文件的 surfaces 列出这张图用哪些 PBR 材质，值是一张贴图在现实中覆盖多少米；
+  // 贴图在 assets/maps/<地图>/textures/<名字>_{diff,nor,rough}.webp（颜色、法线、粗糙度），
+  // environment 是环境光 HDRI（只给材质照明和反射，不当天空显示）。
+  // 开局前全部下载好，build 时直接用；下载失败就退回 textures.js 画的贴图，游戏照常能玩。
+  const loaded = { surfaces: {}, env: null };
+
+  async function loadAssets(name, map) {
+    const dir = `assets/maps/${name}/`;
+    const texLoader = new THREE.TextureLoader();
+    const tex = (file, srgb) => texLoader.loadAsync(dir + file).then((t) => {
+      if (srgb) t.encoding = THREE.sRGBEncoding;
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.anisotropy = 8;
+      return t;
+    });
+    const jobs = Object.entries(map.surfaces || {}).map(async ([key, tile]) => {
+      const [diff, nor, rough] = await Promise.all([
+        tex(`textures/${key}_diff.webp`, true), tex(`textures/${key}_nor.webp`), tex(`textures/${key}_rough.webp`),
+      ]);
+      loaded.surfaces[key] = { diff, nor, rough, tile };
+    });
+    if (map.environment) {
+      jobs.push(new THREE.RGBELoader().loadAsync(dir + map.environment).then((t) => {
+        t.mapping = THREE.EquirectangularReflectionMapping;   // 渲染器会自动转成 PMREM
+        loaded.env = t;
+      }));
+    }
+    for (const r of await Promise.allSettled(jobs)) {
+      if (r.status === 'rejected') console.warn('地图材质加载失败，退回程序生成的贴图：', r.reason);
+    }
+  }
+
+  // 按真实尺寸铺贴图：UV 乘上"这个面有多少米 / 一张贴图覆盖多少米"，
+  // 这样同一种材质在大小不同的物体上纹理一样大；再随机错开一点，相邻的墩子不会长得一模一样。
+  // BoxGeometry 六个面依次是 +x, -x, +y, -y, +z, -z，每个面 4 个顶点
+  function tileUV(geo, w, h, d, tile) {
+    const uv = geo.attributes.uv;
+    const spans = geo.type === 'BoxGeometry'
+      ? [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]]
+      : [[w, h]];
+    const per = uv.count / spans.length;
+    const ou = Math.random(), ov = Math.random();
+    for (let i = 0; i < uv.count; i++) {
+      const [su, sv] = spans[Math.floor(i / per)];
+      uv.setXY(i, uv.getX(i) * su / tile + ou, uv.getY(i) * sv / tile + ov);
+    }
+    uv.needsUpdate = true;
   }
 
   function build(scene, map) {
@@ -39,7 +91,9 @@ Game.World = (function () {
 
     // y 指物体底部高度
     function addBox(w, h, d, x, y, z, material, opts) {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+      const geo = new THREE.BoxGeometry(w, h, d);
+      if (material.userData && material.userData.tile) tileUV(geo, w, h, d, material.userData.tile);
+      const mesh = new THREE.Mesh(geo, material);
       mesh.position.set(x, y + h / 2, z);
       mesh.castShadow = mesh.receiveShadow = true;
       scene.add(mesh);
@@ -65,11 +119,21 @@ Game.World = (function () {
     // ---------- 材质 ----------
     const std = (map, extra = {}) => new THREE.MeshStandardMaterial({ map, roughness: 0.9, ...extra });
 
+    // 有 PBR 贴图就用（颜色 + 法线 + 粗糙度，按真实尺寸铺），没有就用 fallback（Canvas 画的）
+    const pbr = (key, fallback, extra = {}) => {
+      const s = loaded.surfaces[key];
+      if (!s) return fallback;
+      const m = new THREE.MeshStandardMaterial({ map: s.diff, normalMap: s.nor, roughnessMap: s.rough, roughness: 1, ...extra });
+      m.userData.tile = s.tile;
+      return m;
+    };
+
     const mats = {
-      asphalt: std(T.asphalt(9)),
-      dirt: std(T.dirt(60)),
-      concrete: std(T.concrete(1)),
-      concreteDark: std(T.concrete(1, '#7d7b76')),
+      asphalt: pbr('asphalt', std(T.asphalt(9))),
+      dirt: pbr('dirt', std(T.dirt(60))),
+      // 水泥贴图本身偏白，太阳下发亮，乘一个颜色压暗；concreteDark 是同一张贴图再暗一档
+      concrete: pbr('concrete', std(T.concrete(1)), { color: 0xa39f99 }),
+      concreteDark: pbr('concrete', std(T.concrete(1, '#7d7b76')), { color: 0x7a7772 }),
       sandbag: std(T.sandbag()),
       wood: std(T.wood()),
       metal: std(T.metal(), { roughness: 0.6, metalness: 0.4 }),
@@ -185,7 +249,14 @@ Game.World = (function () {
     scene.add(hills);
 
     // ---------- 地面 ----------
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), mats.dirt);
+    // 平面按真实尺寸铺贴图（只对 PBR 材质；Canvas 贴图自己带 repeat）
+    const plane = (w, d, material) => {
+      const geo = new THREE.PlaneGeometry(w, d);
+      if (material.userData.tile) tileUV(geo, w, d, 0, material.userData.tile);
+      return new THREE.Mesh(geo, material);
+    };
+
+    const ground = plane(400, 400, mats.dirt);
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.02;
     ground.receiveShadow = true;
@@ -193,18 +264,22 @@ Game.World = (function () {
     shootables.push(ground);
     colliders.push(new THREE.Box3(new THREE.Vector3(-200, -1, -200), new THREE.Vector3(200, 0, 200)));
 
-    const yard = new THREE.Mesh(new THREE.PlaneGeometry(map.yard.w, map.yard.d), mats.asphalt);
+    const yard = plane(map.yard.w, map.yard.d, mats.asphalt);
     yard.rotation.x = -Math.PI / 2;
     yard.receiveShadow = true;
     scene.add(yard);
     shootables.push(yard);
 
     // 两块水泥浇筑区
+    const padMat = pbr('concreteFloor', null);
     for (const { x, z, w, d } of map.pads) {
-      const pad = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mats.concreteDark);
-      pad.material = mats.concreteDark.clone();
-      pad.material.map = T.concrete(1, '#858279');
-      pad.material.map.repeat.set(2, 1);
+      let pad;
+      if (padMat) pad = plane(w, d, padMat);
+      else {
+        pad = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mats.concreteDark.clone());
+        pad.material.map = T.concrete(1, '#858279');
+        pad.material.map.repeat.set(2, 1);
+      }
       pad.rotation.x = -Math.PI / 2;
       pad.position.set(x, 0.004, z);
       pad.receiveShadow = true;
@@ -335,13 +410,14 @@ Game.World = (function () {
       builders[o.type](o);
     }
 
-    // 碎石、杂物：不碰撞，只增加地面细节
-    const debrisMat = new THREE.MeshStandardMaterial({ color: 0x5b5955, roughness: 1 });
+    // 碎石、水泥碎块：不碰撞，只增加地面细节。不规则的多面体压扁、贴水泥材质（方块在太阳下发白，像"白色小方块"，#50）
+    const debrisMat = pbr('concrete', new THREE.MeshStandardMaterial({ color: 0x5b5955, roughness: 1 }), { color: 0x6e6b66 });
     for (let i = 0; i < map.debris; i++) {
-      const s = 0.08 + Math.random() * 0.25;
-      const m = new THREE.Mesh(new THREE.BoxGeometry(s, s * 0.5, s * (0.6 + Math.random())), debrisMat);
-      m.position.set((Math.random() - 0.5) * (map.yard.w - 2), s * 0.25, (Math.random() - 0.5) * (map.yard.d - 2));
-      m.rotation.y = Math.random() * Math.PI;
+      const s = 0.06 + Math.random() * 0.18;
+      const m = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), debrisMat);
+      m.scale.set(1, 0.35 + Math.random() * 0.3, 0.6 + Math.random() * 0.6);
+      m.position.set((Math.random() - 0.5) * (map.yard.w - 2), s * 0.12, (Math.random() - 0.5) * (map.yard.d - 2));
+      m.rotation.set(Math.random() * 0.3, Math.random() * Math.PI, Math.random() * 0.3);
       m.castShadow = m.receiveShadow = true;
       scene.add(m);
     }
@@ -364,6 +440,19 @@ Game.World = (function () {
     for (const { x, z } of map.backdrop.waterTowers) {
       addCylinder(0.6, 18, x, 0, z, mats.metalDark, { collide: false, shoot: false });
       addCylinder(4, 5, x, 18, z, mats.metal, { collide: false, shoot: false });
+    }
+
+    // ---------- 环境光 HDRI：给地图里的材质加环境照明和反射（#50） ----------
+    // 只给这时场景里已有的地图物体加；人物、手里的枪不受影响。强度在 config.js 的 graphics.mapEnvIntensity
+    if (loaded.env) {
+      scene.traverse((o) => {
+        for (const m of [].concat(o.material || [])) {
+          if (m.isMeshStandardMaterial && !m.envMap) {
+            m.envMap = loaded.env;
+            m.envMapIntensity = Game.Config.graphics.mapEnvIntensity;
+          }
+        }
+      });
     }
 
     // ---------- 空气中的尘埃 ----------

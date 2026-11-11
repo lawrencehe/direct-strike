@@ -63,6 +63,8 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 ## 两套场景
 
 - **世界场景**：地图、NPC、特效、投掷物，用 `camera`。
+  地图的 PBR 贴图和环境光 HDRI 在 `World.loadMap` 里随地图文件一起下载完，`World.build` 再同步建场景（#50）。
+  HDRI 只挂在 build 时场景里已有的地图材质上（`envMap`，强度 `graphics.mapEnvIntensity`），后加进来的 NPC、特效不受影响，天空仍是原来的天空球。
 - **枪模场景**：手里的枪、手、手雷，用 `weaponCamera`（单独的 FOV 和近平面），画在最上层，贴墙时枪不会插进墙里。
   它有自己的半球光、太阳和环境贴图，和世界场景的光照无关。
 
@@ -140,6 +142,10 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
   - 开发机没有声卡，好不好听只能负责人真机听；`tools/tests/real-sfx.mjs` 只保证每段解码成功、起音在开头、接线对。
 
 ## 已知的坑
+
+- **用了 PBR 贴图的方块不能共用几何体。** `world.js` 的 `tileUV` 按每个物体的尺寸改写 UV（真实尺寸铺贴图），材质的 `userData.tile` 记一张贴图覆盖几米；
+  新造型要用 PBR 材质时也要调 `tileUV`，否则一个面只铺一张、纹理随物体大小拉伸（#50）。
+- **Poly Haven 的接口拒绝 Python 默认的 User-Agent（403）**，`fetch_textures.py` 用 curl 取（#50）。
 
 - **枪模场景的光很亮。** 无贴图的非金属件亮度大约被放大 10 倍，所以 `gunmodel.js` 里的颜色看起来都很暗：
   想要屏幕上的某个颜色，把线性值除以 10 再填。文件里有注释。

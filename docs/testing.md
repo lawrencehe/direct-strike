@@ -78,6 +78,7 @@ await g.close();
 | `tools/tests/hit-reaction.mjs` | #60：玩家中弹镜头上抬歪向一侧再回正、硬直走不动打不出、硬直后免疫、手雷硬直按伤害；四角溅血、血条那一截留着再缩；NPC 硬直不开枪、往后缩 |
 | `tools/tests/input-focus.mjs` | #6：先锁鼠标再全屏、锁定被拒自动重试、全屏接管键盘后短按 Esc 只暂停、失焦和 ⌘ 后按键放开并自动暂停（开发机上约两分钟） |
 | `tools/tests/real-sfx.mjs` | #45：录音全部下载解码、起音在开头；开枪按选的枪放录音、NPC 和爆炸越远越闷越轻；空枪换弹四段按顺序响；没下完时退回合成声 |
+| `tools/tests/map-materials.mjs` | #50：地图的 PBR 贴图和环境光 HDRI 加载成功并用上、按真实尺寸铺；从几个固定机位截图看地面和水泥墩的质感（`tools/out/tests/map-materials/`） |
 | `tools/tests/arm-wrist.mjs` | #3：每把枪、换弹中、三种投掷物的手腕相对绑定姿势弯折不超过 `wristMaxBend`、没有扭转；#11：步枪左手肘不在画面中间、小臂从画面下方伸出 |
 
 ```bash
