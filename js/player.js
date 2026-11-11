@@ -27,7 +27,12 @@ Game.Player = class Player {
     this.health = Game.Config.player.maxHealth;
     this.alive = true;
     this.deathTimer = 0;
-    this.onDamage = null;                   // (伤害, 攻击者位置) => void
+    this.onDamage = null;                   // (伤害, 攻击者位置, hit) => void
+    // 中弹反应（#60，参数在 config.hitReaction）
+    this.stun = 0;                          // 硬直剩余时间：不能走、不能开枪（weapon.js 看 stunned）
+    this.stunCool = 0;                      // 这段时间内再中弹不会再硬直
+    this.punchPitch = 0;                    // 镜头被打偏的量，慢慢回正
+    this.punchRoll = 0;
     this.onDeath = null;
 
     this._box = new THREE.Box3();
@@ -40,14 +45,36 @@ Game.Player = class Player {
     this.yaw += yaw;
   }
 
-  takeDamage(amount, fromPos) {
+  get stunned() { return this.stun > 0; }
+
+  // hit.explosion：被手雷炸到（硬直按伤害算、不受免疫限制）
+  takeDamage(amount, fromPos, hit = {}) {
     if (!this.alive) return;
     this.health = Math.max(0, this.health - amount);
-    if (this.onDamage) this.onDamage(amount, fromPos);
+    this.hitReaction(amount, fromPos, hit);
+    if (this.onDamage) this.onDamage(amount, fromPos, hit);
     if (this.health <= 0) {
       this.alive = false;
       this.deathTimer = 0;
       if (this.onDeath) this.onDeath();
+    }
+  }
+
+  // 中弹反应：镜头往上抬、往远离攻击者的一侧歪；硬直一小会儿
+  hitReaction(amount, fromPos, hit) {
+    const c = Game.Config.hitReaction;
+    const k = Math.max(amount, hit.explosion ? 0 : 25) / 100;
+    let side = Math.random() < 0.5 ? 1 : -1;
+    if (fromPos) {
+      const rel = Math.atan2(-(fromPos.x - this.position.x), -(fromPos.z - this.position.z)) - this.yaw;
+      if (Math.abs(Math.sin(rel)) > 0.15) side = Math.sin(rel) > 0 ? 1 : -1;   // 攻击者在左边 → 往右歪（roll 为正是往左歪）
+    }
+    this.punchPitch += c.punchPitch * k;
+    this.punchRoll += -side * c.punchRoll * k;
+    const s = hit.explosion ? Math.min(c.stunMax, amount * c.stunPerDamage) : c.stunBullet;
+    if (hit.explosion || this.stunCool <= 0) {
+      this.stun = Math.max(this.stun, s);
+      this.stunCool = this.stun + c.stunImmune;
     }
   }
 
@@ -69,6 +96,12 @@ Game.Player = class Player {
 
     // 后坐力逐渐回正
     this.recoilPitch -= this.recoilPitch * Math.min(1, Game.Config.weapons.recoilRecover * dt);
+    // 中弹：镜头回正，硬直倒计时
+    const back = Math.min(1, Game.Config.hitReaction.punchRecover * dt);
+    this.punchPitch -= this.punchPitch * back;
+    this.punchRoll -= this.punchRoll * back;
+    this.stun = Math.max(0, this.stun - dt);
+    this.stunCool = Math.max(0, this.stunCool - dt);
 
     // ---- 2. 下蹲 ----
     // 按住就蹲；松开想站起来时，先确认头顶没东西挡着（蹲在集装箱底下不能直接站起来）
@@ -84,11 +117,15 @@ Game.Player = class Player {
     this.eye = cfg.eyeHeight + (cfg.crouchEyeHeight - cfg.eyeHeight) * this.crouchT;
 
     // ---- 3. 计算想要移动的方向 ----
+    // 硬直时不能走（松开了一样，按加速度刹住），也不能跳
     let f = 0, s = 0;
-    if (input.isAction('forward')) f += 1;
-    if (input.isAction('back')) f -= 1;
-    if (input.isAction('right')) s += 1;
-    if (input.isAction('left')) s -= 1;
+    const stunned = this.stun > 0;
+    if (!stunned) {
+      if (input.isAction('forward')) f += 1;
+      if (input.isAction('back')) f -= 1;
+      if (input.isAction('right')) s += 1;
+      if (input.isAction('left')) s -= 1;
+    }
 
     // 根据朝向把"前/右"换算成世界坐标
     const sin = Math.sin(this.yaw), cos = Math.cos(this.yaw);
@@ -115,7 +152,7 @@ Game.Player = class Player {
     }
 
     // ---- 4. 跳跃和重力 ----
-    if (this.onGround && input.isAction('jump')) {
+    if (this.onGround && !stunned && input.isAction('jump')) {
       this.velocity.y = cfg.jumpSpeed;
       this.onGround = false;
     }
@@ -138,7 +175,7 @@ Game.Player = class Player {
     const bob = this.onGround ? Math.sin(this.bobPhase) * cfg.headBob * Math.min(1, hs / cfg.walkSpeed) : 0;
 
     this.camera.position.set(this.position.x, this.position.y + this.eye + bob, this.position.z);
-    this.camera.rotation.set(this.pitch + this.recoilPitch, this.yaw, 0);
+    this.camera.rotation.set(this.pitch + this.recoilPitch + this.punchPitch, this.yaw, this.punchRoll);
   }
 
   // 阵亡后：镜头慢慢倒向地面
@@ -178,6 +215,7 @@ Game.Player = class Player {
     this.velocity.set(0, 0, 0);
     this.yaw = this.spawnYaw || 0;
     this.pitch = this.recoilPitch = 0;
+    this.punchPitch = this.punchRoll = this.stun = this.stunCool = 0;
     this.crouching = false;
     this.crouchT = 0;
     this.height = Game.Config.player.height;

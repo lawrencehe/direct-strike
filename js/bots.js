@@ -88,6 +88,8 @@ Game.Bots = (function () {
       this.deathTimer = 0;
       this.aimPoint = new THREE.Vector3();
       this.blind = 0;                  // 被闪光弹致盲的剩余时间
+      this.stun = 0;                   // 中弹硬直的剩余时间：站住、不开枪、不丢雷（#60）
+      this.stunCool = 0;               // 这段时间内再中弹不会再硬直
 
       // 装备：和玩家同一套枪（loadout 里随机挑的主 / 副武器，#54）+ 三种雷。
       // 子弹也和玩家开局一样：枪里一个弹匣 + spareMags 个备用弹匣，NPC 买不了（#7）
@@ -133,6 +135,7 @@ Game.Bots = (function () {
       if (!this.alive) return null;
       this.health -= amount;
       this.model.hitFlash();
+      if (this.health > 0) this.hitReaction(amount, hit);
 
       // 被玩家打了就警觉：转身找玩家（被自己人的雷炸到不算）
       if (!hit.byBot) this.alertTimer = 3;
@@ -161,6 +164,19 @@ Game.Bots = (function () {
       return { killed: false };
     }
 
+    // 中弹反应（#60，参数在 config.hitReaction，和玩家同一套）：硬直一小会儿，身体往后一缩。
+    // 枪打中硬直 stunBullet 秒，之后 stunImmune 秒内再中弹不再硬直；手雷按伤害算、不受免疫限制
+    hitReaction(amount, hit) {
+      const c = Game.Config.hitReaction;
+      const s = hit.explosion ? Math.min(c.stunMax, amount * c.stunPerDamage) : c.stunBullet;
+      if (hit.explosion || this.stunCool <= 0) {
+        this.stun = Math.max(this.stun, s);
+        this.stunCool = this.stun + c.stunImmune;
+        this.burstLeft = 0;   // 点射被打断
+      }
+      this.model.flinch(hit.dir || null, Math.min(1.5, amount / 34), hit.part);
+    }
+
     // 返回 true 表示可以从场景里移除了
     update(dt) {
       if (!this.alive) {
@@ -187,7 +203,8 @@ Game.Bots = (function () {
 
       this.updateWeapons(dt);
       this.nadeCooldown -= dt;
-      if (this.blind <= 0 && !this.throwing) this.considerGrenade(dist);
+      this.stunCool -= dt;
+      if (this.blind <= 0 && this.stun <= 0 && !this.throwing) this.considerGrenade(dist);
 
       // ---- 根据状态决定：往哪走、多快、面朝哪 ----
       let mx = 0, mz = 0, speed = 0, faceYaw = this.yaw;
@@ -197,6 +214,9 @@ Game.Bots = (function () {
         // 被闪了：什么都看不见，站在原地晃脑袋，等恢复后再重新发现玩家
         this.blind -= dt;
         faceYaw = this.yaw + Math.sin(this.blind * 4) * 0.6;
+      } else if (this.stun > 0) {
+        // 中弹硬直：站住（速度平滑刹停）、不开枪；正在丢的雷等硬直完再接着丢
+        this.stun -= dt;
       } else if (this.throwing) {
         // 丢雷：站定、面朝落点
         const tg = this.throwing.target;

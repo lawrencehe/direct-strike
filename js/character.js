@@ -320,6 +320,10 @@ Game.Character = (function () {
       this.flash = 0;
       this.dead = false;
       this.deathTime = 0;
+      this.flinchT = 0;                         // 中弹往后缩：已经过了多久（#60）
+      this.flinchAmt = 0;                       // 缩多大（0 = 没在缩）
+      this.flinchAxis = new THREE.Vector3(1, 0, 0);   // 绕哪根轴缩（世界坐标，水平）
+      this.flinchHead = false;
     }
 
     // 每帧由 bots.js 调用：世界坐标的水平速度 (vx, vz)、瞄准/面朝方向 aimYaw（yaw=0 朝 -z）
@@ -388,6 +392,39 @@ Game.Character = (function () {
 
     hitFlash() { this.flash = 1; }
 
+    // 中弹往后缩（没死时）：上半身顺着子弹方向往后一仰再回来，打头时头多甩一下。
+    // dir 是子弹 / 冲击的方向（世界坐标），amount 按伤害缩放（1 ≈ AK 打身体一枪）
+    flinch(dir, amount, part) {
+      const d = dir ? _v1.set(dir.x, 0, dir.z) : _v1.set(Math.sin(this.legsYaw), 0, Math.cos(this.legsYaw));   // 没方向就当从正面来
+      if (d.lengthSq() < 1e-6) d.set(0, 0, 1);
+      d.normalize();
+      this.flinchAxis.set(0, 1, 0).cross(d).normalize();   // 绕"上 × 冲击方向"转，上半身就往冲击方向倒
+      this.flinchT = 0;
+      this.flinchAmt = amount;
+      this.flinchHead = part === 'head';
+    }
+
+    // 往后缩的幅度随时间：0.06 秒内缩到最大，之后慢慢回来
+    applyFlinch(dt) {
+      if (this.flinchAmt <= 0) return;
+      const c = Game.Config.hitReaction;
+      this.flinchT += dt;
+      const t = this.flinchT, T = c.botFlinchTime, rise = 0.06;
+      if (t >= T) { this.flinchAmt = 0; return; }
+      const env = t < rise ? t / rise : 1 - smoothstep(rise, T, t);
+      const angle = c.botFlinch * this.flinchAmt * env;
+      // 腰（第一节脊柱）和头各转一点：在骨骼父节点的坐标系里绕世界轴转
+      const bend = (bone, a) => {
+        if (!bone) return;
+        bone.parent.getWorldQuaternion(_pq);
+        const axis = _v2.copy(this.flinchAxis).applyQuaternion(_pq.invert());
+        bone.quaternion.premultiply(_qt.setFromAxisAngle(axis, a));
+        bone.updateMatrixWorld(true);
+      };
+      bend(this.spine[0], angle * 0.6);
+      bend(this.bones.head, angle * (this.flinchHead ? 1.6 : 0.5));
+    }
+
     // hit: { part, point, dir, force, vel, explosion, colliders }，详见 ragdoll.js
     die(hit = {}) {
       this.dead = true;
@@ -422,6 +459,7 @@ Game.Character = (function () {
       const per = this.twist / (this.spine.length || 1);
       for (const b of this.spine) b.quaternion.multiply(_qt.setFromAxisAngle(_Y, per));
       this.root.updateMatrixWorld(true);
+      this.applyFlinch(dt);
       this.poseArms();
 
       this.flash = Math.max(0, this.flash - dt * 6);
@@ -514,6 +552,9 @@ Game.Character = (function () {
       this.root.rotation.y = aimYaw;
     }
 
+    // 方块小人没有骨骼：整个往后仰一下
+    flinch(dir, amount) { this.flinchT = 0; this.flinchAmt = amount; }
+
     aimAt(point) {
       let target = 0;
       if (point) {
@@ -554,6 +595,12 @@ Game.Character = (function () {
         this.root.position.addScaledVector(this.fallV, dt);
         if (this.root.position.y <= this.groundY) { this.root.position.y = this.groundY; this.fallV.set(0, 0, 0); }
         return;
+      }
+      if (this.flinchAmt > 0) {
+        this.flinchT += dt;
+        const T = Game.Config.hitReaction.botFlinchTime;
+        this.root.rotation.x = this.flinchT < T ? -0.5 * Game.Config.hitReaction.botFlinch * this.flinchAmt * Math.sin(Math.PI * this.flinchT / T) : 0;
+        if (this.flinchT >= T) this.flinchAmt = 0;
       }
       this.walkPhase += this.speed * dt * 3.2;
       const swing = Math.sin(this.walkPhase) * 0.6 * Math.min(1, this.speed / 2);

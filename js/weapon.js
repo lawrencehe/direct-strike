@@ -35,6 +35,8 @@ Game.Weapon = class Weapon {
     this.reloadCue = 0;         // 下一个该响的换弹音效（Weapon.RELOAD.cues 的下标）
     this.bloom = 0;       // 连射累积的散布
     this.kick = 0;        // 枪模后退动画（1 → 0）
+    this.hurt = 0;        // 中弹时枪被震得一沉（#60，1 → 0）
+    this.hurtSide = 1;
     this.flashTimer = 0;
     this.sway = new THREE.Vector2();
 
@@ -301,8 +303,9 @@ Game.Weapon = class Weapon {
     if (gun.ammo === 0 && !this.reloading && this.cooldown <= 0) this.startReload();
 
     // 全自动按住连发；半自动每次扣扳机只打一发
+    // 中弹硬直时扣不了扳机（#60）
     const wantFire = cfg.auto ? input.isAction('fire') : input.wasAction('fire');
-    if (wantFire && !this.reloading && this.cooldown <= 0 && gun.ammo > 0) this.fire(gun);
+    if (wantFire && !this.player.stunned && !this.reloading && this.cooldown <= 0 && gun.ammo > 0) this.fire(gun);
     // 没子弹了还扣扳机：咔一声空响（按一下响一下，按住不连响）
     else if (gun.ammo === 0 && !this.reloading && input.wasAction('fire')) this.audio.empty();
   }
@@ -312,7 +315,7 @@ Game.Weapon = class Weapon {
     const cfg = Game.Config.grenades;
     const kind = this.current;
     if (!this.throwState) {
-      if (ready && input.wasAction('fire') && this.hasThrowable(kind)) {
+      if (ready && !this.player.stunned && input.wasAction('fire') && this.hasThrowable(kind)) {
         this.throwState = 'hold';
         this.holdT = this.swingT = 0;
         this.thrown = false;
@@ -540,8 +543,15 @@ Game.Weapon = class Weapon {
   }
 
   // 枪模动画：开枪后坐、换弹下沉、切枪、投掷、转视角时的惯性晃动、走路晃动
+  // 中弹（main.js 的 player.onDamage 调用）：枪被震得往下一沉、歪向一边
+  onHurt(amount) {
+    this.hurt = Math.min(1, Math.max(this.hurt, amount / 100 + 0.3));
+    this.hurtSide = Math.random() < 0.5 ? 1 : -1;
+  }
+
   animate(dt) {
     this.kick -= this.kick * Math.min(1, dt * 18);
+    this.hurt -= this.hurt * Math.min(1, dt * 6);
 
     // 视角晃动：枪模稍微"跟不上"鼠标，显得有重量
     const look = this.player.lastLook;
@@ -556,8 +566,9 @@ Game.Weapon = class Weapon {
 
     const it = this.item(this.current);
     const m = it.model;
-    const swayX = this.sway.x + Math.cos(bob * 0.5) * 0.012 * moving - crouch * 0.02;
-    const swayY = this.sway.y - Math.abs(Math.sin(bob * 0.5)) * 0.01 * moving + crouch * 0.015 - dipSwitch * 0.26;
+    const dipHurt = this.hurt * Game.Config.hitReaction.gunDip;
+    const swayX = this.sway.x + Math.cos(bob * 0.5) * 0.012 * moving - crouch * 0.02 + dipHurt * 0.4 * this.hurtSide;
+    const swayY = this.sway.y - Math.abs(Math.sin(bob * 0.5)) * 0.01 * moving + crouch * 0.015 - dipSwitch * 0.26 - dipHurt;
 
     if (this.guns[this.current]) {
       // 换弹：按 Weapon.RELOAD 的时间段算出各个动作的进度（0 ~ 1），再叠到枪、弹匣、左手、机柄上
