@@ -1,7 +1,10 @@
 # 自动任务（GitHub issue 交给 Claude）
 
 负责人在 GitHub 上给 issue 打标签交给 Claude，开发机每 30 分钟检查一次，**一次只做一个**，进度写在 issue 评论里；
-负责人看了 PR 觉得可以，打 `授权部署` 标签（或评论 `commit push & deploy`）就合并上线、关 issue。需求见 [requirements/v0.27-autopilot.md](requirements/v0.27-autopilot.md)。
+负责人看了 PR 觉得可以，打 `授权部署` 标签（或评论 `commit push & deploy`）就合并上线、关 issue（#29，`授权部署` 和 `已上线` 见 #37）。
+
+为什么在开发机上定时检查、不用 GitHub Actions：工具链（Blender、verify 截图、deploy.sh）都在开发机上；
+self-hosted runner 在公开仓库上要防陌生人触发，红线多；定时检查不对外开任何口子。
 
 ## 负责人怎么用
 
@@ -32,7 +35,7 @@
 
 ## 规矩（脚本和提示词保证）
 
-- **一次一个任务**：脚本加了锁，上一轮（正在跑 Claude）没结束，这一轮直接退出，新任务留在队列等下一轮。
+- **一次一个任务**（负责人要求，怕并行太多触发额度限制）：脚本用 `flock` 加了锁，上一轮（正在跑 Claude）没结束，这一轮直接退出，新任务留在队列等下一轮。
 - **定时检查不耗 token**：每 30 分钟那一次只用 `gh` 查 GitHub，几秒钟；只有真有任务才启动 Claude。上线由脚本直接跑 `ship.sh`（用 `origin/main` 上的版本），也不启动 Claude。
 - **每天最多启动 5 次 Claude**（开发、修改各算一次）；到上限在 issue 里说一声，第二天接着做。
 - 碰到 Claude 的**额度限制**：留言、把任务放回队列，歇 60 分钟再试。
@@ -41,12 +44,13 @@
   "负责人说的"只算 lawrencehe 的评论；Claude（primorigin）的评论自然排除在外。
   Claude 的评论第一行仍带 `<!-- autopilot -->`，换账号之前用负责人账号发的旧评论靠它区分。
 - Claude **不合并、不部署**，只提 PR；不扩大范围，需求不清楚就提问；不碰红线。权限模式是 `auto`（危险操作会被拦下），不用 `bypassPermissions`。
-- 在专用 worktree `/home/donkey/direct-strike-autopilot` 里做，不碰手动会话的目录。上一轮残留的改动会收进 `git stash`，不删。
+- 在专用 worktree `/home/donkey/direct-strike-autopilot` 里做，不碰手动会话的目录（同一目录里两个会话会互相带走改动）。上一轮残留的改动会收进 `git stash`，不删。
 - 排队顺序：`优先` 的先做，然后按打 `交给Claude` 的时间。同一轮里上线 > 修改意见 > 回复后继续 > 新任务。
 
 ## 版本号
 
-Claude 开工时就定版本号：`main` 的版本和开着的 PR 占用的版本取最大的加一，写进分支名、需求文档、`README.md` 和 `index.html`。
+Claude 开工时就定版本号：`main` 的版本和开着的 PR 占用的版本取最大的加一，写进分支名、`README.md` 和 `index.html`。
+上线不启动 Claude（固定动作，脚本跑更可控），所以开发时就把版本号、`status.md` 写成上线后的样子；分支、PR、版本记在"待验收"评论末尾的注释里，脚本读它。
 几个 PR 同时待验收时，**按版本号顺序上线**（先授权版本号小的）。版本号比 `main` 旧的 PR 上线会被 `ship.sh` 拦下（版本号不倒退），标 `上线失败`。
 前一个上线后，后面的 PR 和 `main` 在版本号、`status.md`、需求列表这几处冲突是正常的，`ship.sh` 合并前会自动解决（#47）；
 别的文件（代码、资源）冲突才会上线失败，评论里列出冲突文件，在 Claude Code 里处理。
@@ -78,7 +82,7 @@ tools/autopilot/autopilot.sh --dry-run   # 看这一轮会做什么，不改标�
 ## 已知的坑
 
 - 从 worktree 部署：`deploy/compose.yaml` 原来用相对路径挂 Caddyfile，从别的目录 `docker compose up` 会把 fps-game 重建成挂那个目录的文件。
-  v0.27 起 `deploy.sh` 把 Caddyfile 复制到固定的 `/home/donkey/fps-conf/Caddyfile` 再挂。
+  所以 `deploy.sh` 把 Caddyfile 复制到固定的 `/home/donkey/fps-conf/Caddyfile` 再挂。
 - `main` 只能在一个 worktree 里检出：`ship.sh` 合并 PR 后，`main` 被别的目录占着就用分离头指针切到 `origin/main` 部署。
 - **定时器跑的是 `origin/main` 上的脚本**：启动器每次从 `origin/main` 取 `autopilot.sh`、`prompt.md`、`ship.sh` 到 `run/` 再跑。
   `ship.sh` 也用 main 的：功能分支从旧 main 开出，分支上的 `ship.sh` 可能是旧的（#31 就是这样上线失败的）。

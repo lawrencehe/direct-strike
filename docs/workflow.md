@@ -1,18 +1,20 @@
 # 开发流程
 
-## GitHub 上管什么（2026-11-10，v0.26 起）
+## GitHub 上管什么
 
-项目进展用 GitHub 管起来，不只放代码。边界是：**会变的、要跟进的放 GitHub；为什么这样做留在仓库里。**
+边界是：**过程和历史放 GitHub；仓库里的文档只写现在的样子**（按主题写在 `docs/`，标 `#N` 指回 GitHub）。
 
 | 放在哪 | 记什么 |
 |---|---|
-| **Issue** | 需求入口、bug、待确认、待办、讨论。一件事一条 |
-| **PR** | 一个版本改了什么、验证结果；正文写 `Closes #N`，合并时自动关掉需求 issue |
+| **Issue** | 需求入口、bug、待确认、待办、讨论、负责人的决定。一件事一条 |
+| **PR** | 一个版本改了什么、怎么验证的；正文写 `Closes #N`，合并时自动关掉需求 issue |
 | **Milestone** | 一个版本一个（名字就是 `vX.Y`），需求 issue 和 PR 挂上去；上线后关掉 |
 | **Release** | 每个上线的版本一个，`ship.sh --tag` 自动建 |
-| **`docs/issues.md`**（仓库里） | 每条 issue 提炼后的结论和现状，链到落地的文档、版本、PR。处理过的 issue 都要登记（`CLAUDE.md` 第 7 条） |
-| `docs/requirements/` | 方案和决定、改动、验证（为什么这样做），开头链接 issue 和 PR |
-| `docs/status.md` | 版本、现在能玩什么；已知问题和待办只放指向 Issue 的链接 |
+| `docs/` 的主题文档（仓库里） | 每个模块现在怎么工作、为什么这样做、坑和可调参数，写到哪件事标 `（#N）` |
+| `docs/status.md`（仓库里） | 版本、现在能玩什么；已知问题和待办只放指向 Issue 的链接 |
+
+查历史：主题文档里的 `#N` → `gh issue view N --comments` / `gh pr view N`；没有线索就 `gh issue list --state all --search "关键词"`、`git log -S 关键词`。
+早期的需求文档存档在对应 issue 的评论里（"📦 存档"）。
 
 标签：
 
@@ -29,7 +31,7 @@
   对应标签：`交给Claude`（排队）、`Claude处理中`、`等你回复`、`待验收`、`优先`、`授权部署`（同意上线，自动合并部署并关 issue）、`上线失败`、`已上线`（ship.sh 部署成功后打）。
 - **新会话开工前**看 `status.md` 和开着的 issue：`gh issue list`（`--label 待确认` 之类筛选）。
 - 负责人提的新需求、发现的问题，先开 issue（写负责人原话），再动手。
-- 需求做完，"遗留"里每一条都开成 issue（写"来源：#N"），不要只留在需求文档里。需要真机确认的也开一条 `待确认`。
+- 需求做完，遗留的问题都开成 issue（写"来源：#N"）。需要真机确认的也开一条 `待确认`。
 - 问题修好、确认完就关 issue（关的时候写一句结论）。不做的用 "Close as not planned" 并写原因。
 - **仓库是公开的**：issue、PR、Release 里不贴开发者模式录的数据和视频、服务器密码和令牌、玩家信息；
   只写现象、结论和上传编号。
@@ -80,12 +82,12 @@ v0.11：手雷按住拉环、飞行轨迹，枪和投掷物都加上手
 ## 每次改动的步骤
 
 0. 看 `status.md` 和开着的 issue；本次需求没有 issue 就开一条（`需求` 标签，挂这个版本的 Milestone，没有就建）。
-   照 `requirements/_template.md` 建需求文档，写清需求和范围，链接 issue。
-1. 改代码或资源。可调的数值放进 `js/config.js`，带中文注释。方案和决定随手记进需求文档。
+   需求不清楚先问，结论回在 issue 里。
+1. 改代码或资源。可调的数值放进 `js/config.js`，带中文注释。方案和负责人中途改的要求简短记在 issue 评论里。
 2. 跑验证：`node tools/verify.mjs`（Claude Code 里是 `/verify`），必须"问题: 0"。
    改动涉及玩法逻辑时，再写一个针对性的测试脚本，见 `testing.md`。
-3. 有结构变化的话，更新 `README.md`（目录表、"想改点什么"）和 `docs/` 里相关文档。
-   需求文档补上改动、验证、遗留；遗留和待确认开成 issue；更新 `status.md`。上线后把两处的状态和版本改成已上线。
+3. 把结果融进 `docs/` 里对应的主题文档（现在怎么工作、为什么、坑，标 `#N`；改原文，不追加"补充"）；有结构变化的话更新 `README.md`。
+   遗留和待确认开成 issue；更新 `status.md`（要上线就直接写成上线后的版本）。提交正文写清改了什么、怎么验证的，它就是 PR 说明。
 4. 提交；在分支上开发的，建 PR 合并进 `main`（`Closes #N`）。推送 `main`（和分支）。
 5. 需要上线就在 `main` 上跑 `./deploy.sh`，再按 `deploy.md` 的"验证"一节检查。
 
@@ -100,7 +102,7 @@ tools/ship.sh -m 提交信息文件 --no-deploy  # 只推送不部署
 它会改版本号、跑 verify（只改文档时跳过）、提交、**先把 `main` 合进分支**、推送分支、建 PR 并在 GitHub 上合并进 `main`、从 `main` 部署、检查线上、
 打 tag、建 Release、`-c` 的 issue 关闭并标 `已上线`、Milestone 的 issue 都关了就关掉 Milestone，最后回到原分支。参数见脚本开头。
 
-合并 `main` 进分支（#47）：只在 `README.md`、`index.html`、`docs/status.md`（取分支的）和 `docs/requirements/README.md`（两边都留）冲突时自动解决，
+合并 `main` 进分支（#47）：只在 `README.md`、`index.html`、`docs/status.md` 冲突时自动解决（取分支的），
 合并后有代码变化就再跑一次 verify；别的文件冲突、或者分支版本号比 `main` 旧，直接停下，什么都不推送。
 
 ## 不能做的事

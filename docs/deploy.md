@@ -33,7 +33,7 @@ fps-game 容器（caddy:alpine，只在 Docker 网络 paseo-relay_default 内开
 |---|---|
 | `deploy.sh` | 一键发布：rsync 站点和接口代码 + 拉起容器 + 重载 / 重启（首次还生成 `api.env`） |
 | `deploy/compose.yaml` | fps-game、fps-api 两个容器的定义，网络指向 `paseo-relay_default` |
-| `deploy/Caddyfile` | fps-game 的配置：`/api/*` 转给 fps-api，其他出静态文件（根目录、gzip、缓存策略）。`deploy.sh` 每次原地复制到 `/home/donkey/fps-conf/Caddyfile`，容器挂的是那份（v0.27 起，固定路径，从哪个目录部署都一样） |
+| `deploy/Caddyfile` | fps-game 的配置：`/api/*` 转给 fps-api，其他出静态文件（根目录、gzip、缓存策略）。`deploy.sh` 每次原地复制到 `/home/donkey/fps-conf/Caddyfile`，容器挂的是那份（固定路径，从哪个目录、worktree 部署都一样，#29） |
 | `server/api.py` | 开发接口（fps-api 容器里跑），说明见 `devmode.md` |
 | `/home/donkey/direct-strike-data/api.env` | 开发者模式密码 `DEV_PASSWORD`、签名随机串 `API_SECRET`、数据上限 `DATA_QUOTA_GB`。首次 `deploy.sh` 自动生成，不在仓库里 |
 | `/home/donkey/direct-strike-data/devlogs/` | 上传的开发者数据，每次上传一个目录，总量超过上限删最旧的 |
@@ -95,7 +95,7 @@ docker exec fps-game cat /etc/caddy/Caddyfile | grep -A3 /api   # Caddy 有没�
 ```
 
 - 容器里的 Caddyfile 有 `/api/*` 但线上还是不通：Caddy 没重读配置，`docker exec fps-game caddy reload --config /etc/caddy/Caddyfile`。
-  （v0.21 第一次部署就是这样，之后 `deploy.sh` 每次都重载。）
+  （`deploy.sh` 每次部署都会平滑重载，正常不会碰到。）
 - 改密码：改 `~/direct-strike-data/api.env` 的 `DEV_PASSWORD`，`docker restart fps-api`。所有已解锁的浏览器下次打开页面自动退出。
 - 数据目录、配额和上传的格式见 `devmode.md`。
 

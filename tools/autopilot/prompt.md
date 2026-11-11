@@ -8,13 +8,13 @@
 
 ## 先读
 
-1. `CLAUDE.md` 和 `docs/status.md`，按 CLAUDE.md 的流程做（需求文档、/verify、针对性测试、中文、config.js 放参数等）。
+1. `CLAUDE.md` 和 `docs/status.md`，按 CLAUDE.md 的流程做（文档和项目状态、/verify、针对性测试、中文、config.js 放参数等）。
 2. `gh issue view ${NUM} --json title,body,labels,comments`：需求、负责人的原话和全部讨论（不要用 `--comments`：本机 gh 2.46 会报 Projects (classic) 的 GraphQL 错；同理改 PR 正文用 `gh api -X PATCH repos/${REPO}/pulls/<编号> -F body=@文件`，不用 `gh pr edit`）。负责人的评论不带 `${MARK}`，你（自动任务）的评论带。
 
 ## 规矩
 
-- **`docs/issues.md` 要登记**（CLAUDE.md 第 7 条）：#${NUM} 和你新开的遗留 issue 都加一行或更新那一行，写提炼后的结论和落地文档，不照抄 issue；结论融进已有的主题文档，不要一个 issue 建一份文档；跟代码同一个提交。
-  只提问、没做完时不用登记。
+- **文档只写现状、按主题组织**（CLAUDE.md "文档和项目状态"）：做完把结果融进 `docs/` 里对应的主题文档，标 `（#${NUM}）`，改原文不追加；
+  不建需求文档，不把 issue 抄进仓库，过程写在 issue 评论和 PR 说明里。要查以前为什么这样做，用 `gh issue view N --comments` / `gh issue list --state all --search`。
 - **只做 #${NUM}**，只做 issue 里写清楚的事，不扩大范围，不碰别的 issue（只能新开遗留 issue）。
 - 需求不清楚、有多种做法要负责人选、要改玩法方向、要碰红线（CLAUDE.md 的"红线"）：**不要猜**。
   按下面"提问"的格式留言，标签改成 `${L_ASK}`，然后结束，不写代码。
@@ -30,9 +30,9 @@
 1. 定版本号：看 `origin/main` 上 `README.md` 第一行的版本，再看开着的 PR 标题（`gh pr list --state open --json title`）占用的版本，取最大的再加 0.01（例如 v0.27 → v0.28）。
 2. 先留一条"已接手"评论：打算怎么做（三五行）、版本号、分支名。
 3. 从当前位置（已经是 origin/main）开分支 `vX.Y-英文主题`。没有这个版本的 Milestone 就建一个（`gh api repos/${REPO}/milestones -f title=vX.Y`）。
-4. 按 CLAUDE.md 做：需求文档 `docs/requirements/vX.Y-主题.md`（开头写 Issue #${NUM}），登记 `docs/requirements/README.md`；改代码；
-   跑 `node tools/verify.mjs`（必须"问题: 0"）；玩法逻辑写针对性测试；看截图确认画面。
-5. 版本号改两处（`README.md` 第一行、`index.html` 的 `<small>`）。需求文档状态和 `docs/status.md` 的线上版本**直接写成上线后的样子**（已上线（vX.Y）），和 /ship 的约定一样。
+4. 按 CLAUDE.md 做：改代码；跑 `node tools/verify.mjs`（必须"问题: 0"）；玩法逻辑写针对性测试；看截图确认画面；
+   把结果融进对应的主题文档（标 `（#${NUM}）`）。
+5. 版本号改两处（`README.md` 第一行、`index.html` 的 `<small>`）。`docs/status.md` 的线上版本**直接写成上线后的样子**，和 /ship 的约定一样。
 6. 遗留问题、要负责人真机确认的，各开一条 issue（`待确认` / `bug` / `想法` 标签，写"来源：#${NUM}"，**不要**打 `${L_QUEUE}`）。
 7. 提交（中文，首行 `vX.Y：一句话摘要`，正文分条，末尾 `Co-Authored-By: Claude <noreply@anthropic.com>`），`git push -u origin <分支>`。
 8. 建 PR：`gh pr create --base main --title "<提交首行>" --body-file <文件> --milestone vX.Y`，正文是要点加 `Closes #${NUM}`。
@@ -41,7 +41,7 @@
 ## revise / resume：怎么做
 
 在分支 `${BRANCH}` 上（已经切好了）。读负责人最新的评论，照着改；改完同样跑验证、提交、`git push`（PR 自动更新），
-需求文档的"方案和决定"里记下负责人这次的要求。最后同样留"待验收"评论、改标签。还有疑问就按"提问"处理。
+负责人这次的要求如果改变了做法，同步改主题文档。最后同样留"待验收"评论、改标签。还有疑问就按"提问"处理。
 
 ## 评论格式
 
