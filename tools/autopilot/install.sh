@@ -7,7 +7,7 @@
 #   tools/autopilot/install.sh status     看定时器、最近日志
 #   tools/autopilot/install.sh uninstall  停掉并删除定时器
 set -euo pipefail
-REPO_DIR=$(cd "$(dirname "$0")/../.." && pwd)
+REPO_DIR=${AUTOPILOT_REPO:-$(cd "$(dirname "$0")/../.." && pwd)}   # 从别的 worktree 装时用 AUTOPILOT_REPO 指向主仓库目录
 UNIT=direct-strike-autopilot
 DIR=$HOME/.config/systemd/user
 STATE=$HOME/.local/state/direct-strike-autopilot
@@ -37,7 +37,8 @@ for b in claude node gh docker rsync git jq envsubst flock; do
 done
 P="${P#:}:/usr/bin:/bin"
 
-# 启动器：每次从 origin/main 取 autopilot.sh 和 prompt.md 到 $STATE/run/ 再跑。
+# 启动器：每次从 origin/main 取 autopilot.sh、prompt.md、ship.sh 到 $STATE/run/ 再跑。
+# ship.sh 也取 main 的：功能分支是从旧的 main 开出来的，分支上的 ship.sh 可能是有毛病的旧版本（#31）。
 # 不直接跑工作目录里的脚本：手动会话和自动任务都会切分支，bash 边读边执行，文件中途被换掉会出错；
 # 也保证跑的是已经合并的版本。写临时文件再 mv（原子替换），正在跑的上一轮不受影响。
 mkdir -p "$DIR" "$STATE/run"
@@ -47,10 +48,11 @@ set -euo pipefail
 RUN=$(dirname "$0")
 cd "$AUTOPILOT_REPO"
 git fetch -q origin main
-for f in autopilot.sh prompt.md; do
-  git show "origin/main:tools/autopilot/$f" > "$RUN/.$f.tmp" && mv "$RUN/.$f.tmp" "$RUN/$f"
+for f in tools/autopilot/autopilot.sh tools/autopilot/prompt.md tools/ship.sh; do
+  b=$(basename "$f")
+  git show "origin/main:$f" > "$RUN/.$b.tmp" && mv "$RUN/.$b.tmp" "$RUN/$b"
 done
-chmod +x "$RUN/autopilot.sh"
+chmod +x "$RUN/autopilot.sh" "$RUN/ship.sh"
 AUTOPILOT_PROMPT="$RUN/prompt.md" exec "$RUN/autopilot.sh" "$@"
 LAUNCH
 chmod +x "$STATE/run/launch.sh"

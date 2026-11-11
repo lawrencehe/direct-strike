@@ -12,7 +12,7 @@
 
 ## 进行中
 
-交给 Claude 自动做的看标签 `交给Claude` / `Claude处理中` / `待验收`（`autopilot.md`）。正在做的需求看 [开启的 Milestone](https://github.com/lawrencehe/direct-strike/milestones) 和 [开着的 PR](https://github.com/lawrencehe/direct-strike/pulls)。
+交给 Claude 自动做的看标签 `交给Claude` / `Claude处理中` / `待验收` / `上线失败`，上线了的是 `已上线`（`autopilot.md`）。正在做的需求看 [开启的 Milestone](https://github.com/lawrencehe/direct-strike/milestones) 和 [开着的 PR](https://github.com/lawrencehe/direct-strike/pulls)。
 
 ## 现在能玩什么
 
@@ -20,7 +20,7 @@
 - 装备：主武器 AK / M4，副武器 手枪 / SG 手枪，手雷 / 闪光 / 烟雾开局各一个；对手形象 乌克兰士兵 / 特种兵。换枪只换外观，数值相同。
 - NPC 和玩家同一套装备和数值（NPC 没有经济，每条命满装备）。
 - 打空自动换弹，换弹有完整动作；手雷拔环后攥着不计时，出手才计时（手雷 2 秒，飞行时间也算在内）；
-  对决和波次有经济：击杀拿赏金，回出生点按 B 买投掷物。
+  对决和波次有经济：击杀拿赏金，回出生点（左侧出购物车图标）按 B 买投掷物，买完面板自动关；买成功 / 买不了都有音效和动画回应（不用文字）。
 - 细节见 `../README.md`。
 
 ## 已知问题和待办

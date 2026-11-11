@@ -207,6 +207,7 @@ Game.Config = {
     prices: { frag: 300, flash: 200, smoke: 300 },   // 价格
     maxCarry: { frag: 2, flash: 2, smoke: 1 },       // 每种最多带几个
     buyRadius: 3,          // 购买区：出生点周围几米（地上有一圈环）
+    boughtPulse: 0.7,      // 买成功后武器栏里那一格闪亮、放大回弹几秒（同时钱数闪一下、旁边飘 "-$价格"）
   },
 
   // 1v1 对决
