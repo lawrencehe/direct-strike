@@ -184,6 +184,22 @@ if [ $TAG = 1 ]; then
   fi
 fi
 
+# ---- 6. issue 收尾：部署成功才做。关闭、去掉流程标签、打 已上线、评论"已上线"（手动 /ship 和自动任务都走这里）----
+if [ $DEPLOY = 1 ] && [ $PR = 1 ] && [ -n "$CLOSES" ]; then
+  sleep 3   # PR 的 Closes 关 issue 是异步的，先等一下
+  for n in ${CLOSES//,/ }; do
+    [ "$(gh issue view "$n" --json state -q .state)" = OPEN ] && gh issue close "$n" >/dev/null
+    # 用 REST 改标签（gh issue edit 在 gh 2.46 上可能碰到 Projects (classic) 的错）；没有的标签删不掉，忽略
+    for l in 交给Claude Claude处理中 等你回复 待验收 授权部署 上线失败; do
+      gh api -X DELETE "repos/$REPO/issues/$n/labels/$l" >/dev/null 2>&1 || true
+    done
+    gh api -X POST "repos/$REPO/issues/$n/labels" -f "labels[]=已上线" >/dev/null || echo "! #$n 没打上 已上线 标签"
+    gh issue comment "$n" --body "$(printf '<!-- autopilot -->\n✅ **已上线 %s**：%s\n\n%s已合并进 main 并部署，线上检查通过，issue 已关闭。\n真机试玩有问题就开新 issue（要 Claude 做的话打 `交给Claude`）。' \
+      "$CUR" "$SITE" "${PRNUM:+PR #$PRNUM }")" >/dev/null || echo "! #$n 没发成已上线评论"
+    echo "✓ #$n 已关闭，标为 已上线"
+  done
+fi
+
 # 回到原来的分支继续开发
 [ "$BR" != main ] && git checkout -q "$BR" && echo "· 回到分支 $BR"
 exit 0

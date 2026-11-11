@@ -43,7 +43,7 @@
 - **分支：可以开分支开发，开发完建 PR 并入 `main`，从 `main` 部署。** 分支也推到远端，本地和远端都不删除，保留历史。详见 `docs/workflow.md`。
   用户说"commit push & deploy"时用 `/ship`（`tools/ship.sh`）一次完成：提交 → 推送分支 → 建 PR（`Closes #N`）并在 GitHub 上合并 → 从 `main` 部署 → 线上检查 → tag 和 Release。
 - **GitHub 管进展**：需求、bug、待确认、想法都开 Issue，一个版本一个 Milestone，合并走 PR。仓库是公开的，不往 GitHub 贴录下的数据、密码、玩家信息。
-  **开 issue 只是记录**；打了 `交给Claude` 才由自动任务处理（`docs/autopilot.md`）。手动会话不要去动别的 issue 的这几个标签：`交给Claude`、`Claude处理中`、`等你回复`、`待验收`、`授权部署`。
+  **开 issue 只是记录**；打了 `交给Claude` 才由自动任务处理（`docs/autopilot.md`）。手动会话不要去动别的 issue 的这几个标签：`交给Claude`、`Claude处理中`、`等你回复`、`待验收`、`授权部署`、`上线失败`（`已上线` 由 ship.sh 打）。
 - 中文：注释、文档、提交信息都用中文。提交信息格式 `vX.Y：一句话摘要`，正文列要点，每个上线的版本都打 tag（`ship.sh --tag`）。
 - 发版时版本号改两处：`README.md` 标题和 `index.html` 的 `<small>vX.Y</small>`。
 - `refer/` 是用户的创意草图，已 gitignore，不要删、不要提交；用户说"看图"就是指这里，动手前先看图。

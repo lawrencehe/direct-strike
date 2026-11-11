@@ -23,7 +23,8 @@ MAX_PER_DAY=${AUTOPILOT_MAX_PER_DAY:-5}         # 每天最多启动几次 Claud
 TIMEOUT_MIN=${AUTOPILOT_TIMEOUT_MIN:-90}        # 单个任务最长多少分钟
 COOLDOWN_MIN=${AUTOPILOT_COOLDOWN_MIN:-60}      # 碰到额度限制后歇多久
 MARK='<!-- autopilot -->'
-L_QUEUE=交给Claude L_DOING=Claude处理中 L_ASK=等你回复 L_REVIEW=待验收 L_PRIO=优先 L_AUTH=授权部署
+L_QUEUE=交给Claude L_DOING=Claude处理中 L_ASK=等你回复 L_REVIEW=待验收 L_PRIO=优先 L_AUTH=授权部署 L_FAIL=上线失败
+CPD='commit[[:space:]]*(,|&|＆|and)?[[:space:]]*push[[:space:]]*(&|＆|and)[[:space:]]*deploy|^/ship'   # 负责人说"上线"的写法
 DRY=0; [ "${1:-}" = --dry-run ] && DRY=1
 
 mkdir -p "$STATE/logs"
@@ -78,9 +79,20 @@ labeled_by() {
 
 # 负责人打了 授权部署（别人打的不算）
 authorized() { [[ ",$(labels_of "$1")," == *",$L_AUTH,"* ]] && [ "$(labeled_by "$1" "$L_AUTH" | cut -d' ' -f1)" = "$OWNER" ]; }
+# 负责人在 Claude 还在做的时候（最近一次打上 处理中 之后）就评论了 commit push & deploy：算提前授权。
+# 只看最近一次 处理中 之后的，上线失败后不会拿旧评论反复重试
+early_cpd() {
+  local since; since=$(labeled_by "$1" "$L_DOING" | cut -d' ' -f2)
+  [ -n "$since" ] && [ "$since" != null ] || return 1
+  gh api "repos/$REPO/issues/$1/comments?per_page=100" --paginate \
+    | jq -rs --arg o "$OWNER" --arg m "$MARK" --arg t "$since" \
+        '[add[] | select(.user.login == $o and (.body | contains($m) | not) and .created_at > $t)] | map(.body) | join("\n")' \
+    | grep -qiE "$CPD"
+}
 
 # 上线：跑 origin/main 上的 ship.sh（启动器取到脚本旁边；手动跑时用仓库里的），不启动 Claude。
-# 调用前标签已经是 处理中，worktree 已经在任务分支上
+# 调用前标签已经是 处理中，worktree 已经在任务分支上。
+# 成功后 issue 的收尾（关闭、去掉流程标签、打 已上线、评论"已上线"）由 ship.sh -c 做，手动 /ship 也一样
 do_ship() {
   local ship=$(dirname "$0")/ship.sh; [ -x "$ship" ] || ship=$(dirname "$0")/../ship.sh
   if [ -z "$BRANCH" ] || [ -z "$VER" ]; then
@@ -88,21 +100,12 @@ do_ship() {
     relabel "$NUM" "$L_ASK" "$L_DOING,$L_AUTH"; exit 1
   fi
   if OUT=$(SHIP_DIR="$WT" "$ship" -c "$NUM" --tag 2>&1 9>&-); then
-    log "#$NUM 已上线 $VER"
-    relabel "$NUM" "" "$L_DOING,$L_AUTH" || true
-    sleep 5   # PR 的 Closes 关 issue 是异步的，等一下；没关上就手动关
-    [ "$(gh issue view "$NUM" --json state -q .state)" = OPEN ] && gh issue close "$NUM" >/dev/null || true
-    comment "$NUM" "已上线 **$VER**：https://game.lightup.host ，issue 已关闭。
-
-\`\`\`
-$(echo "$OUT" | grep -E '^[✓·]')
-\`\`\`
-真机试玩有问题就开新 issue（要我做的话打 \`$L_QUEUE\`）。"
+    log "#$NUM 已上线 $VER"; echo "$OUT" | grep -E '^[✓·!✗]' >> "$STATE/logs/autopilot.log"
   else
     log "#$NUM 上线失败"; echo "$OUT" >> "$STATE/logs/autopilot.log"
     # 去掉 授权部署，免得每一轮都重试；处理好后负责人重新打标签或评论
-    relabel "$NUM" "$L_REVIEW" "$L_DOING,$L_AUTH"
-    comment "$NUM" "上线没成功，停在这一步：
+    relabel "$NUM" "$L_REVIEW,$L_FAIL" "$L_DOING,$L_AUTH"
+    comment "$NUM" "❌ 上线没成功（标签 \`$L_FAIL\`），停在这一步：
 
 \`\`\`
 $(echo "$OUT" | tail -15)
@@ -124,10 +127,10 @@ TASK="" NUM=""
 # 待验收：说了 commit push & deploy → 上线；写了别的 → 修改（有 授权部署 的改完再上线）；没说话但打了 授权部署 → 上线
 for n in $(gh issue list --state open --label "$L_REVIEW" --json number -q 'sort_by(.number) | .[].number'); do
   r=$(owner_reply "$n")
-  if [ -n "$r" ] && echo "$r" | grep -qiE 'commit[[:space:]]*(,|&|＆|and)?[[:space:]]*push[[:space:]]*(&|＆|and)[[:space:]]*deploy|^/ship'; then
+  if [ -n "$r" ] && echo "$r" | grep -qiE "$CPD"; then
     TASK=ship; NUM=$n; break
   fi
-  if [ -z "$r" ]; then authorized "$n" && { TASK=ship; NUM=$n; break; }; continue; fi
+  if [ -z "$r" ]; then { authorized "$n" || early_cpd "$n"; } && { TASK=ship; NUM=$n; break; }; continue; fi
   [ -z "$TASK" ] && { TASK=revise; NUM=$n; }
 done
 if [ -z "$TASK" ]; then
@@ -165,7 +168,7 @@ fi
 
 # 先挂上 处理中，别的轮次就不会再挑它
 case $TASK in
-  ship|revise) relabel "$NUM" "$L_DOING" "$L_REVIEW" ;;
+  ship|revise) relabel "$NUM" "$L_DOING" "$L_REVIEW,$L_FAIL" ;;   # 重试上线 / 改了再说：先摘掉 上线失败
   resume)      relabel "$NUM" "$L_DOING" "$L_ASK" ;;
   develop)     relabel "$NUM" "$L_DOING" "$L_QUEUE,$L_PRIO" ;;
 esac
@@ -204,8 +207,8 @@ RESULT=$(jq -r '.result // empty' "$RUNLOG" 2>/dev/null || tail -c 2000 "$RUNLOG
 log "#$NUM Claude 结束 rc=$RC"
 
 NOW_LABELS=$(labels_of "$NUM")
-# 提前授权过（授权部署）：Claude 做完改成了 待验收，这一轮直接上线，不用等负责人
-if [[ ",$NOW_LABELS," == *",$L_REVIEW,"* ]] && authorized "$NUM"; then
+# 提前授权过（授权部署，或做的过程中就评论了 commit push & deploy）：Claude 做完改成了 待验收，这一轮直接上线
+if [[ ",$NOW_LABELS," == *",$L_REVIEW,"* ]] && { authorized "$NUM" || early_cpd "$NUM"; }; then
   log "#$NUM 已授权部署，直接上线"
   relabel "$NUM" "$L_DOING" "$L_REVIEW"
   BRANCH=$(meta "$NUM" branch); PR=$(meta "$NUM" pr); VER=$(meta "$NUM" version)
