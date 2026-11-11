@@ -5,8 +5,10 @@
 //   赏金：只看最后一击是怎么打死的（爆头 / 枪打身体或腿 / 手雷炸死），NPC 被自己的雷炸死不算。
 //   钱有上限，到了上限再打死人也不涨。钱跟着整局走，死了不清零；开新一局清零。
 //   购买区：玩家这条命出生的那个点，周围 buyRadius 米内，地上有一圈橙色的环。
+//   进了购买区，屏幕左侧滑出一个购物车图标（带购买键的键帽），能买得起东西时亮橙色，买不起时变灰；不写文字提示。
 //   在购买区里按"购买"键（默认 B）打开面板，面板开着时按投掷物自己的槽位键（默认 3 / 4 / 5）买一个，
-//   不会切到那个投掷物。走出购买区、死了、再按一次购买键都会关掉面板。
+//   这一下不会切到那个投掷物；买成功面板立刻关掉，再按一次槽位键就能切过去（买不了时面板不关，响一声）。
+//   走出购买区、死了、再按一次购买键也都会关掉面板。
 //   能带几个有上限（economy.maxCarry），满了买不了。
 //
 // 死了重生时投掷物回到开局的数量（多买的随人一起没了），波次之间补给不收走多买的。
@@ -37,7 +39,7 @@ Game.Economy = class Economy {
     this.money = Game.Config.economy.startMoney;
     this.close();
     this.inZone = false;
-    this.hud.setBuyTip(null);
+    this.hud.setBuyCue(null);
     this.hud.setMoney(this.money, this.enabled);
     this.ring.material.opacity = 0;
   }
@@ -70,19 +72,33 @@ Game.Economy = class Economy {
     const key = (a) => Game.Input.bindingName(input.bindings[a]);
     if (!this.inZone) {
       this.close();
-      this.hud.setBuyTip(null);
+      this.hud.setBuyCue(null);
+      // 不在购买区按购买键：灰色购物车从左边探出来晃一下又收回，响一声"不行"
+      if (input.wasAction('buy')) { this.hud.buyCueDenied(); this.audio.denied(); }
       return;
     }
     if (input.wasAction('buy')) this.open ? this.close() : this.openMenu();
-    this.hud.setBuyTip(this.open ? null : `购买区 · ${key('buy')} 购买投掷物`);
-    if (!this.open) return;
 
-    for (const kind of Economy.ITEMS) {
-      const action = Game.Weapon.ACTIONS[kind];
-      if (!input.wasAction(action)) continue;
-      input.consumeAction(action);
-      this.buy(kind);
+    if (this.open) {
+      // 同一帧按了几个键：都吃掉（不切武器），只买第一个
+      let done = false, denied = null;
+      for (const kind of Economy.ITEMS) {
+        const action = Game.Weapon.ACTIONS[kind];
+        if (!input.wasAction(action)) continue;
+        input.consumeAction(action);
+        if (done) continue;
+        if (this.canBuy(kind)) done = this.buy(kind);
+        else if (!denied) denied = kind;
+      }
+      if (done) this.close();   // 买成功就关面板，下一次按槽位键就是切过去
+      else if (denied) {        // 买不了：那一行红一下、左右晃，响一声"不行"，面板留着
+        this.audio.denied();
+        this.hud.buyRowDenied(Economy.ITEMS.indexOf(denied));
+      }
     }
+
+    // 购物车图标：面板开着时收起；能买得起任何一样亮，买不起灰
+    this.hud.setBuyCue(this.open ? null : (Economy.ITEMS.some((k) => this.canBuy(k)) ? 'ok' : 'poor'), key('buy'));
   }
 
   canBuy(kind) {
@@ -90,13 +106,18 @@ Game.Economy = class Economy {
     return this.money >= cfg.prices[kind] && this.weapon.counts[kind] < cfg.maxCarry[kind];
   }
 
+  // 买一个。买成功的回应（不用文字）：purchase 音效、钱数闪一下并飘 "-$价格"、武器栏里那一格闪亮回弹
   buy(kind) {
-    if (!this.canBuy(kind)) { this.audio.empty(); return; }
-    this.money -= Game.Config.economy.prices[kind];
+    if (!this.canBuy(kind)) return false;
+    const price = Game.Config.economy.prices[kind];
+    this.money -= price;
+    this.hud.pulseSlot(Game.Weapon.ACTIONS[kind]);   // 先记下，addThrowable 重画武器栏时带上
     this.weapon.addThrowable(kind);
-    this.audio.cash();
+    this.audio.purchase();
     this.hud.setMoney(this.money);
+    this.hud.moneySpend(price);
     this.refreshMenu();
+    return true;
   }
 
   openMenu() {
@@ -113,7 +134,7 @@ Game.Economy = class Economy {
   // 玩家阵亡：关掉面板，地上的环也藏起来（重生后再出现在新的出生点）
   onPlayerDeath() {
     this.close();
-    this.hud.setBuyTip(null);
+    this.hud.setBuyCue(null);
     this.ring.material.opacity = 0;
   }
 

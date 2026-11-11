@@ -69,11 +69,12 @@ await g.close();
 
 | 脚本 | 测什么 |
 |---|---|
+| `tools/tests/buy-ux.mjs` | v0.30：买完立刻关面板、再按槽位键切过去；购买区的购物车图标（亮 / 灰 / 收起）；买成功 / 买不了 / 区外按 B 的音效和动画回应 |
 | `tools/tests/reload-nade-economy.mjs` | v0.20：自动换弹、换弹中切枪、手雷两道保险、经济（赏金、上限、购买、补给） |
 | `tools/tests/devlog.mjs` | v0.21：开发者模式的解锁、录制开销和零内存分配、事件、录画面的自动关闭保护、上传、分析脚本 |
 | `tools/tests/npc-grenade.mjs` | v0.25：引信从出手算、手雷按露出部位算伤害、推算玩家位置、听枪声、NPC 预演丢雷的准度、雷不卡在 NPC 身上 |
 | `tools/tests/input-focus.mjs` | v0.26：先锁鼠标再全屏、锁定被拒自动重试、全屏接管键盘后短按 Esc 只暂停、失焦和 ⌘ 后按键放开并自动暂停（开发机上约两分钟） |
-| `tools/tests/arm-wrist.mjs` | v0.22：每把枪、换弹中、三种投掷物的手腕相对绑定姿势弯折不超过 `wristMaxBend`、没有扭转 |
+| `tools/tests/arm-wrist.mjs` | v0.22：每把枪、换弹中、三种投掷物的手腕相对绑定姿势弯折不超过 `wristMaxBend`、没有扭转；v0.29：步枪左手肘不在画面中间、小臂从画面下方伸出 |
 
 ```bash
 node tools/tests/reload-nade-economy.mjs

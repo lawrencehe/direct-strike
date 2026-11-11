@@ -466,11 +466,32 @@ b.enemy { color: var(--enemy) !important; }
 #hitmarker.kill { width: 34px; height: 34px; margin: -17px 0 0 -17px; }
 #hitmarker.kill::before, #hitmarker.kill::after { width: 3px; margin-left: -1.5px; }
 
-/* 在购买区里：准星下方一行提示 */
-#buy-tip {
-  position: absolute; left: 50%; top: calc(50% + 46px); transform: translateX(-50%);
-  font-family: var(--font-m); font-size: 12px; letter-spacing: .12em; color: var(--accent); text-shadow: 0 0 3px #000;
-  display: none; white-space: nowrap;
+/* 在购买区里：左侧（购买面板弹出的位置）一个购物车图标 + 购买键的键帽，进区滑入、轻轻呼吸；买不起变灰 */
+#buy-cue {
+  position: absolute; left: 20px; top: 50%; width: 46px; height: 46px; margin-top: -23px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(10, 11, 8, .6); border-left: 2px solid var(--accent); color: var(--accent);
+  opacity: 0; transform: translateX(-24px); pointer-events: none;
+  transition: opacity .2s, transform .2s, color .2s, border-color .2s;
+}
+#buy-cue svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; filter: drop-shadow(0 0 2px #000); }
+#buy-cue svg circle { fill: currentColor; stroke: none; }
+#buy-cue kbd {
+  position: absolute; right: -9px; bottom: -7px; min-width: 18px; padding: 0 4px;
+  font-family: var(--font-m); font-size: 10px; line-height: 16px; text-align: center;
+  color: var(--ink); background: rgba(10, 11, 8, .9); border: 1px solid currentColor;
+}
+#buy-cue.show { opacity: 1; transform: none; animation: buy-cue-pulse 1.6s ease-in-out .2s infinite; }
+#buy-cue.poor { color: var(--dim); border-left-color: var(--dim); animation: none; }
+@keyframes buy-cue-pulse { 50% { box-shadow: 0 0 14px rgba(255, 95, 0, .45); } }
+/* 不在购买区按购买键：灰色图标探出来左右晃一下再收回 */
+#buy-cue.denied { color: var(--dim); border-left-color: var(--dim); animation: buy-cue-denied .55s ease-out; }
+@keyframes buy-cue-denied {
+  0% { opacity: 0; transform: translateX(-24px); }
+  20% { opacity: 1; transform: none; }
+  35% { transform: translateX(-6px); } 50% { transform: translateX(5px); } 65% { transform: translateX(-3px); }
+  80% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateX(-24px); }
 }
 
 /* 购买面板：左侧居中，开着时照样能走能看 */
@@ -490,6 +511,13 @@ b.enemy { color: var(--enemy) !important; }
 #buy i { font-style: normal; font-family: var(--font-m); font-size: 11px; color: var(--muted); }
 #buy div b { min-width: 46px; text-align: right; font-family: var(--font-m); font-weight: 400; color: var(--accent); }
 #buy div.off { opacity: .38; }
+/* 买不了的那一行：红一下、左右晃 */
+#buy div.denied { animation: buy-row-denied .4s ease-out; }
+@keyframes buy-row-denied {
+  0% { background: rgba(200, 40, 30, .5); opacity: 1; transform: none; }
+  20% { transform: translateX(-6px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); }
+  100% { background: transparent; transform: none; }
+}
 #buy p { margin: 8px 0 0; font-size: 11px; color: var(--dim); }
 
 /* 左上：本局统计 */
@@ -533,6 +561,11 @@ b.enemy { color: var(--enemy) !important; }
   opacity: 0;
 }
 #money-gain.show { animation: money-gain 1.8s ease-out forwards; }
+#money-gain.spend { color: var(--enemy); font-family: var(--font-d); font-size: 18px; font-weight: 700; }
+/* 买东西花了钱：钱数白闪一下、从大缩回来 */
+#money-val { display: inline-block; }
+#money.spent #money-val { animation: money-spent .45s ease-out; }
+@keyframes money-spent { 0% { color: #fff; transform: scale(1.3); } 100% { color: var(--accent); transform: none; } }
 @keyframes money-gain {
   0% { opacity: 0; transform: translateY(6px); }
   12% { opacity: 1; transform: none; }
@@ -553,6 +586,14 @@ b.enemy { color: var(--enemy) !important; }
 #weapons .slot kbd { font-family: var(--font-m); display: block; font-size: 10px; color: var(--dim); }
 #weapons .slot b { color: var(--accent); font-weight: normal; margin-left: 3px; }
 #weapons .slot.on { border-bottom-color: var(--accent); color: var(--ink); background: rgba(10, 11, 8, .72); }
+/* 刚买到的那一格：橙色闪亮、放大回弹（时长 economy.boughtPulse，hud.js 写在 style 上） */
+#weapons .slot.bought { animation-name: slot-bought; animation-timing-function: ease-out; animation-fill-mode: both; transform-origin: 50% 100%; }
+@keyframes slot-bought {
+  0% { background: rgba(255, 95, 0, .85); color: #fff; transform: scale(1.35); box-shadow: 0 0 18px rgba(255, 95, 0, .8); }
+  35% { transform: scale(.95); }
+  60% { transform: scale(1.05); background: rgba(255, 95, 0, .35); }
+  100% { transform: none; box-shadow: none; }
+}
 #weapons .slot.empty { opacity: .35; }
 
 #hint {
