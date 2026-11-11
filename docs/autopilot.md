@@ -37,7 +37,8 @@ self-hosted runner 在公开仓库上要防陌生人触发，红线多；定时�
 
 - **一次一个任务**（负责人要求，怕并行太多触发额度限制）：脚本用 `flock` 加了锁，上一轮（正在跑 Claude）没结束，这一轮直接退出，新任务留在队列等下一轮。
 - **定时检查不耗 token**：每 30 分钟那一次只用 `gh` 查 GitHub，几秒钟；只有真有任务才启动 Claude。上线由脚本直接跑 `ship.sh`（用 `origin/main` 上的版本），也不启动 Claude。
-- **每天最多启动 5 次 Claude**（开发、修改各算一次）；到上限在 issue 里说一声，第二天接着做。
+- **每天最多接手 10 个新任务**（#56）：只数新开工的 issue；已经接手的 issue 回复后继续、按意见修改、上线都不算，启动 Claude 的次数不限。
+  到上限在 issue 里说一声，第二天接着做。防额度靠"一次一个"和下面的冷却。
 - 碰到 Claude 的**额度限制**：留言、把任务放回队列，歇 60 分钟再试。
 - 单个任务**最长 90 分钟**，超时停下并留言。
 - **只认负责人**：只有仓库主人打的 `交给Claude`、`授权部署` 才算数（别人没有打标签的权限，脚本还会再查打标签的人）；
@@ -74,7 +75,7 @@ tools/autopilot/autopilot.sh --dry-run   # 看这一轮会做什么，不改标�
 | `~/.local/state/direct-strike-autopilot/` | 锁、每天的计数、冷却时间、暂停开关、日志（`logs/autopilot.log` 总日志，每个任务一个 Claude 输出 json） |
 | `/home/donkey/direct-strike-autopilot` | 专用 worktree |
 
-可调参数用环境变量（写在 systemd 服务里）：`AUTOPILOT_MAX_PER_DAY`（5）、`AUTOPILOT_TIMEOUT_MIN`（90）、`AUTOPILOT_COOLDOWN_MIN`（60）、
+可调参数用环境变量（写在 systemd 服务里）：`AUTOPILOT_MAX_PER_DAY`（10，每天新任务数）、`AUTOPILOT_TIMEOUT_MIN`（90）、`AUTOPILOT_COOLDOWN_MIN`（60）、
 `AUTOPILOT_INTERVAL`（30min，装定时器时用）。
 
 **systemd 用户定时器要开 linger**，否则没有登录会话时不跑：`sudo loginctl enable-linger donkey`。
