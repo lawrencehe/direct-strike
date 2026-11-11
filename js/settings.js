@@ -67,6 +67,8 @@ Game.Settings = (() => {
 
   return {
     get: (k) => values[k],
+    // 某把枪的完整数值（默认数值 + 这把枪的覆盖项），NPC 随机拿到的枪用它（#54）
+    gunConfig: (slot, key) => ({ ...baseGun[slot], ...L[slot][key] }),
     defaultOf: (k) => defaults[k],
     set(k, v) {
       if (!valid[k](v) || values[k] === v) return;

@@ -20,7 +20,12 @@
 - 模型按需下载：开局只加载选中的枪；首页换枪时 `ui.pickLoadout` → `main.js` 的 `ui.onLoadout` → `GunModel.loadGun` 下载（同一文件只下一次），
   好了再 `weapon.buildGun(slot)` 重建这一格的枪模和手臂。下载期间"进入战斗"不可点；失败就提示并换回原来的。
 - NPC 形象：`Character.load()` 按 `character.model` 加载（有缓存），之后新生成的 NPC 用它。NPC 每局开始时重建，所以换形象下一局生效。
-- NPC 手里的枪仍是方块步枪和代码拼的手枪，不跟着玩家的选择换外观；数值读的是同一个 `Game.Config.weapons`。
+- NPC 的枪和玩家用同一套 `loadout`，但不跟着玩家的选择：每个 NPC 出生时 `bots.Manager.pickGuns` 每格随机挑一把（#54），
+  数值用 `Settings.gunConfig(slot, key)`（默认数值 + 那把枪的覆盖项），存在 `bot.gun`，不读 `Game.Config.weapons`（那是玩家选的）。
+  玩家没选的枪在首页出来后由 `main.js` 后台下载，首次加载体积不变；`pickGuns` 只从已经下载好的里挑（`GunModel.isGunLoaded`），都没好就用玩家选的。
+  NPC 手上的 glb 枪模克隆自 `GunModel.loadedGun(path)`，网格材质共用，标 `userData.shared` 不释放；
+  右手 / 左手 IK 的目标直接用第一人称的握持点 `Weapon.VIEW[key].right.pos` / `left.pos`（左手往下挪 `GUARD_SHIFT` 托在护木下），
+  枪的位置按"握把落在方块枪握把的同一点"摆，所以加新枪只要 `Weapon.VIEW` 写好，NPC 不用另调。glb 没下载好时退回方块步枪 / 默认手枪。
 - 每把枪在画面里的摆法、手的握持位置在 `weapon.js` 末尾的 `Weapon.VIEW`，按 `loadout` 的 key 写。
 
 ## 对象关系
@@ -96,8 +101,8 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
   - 雷不撞丢雷者自己（`collisionBoxes(owner)`），飞行和预演都一样：NPC 出手点离身体中心只有 0.38 米，不排除的话某些朝向雷会卡在自己手上。
 - **NPC**：`bots.js` 是状态机 AI（巡逻 → 发现 → 交火），`character.js` 负责模型、动画、持枪姿势、判定盒和死亡；
   死亡时 `character.die(hit)` 创建 `ragdoll.js` 的布娃娃。
-  NPC 装备和玩家一样：`model.guns` 里有 AK 和手枪两把（`model.rifle` 永远指手上那把，瞄准、枪口、IK、布娃娃掉枪都用它），
-  弹药、换弹、切枪时间、各部位伤害都读 `config.weapons`。玩家只有一个碰撞盒，NPC 打中玩家时按命中高度分头 / 身 / 腿。
+  NPC 装备和玩家一样：`model.guns` 里有主、副武器两把（`model.rifle` 永远指手上那把，瞄准、枪口、IK、布娃娃掉枪都用它），
+  弹药、换弹时间、各部位伤害、枪声读这个 NPC 自己的 `bot.gun`（随机挑的枪，见上面"可选装备"），切枪时间读 `config.weapons`。玩家只有一个碰撞盒，NPC 打中玩家时按命中高度分头 / 身 / 腿。
   NPC 丢雷走 `grenades.launch(kind, pos, vel, fuse, owner)`；`owner` 是丢雷的 NPC（玩家丢的是 `null`），
   决定"炸到自己乘 selfMul"、要不要显示命中提示、算不算玩家的击杀（`hit.byBot`），雷飞行时也不和丢雷者自己的碰撞盒相撞。
   NPC 丢雷像人一样判断（#5，参数在 `config.bots`）：
@@ -109,7 +114,18 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
     随机先试手雷或闪光，前一种丢不准再试另一种；烟雾也走预演，但不设偏差上限。一次 12 条轨迹，只在决定丢雷时算一次。
   - 听枪声：玩家开枪时 `weapon.onShot` → `bots.hearPlayer`，`hearRange` 内看不见玩家的 NPC 把"最后看见的位置"改成玩家的位置（误差 `hearError`），
     进入搜索，可以再考虑丢一次雷（仍受 `grenadeCooldown` 限制）。
-  - 没做：脚步声不暴露位置，搜索时跑向"最后看见的位置"而不是推算的位置（#24）；NPC 不会捏雷，换弹没有动作（#23）。
+  - 没做：脚步声不暴露位置；NPC 不会捏雷，换弹没有动作（#23）。
+
+  NPC 找人（#54，参数在 `config.bots` 的 searchTime 到 patrolNear）：
+  - **搜索**：丢失视线时 `startSearch(guessPlayer(predictTime))`，去推算的位置，不是玩家消失的位置；听到枪声、被打也走 `startSearch`。
+    到了（`reachedSpot`：2 米内，或 5 米内已经看得清那里）没看见人，站住张望 `searchPause` 秒，再 `nextSearchSpot`：
+    出发点 `searchRadius` 内、从自己眼睛看不到（`hasLineOfSight` 不通）、这次没去过的巡逻点里离出发点最近的。没有就原地张望到 `searchTime` 结束。
+  - **确定 / 拿不准**：`sinceSeen < sureTime`（刚看见、刚听到、刚被打）算确定，用 `runSpeed` 直奔、视线对着前进方向；之后放慢到 `searchSpeed` 边走边张望。
+  - **张望**（`lookAround`）：巡逻和拿不准的搜索时，每 `scanInterval` 秒换一个看的方向：有线索时 `scanFocus` 的概率看线索那边，
+    `scanAhead` 的概率看正前方，否则左右交替偏 `scanAngle` 的一半到全部；站住时幅度乘 `scanStandMul`。
+    看的方向就是 `bot.yaw`，感知也用它，所以张望能看到侧面；腿由 `character.js` 朝移动方向，上半身扭过去（最多 `character.maxTwist`）。
+  - **巡逻**：知道玩家大概在哪（`hasIntel`）后，`nextNavPoint(from, lastSeen)` 从离那最近的 `patrolNear` 个点里挑，慢慢往那边摸。
+  - 测试：`tools/tests/npc-loadout-scan.mjs`（随机挑枪、glb 枪模、张望、直奔、搜索点），截图 `npc-m4` / `npc-sg` 看手握得对不对。
 - **布娃娃**（`ragdoll.js`）：Verlet 质点 + 距离约束，和地图方块碰撞，每帧把质点位置换算回 Mixamo 骨骼的旋转。
   不同死法（爆头、炸飞、打腿、打身体的三种倒法）只是初始冲量不同，参数在 `config.ragdoll`。
 - **血**（`effects.js`）：血雾是 Sprite；血滴共用一个 `THREE.Points` 环形缓冲；地上的血迹和血泊是逐渐变大的平面。

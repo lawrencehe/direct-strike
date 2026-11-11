@@ -4,7 +4,7 @@
 // 每个 NPC 是一个"状态机"，在几种状态之间切换：
 //   patrol（巡逻）  ：在地图标好的巡逻点之间走，没发现玩家
 //   combat（交战）  ：看见玩家 → 反应一下 → 转身、左右横移、点射
-//   search（搜索）  ：玩家躲起来了 → 跑去最后看见玩家的地方找
+//   search（搜索）  ：玩家躲起来了 → 去推算的玩家位置找，没找到就去附近"从这看不到"的点接着找（#54）
 //   dead（阵亡）    ：布娃娃倒下、流血，几秒后消失（见 ragdoll.js）
 //
 // 装备和玩家一样（config.js 的 weapons 和 grenades）：
@@ -14,6 +14,10 @@
 //     出手前用 grenades.simulate 把几种角度、力度都预演一遍（反弹、滚动、引信都算），
 //     挑爆点离目标最近、视线没被挡住的那一种；怎么丢都炸不到就不丢，留着。
 //   丢闪光后背过身去，免得闪到自己。烟雾：血少时丢在自己和玩家之间，然后后撤。
+//
+// 张望（#54）：没看见玩家时（巡逻、搜索）视线不只盯着脚下的路，每隔一会儿往左右扫一眼，
+//   有线索（推算 / 听到的位置）时多往那边看；确定玩家在哪（刚看见、刚听到枪声、刚被打）时才直奔过去、只盯着那边。
+//   视线就是 NPC 的朝向，感知用的也是它，所以张望能更早发现从侧面摸过来的玩家。
 //
 // "看见"的判断（感知）有三个条件，全部满足才算看见：
 //   1. 距离够近   2. 在视野角度内（背后看不见）   3. 中间没有墙挡着（射线检测）
@@ -40,7 +44,7 @@ Game.Bots = (function () {
 
   // ---------------- 单个 NPC ----------------
   class Bot {
-    constructor(manager, x, z, yaw, skill) {
+    constructor(manager, x, z, yaw, skill, guns) {
       this.mgr = manager;
       this.skill = skill;              // 0 ~ 1，越高越强
       this.pos = new THREE.Vector3(x, 0, z);
@@ -64,6 +68,15 @@ Game.Bots = (function () {
       this.strafeDir = 0;
       this.strafeTimer = 0;
       this.searchTimer = 0;
+      this.searchOrigin = new THREE.Vector3();   // 这次搜索的出发点：推算 / 听到的玩家位置
+      this.searchPos = new THREE.Vector3();      // 现在要去查看的点
+      this.searchVisited = [];                   // 这次搜索已经看过的点
+      this.searchPause = 0;                      // 到了一个点，站住张望的剩余时间
+      this.pauseYaw = 0;                         // 站住张望时以哪个方向为中心
+      this.hasIntel = false;                     // 知不知道玩家大概在哪（看见过、听见过、被打过）
+      this.scanTimer = 0;                        // 张望：多久后换一个方向看
+      this.scanOffset = 0;                       // 张望：视线偏离"中心方向"多少弧度
+      this.scanSide = Math.random() < 0.5 ? 1 : -1;
 
       this.progressTimer = 0;          // 卡住检测
       this.progressFrom = this.pos.clone();
@@ -76,8 +89,12 @@ Game.Bots = (function () {
       this.aimPoint = new THREE.Vector3();
       this.blind = 0;                  // 被闪光弹致盲的剩余时间
 
-      // 装备：和玩家一样的两把枪 + 三种雷。子弹也和玩家开局一样：枪里一个弹匣 + spareMags 个备用弹匣，NPC 买不了（#7）
-      const W = Game.Config.weapons, G = Game.Config.grenades;
+      // 装备：和玩家同一套枪（loadout 里随机挑的主 / 副武器，#54）+ 三种雷。
+      // 子弹也和玩家开局一样：枪里一个弹匣 + spareMags 个备用弹匣，NPC 买不了（#7）
+      const G = Game.Config.grenades;
+      this.gunKeys = guns;
+      this.gun = { rifle: Game.Settings.gunConfig('rifle', guns.rifle), pistol: Game.Settings.gunConfig('pistol', guns.pistol) };
+      const W = { ...this.gun, spareMags: Game.Config.weapons.spareMags };
       this.weapon = 'rifle';
       this.ammo = { rifle: W.rifle.magSize, pistol: W.pistol.magSize };                         // 枪里的
       this.reserve = { rifle: W.spareMags * W.rifle.magSize, pistol: W.spareMags * W.pistol.magSize };   // 备弹
@@ -97,7 +114,7 @@ Game.Bots = (function () {
       this.box = new THREE.Box3();
       this.updateBox();
 
-      this.model = Game.Character.create();
+      this.model = Game.Character.create(guns);
       for (const m of this.model.hitMeshes) m.userData.bot = this;
       manager.scene.add(this.model.root);
       this.syncModel(0);
@@ -121,9 +138,10 @@ Game.Bots = (function () {
       if (!hit.byBot) this.alertTimer = 3;
       this.perceiveTimer = 0;
       if (!this.seesPlayer && !hit.byBot) {
-        this.state = 'search';
         this.lastSeen.copy(this.mgr.player.position);
-        this.searchTimer = Game.Config.bots.searchTime;
+        this.lastSeenVel.set(0, 0, 0);
+        this.sinceSeen = 0;
+        this.startSearch(this.lastSeen);
       }
 
       if (this.health <= 0) {
@@ -173,6 +191,7 @@ Game.Bots = (function () {
 
       // ---- 根据状态决定：往哪走、多快、面朝哪 ----
       let mx = 0, mz = 0, speed = 0, faceYaw = this.yaw;
+      let roam = false, sure = false;   // roam：巡逻 / 搜索（可以张望）；sure：确定玩家在哪
 
       if (this.blind > 0) {
         // 被闪了：什么都看不见，站在原地晃脑袋，等恢复后再重新发现玩家
@@ -195,11 +214,12 @@ Game.Bots = (function () {
         speed = cfg.runSpeed;
       } else if (this.state === 'patrol') {
         if (!this.waypoint || Math.hypot(this.waypoint.x - this.pos.x, this.waypoint.z - this.pos.z) < 1) {
-          this.waypoint = this.mgr.nextNavPoint(this.pos);
+          this.waypoint = this.mgr.nextNavPoint(this.pos, this.hasIntel ? this.lastSeen : null);
         }
         mx = this.waypoint.x - this.pos.x;
         mz = this.waypoint.z - this.pos.z;
         speed = cfg.walkSpeed;
+        roam = true;
       } else if (this.state === 'combat' && this.outOfAmmo()) {
         // 两把枪都打空了，又买不了：背离玩家跑开，不再交战（还能丢雷的话 considerGrenade 照样会丢）
         mx = -dx; mz = -dz;
@@ -222,13 +242,25 @@ Game.Bots = (function () {
 
         this.updateFiring(dt, faceYaw);
       } else if (this.state === 'search') {
-        mx = this.lastSeen.x - this.pos.x;
-        mz = this.lastSeen.z - this.pos.z;
-        if (Math.hypot(mx, mz) < 1.5) {
+        // 确定玩家在哪（刚丢失视线、刚听到枪声）：跑过去；拿不准：放慢脚步，边走边张望
+        sure = this.sinceSeen < cfg.sureTime;
+        mx = this.searchPos.x - this.pos.x;
+        mz = this.searchPos.z - this.pos.z;
+        if (this.searchPause > 0) {
+          this.searchPause -= dt;
           mx = mz = 0;
-          faceYaw = this.yaw + 1;  // 到了就原地转圈张望（转速受 turnSpeed 限制）
+        } else if (this.reachedSpot(Math.hypot(mx, mz))) {
+          // 到了（或者走近了已经看清那里）还没看见：站住张望一下，再去附近下一个"从这看不到"的地方（人多半躲在掩体后面）
+          this.searchVisited.push(this.searchPos.clone());
+          const next = this.nextSearchSpot();
+          if (next) this.searchPos.set(next.x, 0, next.z);
+          this.pauseYaw = next ? yawTo(next.x - this.pos.x, next.z - this.pos.z) : this.yaw;
+          this.searchPause = rand(cfg.searchPause[0], cfg.searchPause[1]);
+          this.scanTimer = 0;
+          mx = mz = 0;
         }
-        speed = cfg.runSpeed;
+        speed = sure ? cfg.runSpeed : cfg.searchSpeed;
+        roam = true;
         this.searchTimer -= dt;
         if (this.searchTimer <= 0) { this.state = 'patrol'; this.waypoint = null; }
       }
@@ -239,6 +271,13 @@ Game.Bots = (function () {
         if (this.state !== 'combat' && this.retreatT <= 0) faceYaw = yawTo(mx, mz);
       } else {
         speed = 0;
+      }
+      if (roam && !sure) {
+        // 张望：走路时以前进方向为中心，站住时以 pauseYaw 为中心、扫得更开；有线索就多往线索那边看
+        const focus = this.hasIntel ? yawTo(this.searchOrigin.x - this.pos.x, this.searchOrigin.z - this.pos.z) : null;
+        const focusYaw = this.state === 'search' ? focus
+          : this.hasIntel ? yawTo(this.lastSeen.x - this.pos.x, this.lastSeen.z - this.pos.z) : null;
+        faceYaw = mlen > 0.001 ? this.lookAround(dt, faceYaw, focusYaw, 1) : this.lookAround(dt, this.pauseYaw, focusYaw, cfg.scanStandMul);
       }
 
       // ---- 转身：每秒最多转 turnSpeed 弧度，不会瞬间甩过来 ----
@@ -294,6 +333,7 @@ Game.Bots = (function () {
           this.reaction = rand(a, b) * (1 - 0.4 * this.skill);
         }
         this.seesPlayer = true;
+        this.hasIntel = true;
         this.nadeChecked = false;
         this.state = 'combat';
         this.lastSeen.copy(player.position);
@@ -302,9 +342,9 @@ Game.Bots = (function () {
       } else if (this.seesPlayer) {
         this.seesPlayer = false;
         this.burstLeft = 0;
-        this.state = player.alive ? 'search' : 'patrol';
-        this.searchTimer = cfg.searchTime;
         this.nadeDelay = rand(cfg.nadeDelay[0], cfg.nadeDelay[1]);
+        if (player.alive) this.startSearch(this.guessPlayer(cfg.predictTime));   // 去玩家多半躲到的地方，不是他消失的地方
+        else { this.state = 'patrol'; this.waypoint = null; }
       }
     }
 
@@ -318,20 +358,82 @@ Game.Bots = (function () {
       this.lastSeenVel.set(0, 0, 0);
       this.sinceSeen = 0;
       if (this.state !== 'search') this.nadeDelay = rand(cfg.nadeDelay[0], cfg.nadeDelay[1]);
-      this.state = 'search';
-      this.searchTimer = cfg.searchTime;
+      this.startSearch(this.lastSeen);
       this.nadeChecked = false;
+    }
+
+    // 开始（或重新）搜索：先去 pos（推算 / 听到的玩家位置）
+    startSearch(pos) {
+      this.state = 'search';
+      this.hasIntel = true;
+      this.searchTimer = Game.Config.bots.searchTime;
+      this.searchOrigin.set(pos.x, 0, pos.z);
+      this.searchPos.copy(this.searchOrigin);
+      this.searchVisited.length = 0;
+      this.searchPause = 0;
+    }
+
+    // 搜索点算不算查看过了：走到 2 米内，或者 5 米内已经能看清那里（点贴着箱子时走不到正上方）
+    reachedSpot(d) {
+      if (d < 2) return true;
+      if (d > 5) return false;
+      this._eye = this._eye || new THREE.Vector3();
+      this._spot = this._spot || new THREE.Vector3();
+      this._eye.set(this.pos.x, this.pos.y + EYE, this.pos.z);
+      this._spot.set(this.searchPos.x, 1.2, this.searchPos.z);
+      return this.mgr.hasLineOfSight(this._eye, this._spot);
+    }
+
+    // 搜索的下一个点：离出发点 searchRadius 以内、从自己这里看不到（看得到的地方已经看过了，人不在那）、
+    // 这次还没去过的巡逻点里，离出发点最近的（带一点随机）。没有就返回 null，原地张望到搜索结束
+    nextSearchSpot() {
+      const cfg = Game.Config.bots;
+      const eye = new THREE.Vector3(this.pos.x, this.pos.y + EYE, this.pos.z);
+      const p = new THREE.Vector3();
+      let best = null, bestScore = Infinity;
+      for (const n of this.mgr.world.navPoints) {
+        const fromOrigin = Math.hypot(n.x - this.searchOrigin.x, n.z - this.searchOrigin.z);
+        if (fromOrigin > cfg.searchRadius || Math.hypot(n.x - this.pos.x, n.z - this.pos.z) < 2) continue;
+        if (this.searchVisited.some((v) => Math.hypot(v.x - n.x, v.z - n.z) < 1.5)) continue;
+        p.set(n.x, (n.y || 0) + 1.2, n.z);
+        if (this.mgr.hasLineOfSight(eye, p)) continue;
+        const score = fromOrigin + Math.random() * 4;
+        if (score < bestScore) { bestScore = score; best = n; }
+      }
+      return best;
+    }
+
+    // 张望：返回这一帧想看的方向。center 是中心方向，focus 是线索方向（null = 没线索），spread 放大张望的幅度
+    // 每隔 scanInterval 秒换一个方向：有线索时 scanFocus 的概率看线索那边，scanAhead 的概率看正前方，否则左右交替扫一眼
+    lookAround(dt, center, focus, spread) {
+      const cfg = Game.Config.bots;
+      this.scanTimer -= dt;
+      if (this.scanTimer <= 0) {
+        this.scanTimer = rand(cfg.scanInterval[0], cfg.scanInterval[1]);
+        const max = THREE.MathUtils.degToRad(cfg.scanAngle) * spread;
+        const r = Math.random();
+        if (focus !== null && r < cfg.scanFocus) {
+          this.scanOffset = THREE.MathUtils.clamp(wrapAngle(focus - center), -max, max);
+        } else if (r > 1 - cfg.scanAhead) {
+          this.scanOffset = 0;   // 也要看路
+        } else {
+          this.scanSide = -this.scanSide;
+          this.scanOffset = this.scanSide * rand(0.5, 1) * max;
+        }
+      }
+      return center + this.scanOffset;
     }
 
     // 推算玩家现在在哪：从最后看见的位置沿当时的移动方向往前推（最多推 predictTime 秒），
     // 碰到墙就停在墙前（人是躲到掩体后面，不会穿墙）
-    guessPlayer() {
+    // ahead：最多往前推几秒（默认按"丢雷出手时玩家到哪了"算）
+    guessPlayer(ahead) {
       const cfg = Game.Config.bots;
       const guess = this.lastSeen.clone();
       const v = this.lastSeenVel;
       const speed = Math.hypot(v.x, v.z);
       if (speed < 0.5) return guess;
-      const len = speed * Math.min(this.sinceSeen + cfg.throwTime, cfg.predictTime);
+      const len = speed * Math.min(ahead ?? this.sinceSeen + cfg.throwTime, cfg.predictTime);
       const from = new THREE.Vector3(guess.x, guess.y + 0.5, guess.z);
       const dir = new THREE.Vector3(v.x / speed, 0, v.z / speed);
       const ray = this.mgr.raycaster;
@@ -351,7 +453,7 @@ Game.Bots = (function () {
       if (this.ammo[this.weapon] <= 0) return;                     // 等 updateWeapons 换弹或切枪
       if (Math.abs(wrapAngle(aimYaw - this.yaw)) > 0.15) return;  // 还没转过来
 
-      const gun = Game.Config.weapons[this.weapon];
+      const gun = this.gun[this.weapon];
       this.shoot();
       this.ammo[this.weapon]--;
       if (this.weapon === 'pistol') {
@@ -373,7 +475,7 @@ Game.Bots = (function () {
 
     // 换弹和切枪。时间和玩家一样：换弹用各枪的 reloadTime，切枪 = 收枪 + 掏枪
     updateWeapons(dt) {
-      const W = Game.Config.weapons;
+      const W = this.gun;   // 这个 NPC 手上两把枪的数值
       if (this.reloadT > 0) {
         this.reloadT -= dt;
         if (this.reloadT <= 0) {   // 从备弹里补满弹匣，备弹不够就全装上
@@ -385,7 +487,7 @@ Game.Bots = (function () {
       }
       if (this.switchT > 0) {
         this.switchT -= dt;
-        if (this.switchT <= W.switchIn) this.model.setWeapon(this.switchTo, !this.throwing);   // 收完枪，开始掏另一把
+        if (this.switchT <= Game.Config.weapons.switchIn) this.model.setWeapon(this.switchTo, !this.throwing);   // 收完枪，开始掏另一把
         if (this.switchT <= 0) this.weapon = this.switchTo;
         return;
       }
@@ -412,7 +514,7 @@ Game.Bots = (function () {
     }
 
     reload() {
-      this.reloadT = Game.Config.weapons[this.weapon].reloadTime;
+      this.reloadT = this.gun[this.weapon].reloadTime;
       this.burstLeft = 0;
     }
 
@@ -705,15 +807,31 @@ Game.Bots = (function () {
 
     spawnBot(skill, avoid, used) {
       const s = this.pickSpawn(avoid, used);
-      const bot = new Bot(this, s.x, s.z, s.yaw, skill);
+      const bot = new Bot(this, s.x, s.z, s.yaw, skill, this.pickGuns());
       this.bots.push(bot);
       if (this.onChange) this.onChange();
       return bot;
     }
 
+    // NPC 的枪：loadout 里每格随机挑一把（#54）。只从已经下载好的里挑（玩家没选的枪在后台下载，见 main.js），
+    // 都还没好就用玩家选的那把
+    pickGuns() {
+      const L = Game.Config.loadout, out = {};
+      for (const slot of ['rifle', 'pistol']) {
+        const keys = Object.keys(L[slot]).filter((k) => Game.GunModel.isGunLoaded(L[slot][k].model));
+        out[slot] = keys.length ? keys[randInt(0, keys.length - 1)] : Game.Settings.get(slot);
+      }
+      return out;
+    }
+
     // 巡逻：随机挑一个不是脚下的巡逻点
-    nextNavPoint(from) {
+    // toward：玩家最后出现的位置（没有就 null）。有的话从离它最近的几个点里挑，巡逻会慢慢往那边摸，不会漫无目的（#54）
+    nextNavPoint(from, toward = null) {
       const pts = this.world.navPoints.filter((p) => Math.hypot(p.x - from.x, p.z - from.z) > 3);
+      if (toward && pts.length) {
+        pts.sort((a, b) => Math.hypot(a.x - toward.x, a.z - toward.z) - Math.hypot(b.x - toward.x, b.z - toward.z));
+        return pts[randInt(0, Math.min(Game.Config.bots.patrolNear, pts.length) - 1)];
+      }
       return pts[randInt(0, pts.length - 1)] || { x: 0, z: 0 };
     }
 
@@ -738,7 +856,7 @@ Game.Bots = (function () {
         const north = this.world.spawns.filter((s) => s.z < 0 && used.every((u) => Math.hypot(u.x - s.x, u.z - s.z) > 2));
         const s = north[randInt(0, north.length - 1)] || this.world.spawns[3];
         used.push(s);
-        this.bots.push(new Bot(this, s.x + rand(-1, 1), s.z + rand(-1, 1), s.yaw, skill));
+        this.bots.push(new Bot(this, s.x + rand(-1, 1), s.z + rand(-1, 1), s.yaw, skill, this.pickGuns()));
       }
       this.phase = 'fighting';
       this.hud.banner(`第 ${this.wave} 波`);
@@ -771,7 +889,7 @@ Game.Bots = (function () {
         // 玩家只有一个碰撞盒，按打中的高度分部位：顶上 0.25 米是头，下面 45% 是腿
         const rel = hitPlayer.y - this.player.position.y;
         const part = rel > this.player.height - 0.25 ? 'head' : rel < this.player.height * 0.45 ? 'leg' : 'body';
-        const dmg = Game.Config.weapons[bot.weapon].damage[part] * Game.Config.bots.damageMul;
+        const dmg = bot.gun[bot.weapon].damage[part] * Game.Config.bots.damageMul;
         this.player.takeDamage(dmg, bot.pos);
       } else {
         end = wall ? wall.point : origin.clone().addScaledVector(dir, maxDist);
@@ -783,7 +901,7 @@ Game.Bots = (function () {
       // 枪声：离得越远越小声，并根据方向分左右声道
       const dx = origin.x - this.player.position.x, dz = origin.z - this.player.position.z;
       const rel = yawTo(dx, dz) - this.player.yaw;
-      this.audio.botShot(-Math.sin(rel), Math.hypot(dx, dz), Game.Config.weapons[bot.weapon].sound);
+      this.audio.botShot(-Math.sin(rel), Math.hypot(dx, dz), bot.gun[bot.weapon].sound);
     }
 
     // ---- 击杀和回合 ----
