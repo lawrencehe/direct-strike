@@ -46,9 +46,10 @@ Game.Hud = class Hud {
     this.el.flashWhite.style.opacity = 0;
   }
 
-  setAmmo(ammo, mag) {
+  // 弹药：枪里的 / 备弹。reserve = null 表示备弹无限（训练场）
+  setAmmo(ammo, mag, reserve = null) {
     this.el.ammoCur.textContent = ammo;
-    this.el.ammoMax.textContent = '/ ∞';
+    this.el.ammoMax.textContent = `/ ${reserve === null ? '∞' : reserve}`;
     this.el.ammo.classList.toggle('low', ammo <= mag * 0.2);
   }
 

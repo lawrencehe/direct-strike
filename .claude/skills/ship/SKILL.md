@@ -1,6 +1,6 @@
 ---
 name: ship
-description: 提交、建 PR 并入 main、推送并部署到线上。用户说"commit push & deploy / 提交推送部署 / 发版 / ship"时用；只说"提交推送"时加 --no-deploy。
+description: 提交、建 PR 并入 main、推送并部署到线上。用户说"deploy / 部署 / 上线 / commit push & deploy / 提交推送部署 / 发版 / ship"时用（说 deploy 就是全套：提交、推送、合并、部署）；只说"提交推送"时加 --no-deploy。
 ---
 
 # 提交 → PR 并入 main → 部署 → tag 和 Release

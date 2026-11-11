@@ -39,7 +39,7 @@
 ## 约定
 
 - **分支：可以开分支开发，开发完建 PR 并入 `main`，从 `main` 部署。** 分支也推到远端，本地和远端都不删除，保留历史。详见 `docs/workflow.md`。
-  用户说"commit push & deploy"时用 `/ship`（`tools/ship.sh`）一次完成：提交 → 推送分支 → 建 PR（`Closes #N`）并在 GitHub 上合并 → 从 `main` 部署 → 线上检查 → tag 和 Release。
+  用户说"deploy"（或"commit push & deploy""部署""上线"，都是一个意思：部署就意味着前面的提交、推送、合并都要走到）时用 `/ship`（`tools/ship.sh`）一次完成：提交 → 推送分支 → 建 PR（`Closes #N`）并在 GitHub 上合并 → 从 `main` 部署 → 线上检查 → tag 和 Release。
 - **GitHub 管进展**：需求、bug、待确认、想法都开 Issue，一个版本一个 Milestone，合并走 PR。仓库是公开的，不往 GitHub 贴录下的数据、密码、玩家信息。
   **Claude 在 GitHub 上用机器账号 `primorigin`**（负责人是 `lawrencehe`），负责人说"给 primorigin 处理"和"给 Claude 处理"一样，配置见 `docs/tools.md`。
   **开 issue 只是记录**；负责人在会话里说"ISSUE51 / #51 / 做 51"才做那一条，用 `/issue` skill 走完接手 → 开发 → PR 待验收 → 上线，Claude 不自己挑 issue（`docs/workflow.md`）。

@@ -80,7 +80,7 @@ for (const [rifle, pistol] of [['m4', 'sg'], ['ak', 'beretta']]) {
     }
     // 换弹到一半：左手去抓弹匣
     judge(`${name} 换弹中`, await p.evaluate((slot) => {
-      const it = game.weapon.guns[slot]; it.ammo = 0; tick(0.5);
+      const it = game.weapon.guns[slot]; it.ammo = 0; it.reserve = it.cfg.magSize; tick(0.5);   // 没备弹不换弹（#7）
       if (!game.weapon.reloading) return { X: { bend: 999, twist: 999, note: '没进入换弹' } };
       const r = measure(it.model); tick(3); return r;
     }, slot));

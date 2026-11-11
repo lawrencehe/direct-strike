@@ -77,8 +77,12 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
   没有"捏雷"（先松握片再丢让它空爆，#22）。闪光、烟雾同样两道保险。
 - **经济**（`economy.js`，#1，只在对决和波次里有）：`bots.onPlayerKill(hit)` 报告玩家的击杀，`main.js` 按最后一击换算成赏金类型交给 `economy.award`：
   `hit.explosion` → 手雷，`hit.part === 'head'` → 爆头，其余 → 普通（手枪、步枪不区分）；NPC 被自己的雷炸死（`hit.byBot`）不给钱。
-  钱有上限 `economy.maxMoney`，满了再杀不涨。"收入上限"按存款上限理解（三种赏金本来是定值，"单次封顶"没意义），价格和携带上限也是先定的值，待负责人确认（#7）。
-  钱跟着整局走，死了不清零，开新一局回到 `startMoney`。NPC 没有经济，照旧每条命满装备（#23）。
+  钱有上限 `economy.maxMoney`（存款上限，#7），满了再杀不涨。钱跟着整局走，死了不清零；开新一局回到 `startMoney`，
+  重生时 `economy.onRespawn` 把不足 `startMoney` 的补上（#7）。
+  子弹（#7）：每把枪 `gun.ammo`（枪里）+ `gun.reserve`（备弹），换弹从备弹里扣、备弹不够一个弹匣就全装上；没备弹 `startReload` 直接不换，
+  打空不再自动换弹，扣扳机响 `audio.empty()`。训练场 `weapon.unlimitedAmmo` 备弹无限（HUD 显示 ∞）。
+  买子弹进备弹（`weapon.addAmmo`），上限 `weapons.maxMags` 个弹匣按发数算（`ammoRoom`），面板里 1 / 2 键买。
+  NPC 也有 `ammo` / `reserve`，开局和玩家一样，没有经济买不了；两把都空了 `outOfAmmo()`，交战时背离玩家跑开（#7）。
   购买区是这条命的出生点 `player.spawn` 周围 `economy.buyRadius` 米（对决里每次重生的点不一样，环跟着走），地上的环一开始就放进场景、不用时透明度 0（避免中途编译材质）。
   购买面板不解锁鼠标（解锁会触发暂停），开着照样能走能看能开枪；走出购买区、阵亡、再按购买键都会关。
   按槽位键买：买成功关面板，这一下的槽位键被 `input.consumeAction` 吃掉（不切武器），再按一次才切过去；买不了（钱不够 / 带满）面板不关；

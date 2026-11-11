@@ -116,7 +116,7 @@ r = await p.evaluate(() => {
   return { open: e.open, frag: w.counts.frag, money: e.money, current: w.current, sounds: [...sounds], rows };
 });
 check(r.open && r.frag === 2 && r.money === 700 && r.current === 'rifle', '带满买不了：面板不关、不扣钱、不切枪', r);
-check(r.sounds.join() === 'denied' && r.rows.join() === 'true,false,false', '买不了：放 denied 音效，手雷那一行红一下晃一下', r);
+check(r.sounds.join() === 'denied' && r.rows.join() === 'false,false,true,false,false', '买不了：放 denied 音效，手雷那一行（面板第 3 行，前两行是子弹）红一下晃一下', r);
 await p.waitForTimeout(60);
 await p.screenshot({ path: `${OUT}buy-denied.jpg`, type: 'jpeg', quality: 85 });
 

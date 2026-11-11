@@ -76,10 +76,11 @@ Game.Bots = (function () {
       this.aimPoint = new THREE.Vector3();
       this.blind = 0;                  // 被闪光弹致盲的剩余时间
 
-      // 装备：和玩家一样的两把枪 + 三种雷
+      // 装备：和玩家一样的两把枪 + 三种雷。子弹也和玩家开局一样：枪里一个弹匣 + spareMags 个备用弹匣，NPC 买不了（#7）
       const W = Game.Config.weapons, G = Game.Config.grenades;
       this.weapon = 'rifle';
-      this.ammo = { rifle: W.rifle.magSize, pistol: W.pistol.magSize };
+      this.ammo = { rifle: W.rifle.magSize, pistol: W.pistol.magSize };                         // 枪里的
+      this.reserve = { rifle: W.spareMags * W.rifle.magSize, pistol: W.spareMags * W.pistol.magSize };   // 备弹
       this.reloadT = 0;                // 换弹剩余时间
       this.switchT = 0;                // 切枪剩余时间
       this.switchTo = null;
@@ -199,6 +200,10 @@ Game.Bots = (function () {
         mx = this.waypoint.x - this.pos.x;
         mz = this.waypoint.z - this.pos.z;
         speed = cfg.walkSpeed;
+      } else if (this.state === 'combat' && this.outOfAmmo()) {
+        // 两把枪都打空了，又买不了：背离玩家跑开，不再交战（还能丢雷的话 considerGrenade 照样会丢）
+        mx = -dx; mz = -dz;
+        speed = cfg.runSpeed;
       } else if (this.state === 'combat') {
         faceYaw = yawTo(dx, dz);
         const [near, far] = cfg.preferredRange;
@@ -358,6 +363,11 @@ Game.Bots = (function () {
       this.fireTimer = this.burstLeft > 0 ? gun.fireInterval : rand(cfg.burstPause[0], cfg.burstPause[1]);
     }
 
+    // 两把枪的子弹（枪里和备弹）都没了
+    outOfAmmo() {
+      return this.ammo.rifle + this.reserve.rifle + this.ammo.pistol + this.reserve.pistol <= 0;
+    }
+
     // 正在换弹、切枪或丢雷，腾不出手开枪
     busy() { return this.reloadT > 0 || this.switchT > 0 || !!this.throwing; }
 
@@ -366,7 +376,11 @@ Game.Bots = (function () {
       const W = Game.Config.weapons;
       if (this.reloadT > 0) {
         this.reloadT -= dt;
-        if (this.reloadT <= 0) this.ammo[this.weapon] = W[this.weapon].magSize;
+        if (this.reloadT <= 0) {   // 从备弹里补满弹匣，备弹不够就全装上
+          const w = this.weapon, take = Math.min(W[w].magSize - this.ammo[w], this.reserve[w]);
+          this.ammo[w] += take;
+          this.reserve[w] -= take;
+        }
         return;
       }
       if (this.switchT > 0) {
@@ -377,19 +391,23 @@ Game.Bots = (function () {
       }
       if (this.throwing) return;
 
-      const other = this.weapon === 'rifle' ? 'pistol' : 'rifle';
-      const empty = this.ammo[this.weapon] <= 0;
+      const cur = this.weapon, other = cur === 'rifle' ? 'pistol' : 'rifle';
+      const empty = this.ammo[cur] <= 0;
+      const canReload = (w) => this.reserve[w] > 0 && this.ammo[w] < W[w].magSize;
+      const hasAny = (w) => this.ammo[w] + this.reserve[w] > 0;
       if (this.state === 'combat') {
         if (!empty) return;
-        // AK 打空：近了掏手枪更快，远了换弹；手枪也打空了就看 AK 还有没有子弹
+        // AK 打空：近了掏手枪更快，远了换弹；手枪也打空了就看 AK 还有没有子弹。
+        // 这把没备弹换不了就切另一把（另一把也空了但有备弹，切过去再换）；两把都一发没有就不动（update 里会跑开）
         const dist = this.pos.distanceTo(this.mgr.player.position);
-        const wantPistol = this.weapon === 'rifle' && dist < Game.Config.bots.pistolRange;
-        if (this.ammo[other] > 0 && (this.weapon === 'pistol' || wantPistol)) this.switchWeapon(other);
-        else this.reload();
+        const wantPistol = cur === 'rifle' && dist < Game.Config.bots.pistolRange;
+        if (this.ammo[other] > 0 && (cur === 'pistol' || wantPistol || !canReload(cur))) this.switchWeapon(other);
+        else if (canReload(cur)) this.reload();
+        else if (hasAny(other)) this.switchWeapon(other);
       } else {
-        // 没在交战：收起手枪，把 AK 换满
-        if (this.weapon === 'pistol') this.switchWeapon('rifle');
-        else if (this.ammo.rifle < W.rifle.magSize) this.reload();
+        // 没在交战：收起手枪（AK 还有子弹的话），把 AK 换满
+        if (cur === 'pistol' && hasAny('rifle')) this.switchWeapon('rifle');
+        else if (cur === 'rifle' && canReload('rifle')) this.reload();
       }
     }
 

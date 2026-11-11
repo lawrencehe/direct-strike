@@ -56,7 +56,7 @@ Game.DevLog = (() => {
   let simNow = -1;   // 测试脚本按固定步长推进时用的模拟时间（毫秒，_debug.simNow）；-1 = 用真实时间。不用闭包：返回小数会装箱、分配内存
 
   // 推事件用的上一帧状态
-  const prev = { locked: false, alive: true, weapon: -1, reloading: false, onGround: true, thrown: false, health: 0, ammo: -1, velY: 0 };
+  const prev = { locked: false, alive: true, weapon: -1, reloading: false, onGround: true, thrown: false, health: 0, ammo: -1, velY: 0, reloadFrom: -1 };
   let cost = { sum: 0, max: 0, n: 0 };   // 录制本身的耗时
   let markers = 0;
 
@@ -190,8 +190,9 @@ Game.DevLog = (() => {
       prev.ammo = gun.ammo;
     }
     if (w.reloading !== prev.reloading) {
-      if (w.reloading) event(E.reloadStart, w.reloadEmpty ? 1 : 0);
-      else event(gun && gun.ammo === gun.cfg.magSize ? E.reloadEnd : E.reloadCancel, 0);
+      if (w.reloading) { event(E.reloadStart, w.reloadEmpty ? 1 : 0); prev.reloadFrom = gun ? gun.ammo : -1; }
+      // 换完弹匣里的子弹会变多（备弹不够一个弹匣时不一定满）；没变多就是中途切枪中止了
+      else event(gun && gun.ammo > prev.reloadFrom ? E.reloadEnd : E.reloadCancel, 0);
       prev.reloading = w.reloading;
     }
     if (p.onGround !== prev.onGround) {

@@ -60,6 +60,7 @@ Game.Weapon = class Weapon {
     this.swingT = 0;              // 挥臂进行了多久
     this.thrown = false;          // 手雷已经离手
     this.unlimitedThrowables = false;
+    this.unlimitedAmmo = false;   // 训练场：备弹无限（main.js 按模式设）
     this.counts = {};
     this.restock();
     this.show('rifle');
@@ -134,7 +135,9 @@ Game.Weapon = class Weapon {
     const left = arms.hand('L', view.left);
 
     const it = this.guns[slot] = {
-      key, cfg, ammo: old && old.key === key ? old.ammo : cfg.magSize,
+      key, cfg,
+      ammo: old && old.key === key ? old.ammo : cfg.magSize,                     // 枪里的
+      reserve: old && old.key === key ? old.reserve : this.startReserve(cfg),   // 备弹（训练场不看它）
       model: gun.group, scale: view.scale, arms, flash,
       basePos: view.basePos.clone(), baseRot: view.baseRot.clone(),
       bolt: gun.bolt, boltHome: gun.boltHome, boltKick: view.boltKick,
@@ -153,6 +156,24 @@ Game.Weapon = class Weapon {
   show(key) {
     for (const it of [...Object.values(this.guns), ...Object.values(this.throwables)]) it.model.visible = false;
     this.item(key).model.visible = true;
+  }
+
+  // ---- 子弹 ----
+  // 开局 / 每条命的备弹
+  startReserve(cfg) { return Game.Config.weapons.spareMags * cfg.magSize; }
+  // 最多能带多少发（含枪里的）
+  maxRounds(slot) { return Game.Config.weapons.maxMags * this.guns[slot].cfg.magSize; }
+  // 还能再买多少发
+  ammoRoom(slot) { const g = this.guns[slot]; return Math.max(0, this.maxRounds(slot) - g.ammo - g.reserve); }
+  // 有备弹可以换（换弹不会凭空变出子弹）
+  canReload(gun) { return gun.ammo < gun.cfg.magSize && (this.unlimitedAmmo || gun.reserve > 0); }
+  // 这把枪一发都没了（枪里和备弹都空）
+  outOfAmmo(gun) { return !this.unlimitedAmmo && gun.ammo === 0 && gun.reserve === 0; }
+
+  // 买到子弹（economy.js）：进备弹，拿着的这把打空了会自动换上
+  addAmmo(slot, rounds) {
+    this.guns[slot].reserve += rounds;
+    this.refreshHud();
   }
 
   // 投掷物还有没有
@@ -265,7 +286,10 @@ Game.Weapon = class Weapon {
       this.playReloadCues(gun);
       if (this.reloadTimer <= 0) {
         this.reloading = false;
-        gun.ammo = cfg.magSize;
+        // 从备弹里补满弹匣（备弹不够一个弹匣就全装上）；训练场备弹无限
+        const take = this.unlimitedAmmo ? cfg.magSize - gun.ammo : Math.min(cfg.magSize - gun.ammo, gun.reserve);
+        gun.ammo += take;
+        if (!this.unlimitedAmmo) gun.reserve -= take;
         this.refreshHud();
       }
       this.hud.setReload(this.reloading ? this.reloadProgress(gun) : null);
@@ -273,12 +297,14 @@ Game.Weapon = class Weapon {
     if (!ready) return;
 
     if (input.wasAction('reload')) this.startReload();
-    // 打空了自动换弹：等最后一发的后坐做完就开始，不用再扣一次扳机。切回一把空枪也一样
+    // 打空了自动换弹：等最后一发的后坐做完就开始，不用再扣一次扳机。切回一把空枪、空枪买到子弹也一样
     if (gun.ammo === 0 && !this.reloading && this.cooldown <= 0) this.startReload();
 
     // 全自动按住连发；半自动每次扣扳机只打一发
     const wantFire = cfg.auto ? input.isAction('fire') : input.wasAction('fire');
     if (wantFire && !this.reloading && this.cooldown <= 0 && gun.ammo > 0) this.fire(gun);
+    // 没子弹了还扣扳机：咔一声空响（按一下响一下，按住不连响）
+    else if (gun.ammo === 0 && !this.reloading && input.wasAction('fire')) this.audio.empty();
   }
 
   // 投掷：按住拔环（握片还攥着，不计时），松开挥臂出手，出手时引信才开始走，动作做完切回枪
@@ -378,9 +404,15 @@ Game.Weapon = class Weapon {
     }
   }
 
-  // 补满子弹和投掷物（波次之间 keep = true，重生、新一局 false）
+  // 子弹和投掷物回到开局的样子（重生、新一局，keep = false）：枪里一个满弹匣 + spareMags 个备用弹匣，多买的随人一起没了。
+  // 波次之间 keep = true：子弹至少补到开局那么多、枪里换满，多买的不收走
   refill(keep = false) {
-    for (const g of Object.values(this.guns)) g.ammo = g.cfg.magSize;
+    for (const g of Object.values(this.guns)) {
+      const base = g.cfg.magSize + this.startReserve(g.cfg);
+      const total = keep ? Math.max(g.ammo + g.reserve, base) : base;
+      g.ammo = Math.min(g.cfg.magSize, total);
+      g.reserve = total - g.ammo;
+    }
     this.restock(keep);
     this.cancelReload();
     this.refreshHud();
@@ -394,7 +426,7 @@ Game.Weapon = class Weapon {
 
   startReload() {
     const gun = this.guns[this.current];
-    if (!gun || this.reloading || gun.ammo === gun.cfg.magSize) return;
+    if (!gun || this.reloading || !this.canReload(gun)) return;
     this.reloading = true;
     this.reloadTimer = gun.cfg.reloadTime;
     this.reloadEmpty = gun.ammo === 0;
@@ -421,7 +453,7 @@ Game.Weapon = class Weapon {
   refreshHud() {
     const gun = this.guns[this.current];
     if (gun) {
-      this.hud.setAmmo(gun.ammo, gun.cfg.magSize);
+      this.hud.setAmmo(gun.ammo, gun.cfg.magSize, this.unlimitedAmmo ? null : gun.reserve);
       this.hud.setReload(this.reloading ? this.reloadProgress(gun) : null);
     } else {
       this.hud.setThrowable(this.unlimitedThrowables ? '∞' : this.counts[this.current]);
@@ -433,6 +465,8 @@ Game.Weapon = class Weapon {
       if (!this.isGun(key)) {
         out.count = this.unlimitedThrowables ? '∞' : this.counts[key];
         out.empty = !this.hasThrowable(key);
+      } else {
+        out.empty = this.outOfAmmo(it);   // 一发都没了，这一格变暗（照样能切过去）
       }
       return out;
     }));
