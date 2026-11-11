@@ -220,7 +220,7 @@ Game.Config = {
 
   // 可选装备：首页"装备"里点击切换，选择存在浏览器里（settings.js 写回 weapons.rifle / weapons.pistol / character.model）。
   // 每一项的 key 是存档用的名字，不要随便改；第一项是默认值。
-  // 枪：name 显示名，model 枪模（null = 代码拼的）。数值默认和上面 weapons.rifle / weapons.pistol 一样，
+  // 枪：name 显示名，model 枪模（null = 代码拼的），sound 枪声录音的前缀（assets/sound/<sound>-1 / -2 / -far.mp3，见 audio.samples）。数值默认和上面 weapons.rifle / weapons.pistol 一样，
   //     想让某把枪不同，在这一项里写同名参数覆盖，例如 m4: { ..., fireInterval: 0.08, damage: { head: 100, body: 30, leg: 22 } }。
   //     枪在画面里的位置、手握在哪，在 weapon.js 的 Weapon.VIEW 里按 key 写。
   // 加一把新枪：模型放 assets/models/gun/，这里加一项，Weapon.VIEW 加一项，再截图对手的位置（docs/architecture.md）。
@@ -228,12 +228,12 @@ Game.Config = {
   // 模型都是选中了才下载。来源和授权登记在 assets/LICENSES.md。
   loadout: {
     rifle: {
-      ak: { name: 'AK', model: 'assets/models/gun/ak47.glb' },   // assets-src/models/gun/ak47.py 加工
-      m4: { name: 'M4', model: 'assets/models/gun/m4.glb' },     // assets-src/models/gun/m4.py 加工
+      ak: { name: 'AK', model: 'assets/models/gun/ak47.glb', sound: 'ak' },   // assets-src/models/gun/ak47.py 加工
+      m4: { name: 'M4', model: 'assets/models/gun/m4.glb', sound: 'm4' },     // assets-src/models/gun/m4.py 加工
     },
     pistol: {
-      beretta: { name: '手枪', model: null },
-      sg: { name: 'SG 手枪', model: 'assets/models/gun/sg.glb' }, // assets-src/models/gun/sg.py 加工
+      beretta: { name: '手枪', model: null, sound: 'pistol' },
+      sg: { name: 'SG 手枪', model: 'assets/models/gun/sg.glb', sound: 'pistol' }, // assets-src/models/gun/sg.py 加工
     },
     npc: {
       ukrainian: { name: '乌克兰士兵', model: 'assets/models/human/ukrainian-soldier.glb' },
@@ -253,6 +253,25 @@ Game.Config = {
 
   audio: {
     volume: 0.5,           // 默认音量 0 ~ 1（玩家在设置里改过的存在浏览器里，优先于这里）
+
+    // 真实录音的音效（#45）：枪声、换弹、手雷 / 闪光爆炸。点开始后后台下载，下完之前用合成声顶着。
+    // 命中、击杀、购买这类提示音、烟雾嘶声仍是合成的（js/audio.js）。
+    // 文件由 assets-src/sound/build.py 从原始录音剪出来，都归一化到同样的峰值，相对音量在 gain 里调。
+    samples: {
+      dir: 'assets/sound/',
+      files: ['ak-1', 'ak-2', 'ak-far', 'm4-1', 'm4-2', 'm4-far', 'pistol-1', 'pistol-2', 'pistol-far',
+        'mag-out', 'mag-in', 'rack-back', 'rack-forward', 'frag', 'flash'],
+      gain: {
+        shot: 0.75,        // 自己开枪（近距录音，每把枪两发随机挑）
+        botShot: 1.0,      // NPC 开枪（中距录音），再按距离衰减：× 1 / (1 + 距离 / botRolloff)
+        reload: 0.4,       // 换弹的四个动作
+        explosion: 1.3,    // 手雷，按距离衰减：× 1 / (1 + 距离 / 10)
+        flash: 1.0,        // 闪光弹，按距离衰减：× 1 / (1 + 距离 / 12)
+      },
+      botRolloff: 8,       // NPC 枪声的距离衰减（米），越小远处越轻
+      pitchJitter: 0.04,   // 每发音高随机抖动 ±4%，连发不机械
+      muffle: [16000, 1500, 50],  // 远处变闷：低通截止频率从 0 米的 16000Hz 降到 50 米的 1500Hz（中间按指数过渡）
+    },
   },
 
   // 界面和设置页

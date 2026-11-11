@@ -765,7 +765,7 @@ Game.Bots = (function () {
       // 枪声：离得越远越小声，并根据方向分左右声道
       const dx = origin.x - this.player.position.x, dz = origin.z - this.player.position.z;
       const rel = yawTo(dx, dz) - this.player.yaw;
-      this.audio.botShot(-Math.sin(rel), Math.hypot(dx, dz));
+      this.audio.botShot(-Math.sin(rel), Math.hypot(dx, dz), Game.Config.weapons[bot.weapon].sound);
     }
 
     // ---- 击杀和回合 ----
