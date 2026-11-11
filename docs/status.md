@@ -12,7 +12,7 @@
 
 ## 进行中
 
-交给 Claude 自动做的看标签 `交给Claude` / `Claude处理中` / `待验收` / `上线失败`，上线了的是 `已上线`（`autopilot.md`）。正在做的需求看 [开启的 Milestone](https://github.com/lawrencehe/direct-strike/milestones) 和 [开着的 PR](https://github.com/lawrencehe/direct-strike/pulls)。
+交给 Claude 自动做的看标签 `交给Claude` / `Claude处理中` / `待验收` / `上线失败`，上线了的是 `已上线`（`autopilot.md`）。每条 issue 的结论和落到哪份文档看 [issues.md](issues.md)。正在做的需求看 [开启的 Milestone](https://github.com/lawrencehe/direct-strike/milestones) 和 [开着的 PR](https://github.com/lawrencehe/direct-strike/pulls)。
 
 ## 现在能玩什么
 

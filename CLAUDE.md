@@ -11,6 +11,7 @@
 |---|---|
 | `docs/status.md` | **项目现在的状态**：线上和 main 的版本、现在能玩什么，已知问题和待办的 Issue 链接。新会话先看这页 |
 | GitHub Issues | 需求、bug、待确认、想法，一件事一条（`gh issue list`）。规则见 `docs/workflow.md` 的"GitHub 上管什么" |
+| `docs/issues.md` | **Issue 索引**：每条 issue 提炼后的结论、现状，链到落地的文档、版本、PR |
 | `docs/requirements/` | 每个需求一份文档：需求、范围、方案和决定、改动、验证、遗留 |
 | `docs/workflow.md` | 分支、提交信息、版本号、验证、发布的完整流程 |
 | `docs/architecture.md` | 加载顺序、对象关系、游戏循环、两套场景、**已知的坑** |
@@ -68,6 +69,11 @@
    都开成 issue（`待确认` / `bug` / `想法`，写"来源：#N"）；同步 `docs/status.md` 的版本，更新顶部的"最近更新"日期。
 5. **上线后**：需求文档状态改"已上线（vX.Y，日期）"，`docs/status.md` 的线上版本改掉。需求 issue 由 PR 关闭，Release 由 `ship.sh --tag` 建。
 6. **跟提交一起走**：文档改动和代码放在同一次提交里。`/ship` 之前检查上面几步都做了，没做先补；`-c` 传这次关闭的 issue 编号。
+7. **每个 issue 都要落进文档**（2026-11-11 负责人定，#51）：不管谁开的、什么类型（需求 / bug / 待确认 / 想法 / 讨论），处理过就要在
+   `docs/issues.md` 加一行或更新那一行：提炼后的结论、现状，链到落地的文档、版本、PR。**不照抄 issue**，写"定了什么、做成了什么、去哪看"。
+   **不是一个 issue 建一份文档**：先想这件事属于哪块已有的知识，把结论整理后**融进那份文档**——全屏 / 按键规则进 `ui.md`，坑进 `architecture.md`，
+   开发者模式进 `devmode.md`，素材和授权进 `art-sources.md` / `assets/LICENSES.md`，数值进 `config.js` 注释，方向性决定进 `decisions.md`；
+   跟原有内容冲突就改原文，不在末尾追加"补充"。只有要开发的需求才建需求文档（第 2 条）。新开的 issue（包括遗留）也登记进索引。
 
 零碎改动（错别字、只改文档、一行修复）不用建需求文档，但仍要看 `docs/status.md` 和相关 issue 是否受影响。
 `status.md` 只写现状，过时的内容直接改掉；历史留在需求文档、Release 和 git log 里。

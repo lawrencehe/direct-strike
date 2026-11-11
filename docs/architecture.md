@@ -103,6 +103,7 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 - **全屏时接管键盘（Keyboard Lock，只有 Chrome / Edge）。** `input.syncKeyboardLock` 在进全屏后调 `navigator.keyboard.lock()`：
   短按 Esc 交给页面（`input.js` 自己 `exitPointerLock` 进暂停，全屏保留），长按才退全屏；浏览器快捷键在全屏里不生效。
   没有这个接口的浏览器按 Esc 仍会同时退出全屏和锁定，点"继续"再进。系统级快捷键（Mac 的 ⌘+空格、⌘+Tab）哪个浏览器都拦不住。
+  真机上 ⌘+空格 弹出聚焦搜索时页面不一定失焦，所以"失焦自动暂停"没触发（#26），要另找信号判断误触（#52）。
 - **按下的键可能收不到 keyup。** 窗口失焦之后、Mac 上按住 ⌘ 期间松开的键都没有 `keyup`。`input.releaseAll()` 在失焦、解锁、⌘ 按下和松开时清空按键；
   失焦 `view.blurPauseDelay` 秒没回来自动暂停。新加"按住"类的状态要跟着 `inputrelease` 事件清掉（`devlog.js` 的按键位掩码就是这样）。
   首页不全屏："进入战斗"时才请求全屏，回首页时退出。
@@ -126,6 +127,8 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 - **手的握持朝向决定了小臂往哪伸。** 手腕最多弯 `wristMaxBend`，所以小臂基本顺着手的朝向；朝向不自然，弯折就挪到手肘上，手肘折在画面中间（#11）。
   步枪左手托护木不能掌心正朝上横着托，要绕护木轴转一点（`weapon.js` 的 `SUPPORT_ROLL`），让手腕在护木左下方；`armDir` 再取和小臂差不多的方向，手肘就在画面外。
   调了握持朝向跑 `tools/tests/arm-wrist.mjs`，它会检查步枪左手肘在不在画面中间。
+- **扔完手雷切回枪的那一帧枪模会跳**（约 56cm、36°，开发者模式的分析脚本发现，#10）：疑似 `weapon.js` 的 `finishThrow` 把收枪进度直接设满。
+  还没修，等负责人真机录一段（扔雷 → 切回枪，前后按 F8）确认。
 - **`DevLog.sample` 每帧不能新建对象**（包括闭包返回小数、`Set.has`、three.js 的 getter），否则开发者模式自己就会引起垃圾回收卡顿。
   改了它跑 `tools/tests/devlog.mjs`，里面用采样堆分析器检查零分配。
 - **录画面要在渲染之后立刻拷画布。** WebGL 画布没开 `preserveDrawingBuffer`，交给屏幕后就清空了，晚一步拷到的是黑的。

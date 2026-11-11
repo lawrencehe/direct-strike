@@ -201,11 +201,11 @@ Game.Config = {
   // 经济（对决和波次，训练场没有）：打死敌人拿赏金，回到自己这条命的出生点买投掷物。逻辑在 economy.js
   economy: {
     startMoney: 0,         // 开局有多少钱（开局本来就带着 grenades.*.count 个投掷物）
-    maxMoney: 2000,        // 钱的上限：到了上限再打死人也不涨
+    maxMoney: 2000,        // 钱的上限：到了上限再打死人也不涨（负责人说的"收入上限"按存款上限理解，待确认，#7）
     // 赏金只看最后一击：爆头打死 / 枪打身体或腿打死 / 手雷炸死
     reward: { head: 300, body: 200, frag: 400 },
-    prices: { frag: 300, flash: 200, smoke: 300 },   // 价格
-    maxCarry: { frag: 2, flash: 2, smoke: 1 },       // 每种最多带几个
+    prices: { frag: 300, flash: 200, smoke: 300 },   // 价格（先定的值，待负责人确认，#7）
+    maxCarry: { frag: 2, flash: 2, smoke: 1 },       // 每种最多带几个（同上）
     buyRadius: 3,          // 购买区：出生点周围几米（地上有一圈环）
     boughtPulse: 0.7,      // 买成功后武器栏里那一格闪亮、放大回弹几秒（同时钱数闪一下、旁边飘 "-$价格"）
   },
