@@ -39,8 +39,9 @@ await p.evaluate(() => {
   window.press = (c) => game.input.pressed.add(c);
   window.tick = (sec, step = 1 / 60) => {
     for (let t = 0; t < sec; t += step) {
+      if (game.player.alive) game.economy.update(step);   // 顺序和 main.js 一样：economy 在 player、weapon 之前
       game.player.update(step, game.input); game.camera.updateMatrixWorld();
-      if (game.player.alive) { game.economy.update(step); game.weapon.update(step, game.input); }   // 顺序和 main.js 一样
+      if (game.player.alive) game.weapon.update(step, game.input);
       game.bots.update(step); game.grenades.update(step); game.hud.update(step, game.player);
       game.input.endFrame();
     }
@@ -59,7 +60,8 @@ await g.close();
 - 用 tick 推进时如果开着开发者模式，录下的时间是真实时钟，几秒的模拟会挤在一瞬间；要像真机一样的时间，
   每步设 `Game.DevLog._debug.simNow`（毫秒），用完设回 -1，见 `tools/tests/devlog.mjs`。
 - 换弹、投掷这类按进度做的动作，可以按进度推进到某一点再截图，例如推到换弹进度 0.56 看新弹匣插入。
-- 经济：`game.economy.money` 是钱，`game.player.position.copy(game.player.spawn)` 站进购买区，按 `KeyB` 开面板。
+- 经济：`game.economy.money` 是钱，`game.player.position.copy(game.player.spawn)` 站进购买区，按 `KeyB` / `KeyF` 开经典 / 快捷菜单；
+  菜单里点卡片：按卡片的 `getBoundingClientRect` 把差值加到 `game.input.mouseX/Y`，推一帧，再 `press('Mouse0')`（见 `buy-menu.mjs` 的 `pointAt`）。
   测试里直接 `bot.takeDamage(999, { part: 'head' })` 模拟击杀，`hit` 决定赏金类型（`explosion: true` 是手雷，`byBot: true` 不给钱）。
 
 ## 留在仓库里的测试
@@ -69,7 +71,8 @@ await g.close();
 
 | 脚本 | 测什么 |
 |---|---|
-| `tools/tests/buy-ux.mjs` | #33：买完立刻关面板、再按槽位键切过去；购买区的购物车图标（亮 / 灰 / 收起）；买成功 / 买不了 / 区外按 B 的音效和动画回应 |
+| `tools/tests/buy-ux.mjs` | #33：买的那一下不切枪、关了菜单再按槽位键切过去；购买区的购物车图标（亮 / 灰 / 收起）；买成功 / 买不了 / 区外按 B 的音效和动画回应 |
+| `tools/tests/buy-menu.mjs` | #81：B 经典菜单（先选分类再选商品、退格、鼠标点、买完不关）、F 快捷菜单的 Smart Buy（已有跳过、钱不够跳过）、自定义套餐；菜单开着光标不转视角、点击不开枪、滚轮不切枪、能走 |
 | `tools/tests/reload-nade-economy.mjs` | #1：自动换弹、换弹中切枪、手雷两道保险、经济（赏金、上限、购买、补给） |
 | `tools/tests/economy-ammo.mjs` | #7：开局 / 重生的钱、限量子弹（打空不换弹、空响）、买子弹和上限、波次补给、NPC 打空跑开、训练场无限 |
 | `tools/tests/devlog.mjs` | #2：开发者模式的解锁、录制开销和零内存分配、事件、录画面的自动关闭保护、上传、分析脚本 |

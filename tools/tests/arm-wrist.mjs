@@ -15,8 +15,9 @@ await p.evaluate(() => {
   window.press = (c) => game.input.pressed.add(c);
   window.tick = (sec, step = 1 / 60) => {
     for (let t = 0; t < sec; t += step) {
+      if (game.player.alive) game.economy.update(step);   // 顺序和 main.js 一样：economy 在 player、weapon 之前
       game.player.update(step, game.input); game.camera.updateMatrixWorld();
-      if (game.player.alive) { game.economy.update(step); game.weapon.update(step, game.input); }
+      if (game.player.alive) game.weapon.update(step, game.input);
       game.input.endFrame();
     }
   };

@@ -481,6 +481,7 @@ b.enemy { color: var(--enemy) !important; }
   font-family: var(--font-m); font-size: 10px; line-height: 16px; text-align: center;
   color: var(--ink); background: rgba(10, 11, 8, .9); border: 1px solid currentColor;
 }
+#buy-cue #buy-cue-key2 { bottom: auto; top: -7px; }
 #buy-cue.show { opacity: 1; transform: none; animation: buy-cue-pulse 1.6s ease-in-out .2s infinite; }
 #buy-cue.poor { color: var(--dim); border-left-color: var(--dim); animation: none; }
 @keyframes buy-cue-pulse { 50% { box-shadow: 0 0 14px rgba(255, 95, 0, .45); } }
@@ -494,31 +495,72 @@ b.enemy { color: var(--enemy) !important; }
   100% { opacity: 0; transform: translateX(-24px); }
 }
 
-/* 购买面板：左侧居中，开着时照样能走能看 */
+/* 购买菜单（#81）：屏幕中间，半透明，开着照样能走、能看到周围。B 经典 = 按分类分列的卡片；F 快捷 = 一排套餐卡 */
 #buy {
-  position: absolute; left: 20px; top: 50%; transform: translateY(-50%); width: 250px;
-  padding: 12px 14px 10px; background: rgba(10, 11, 8, .78); border-left: 2px solid var(--accent);
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  max-width: calc(100vw - 32px); padding: 14px 16px 10px;
+  background: rgba(10, 11, 8, .9); border-top: 2px solid var(--accent);
   font-size: 13px; display: none;
 }
-#buy h4 {
-  display: flex; justify-content: space-between; margin: 0 0 8px;
-  font-family: var(--font-d); font-size: 18px; font-weight: 700; letter-spacing: .12em;
+#buy header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+#buy h4 { margin: 0; font-family: var(--font-d); font-size: 20px; font-weight: 700; letter-spacing: .12em; }
+#buy header b { font-family: var(--font-m); font-size: 18px; font-weight: 400; color: var(--accent); }
+#buy kbd {
+  display: inline-block; min-width: 20px; padding: 0 5px; font-family: var(--font-m); font-size: 11px; line-height: 18px;
+  text-align: center; color: var(--muted); border: 1px solid var(--dim);
 }
-#buy h4 b { font-family: var(--font-m); font-weight: 400; color: var(--accent); letter-spacing: 0; }
-#buy div { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-top: 1px solid rgba(255, 255, 255, .06); }
-#buy kbd { min-width: 22px; padding: 1px 5px; font-family: var(--font-m); font-size: 11px; text-align: center; border: 1px solid var(--dim); }
-#buy span { flex: 1; }
-#buy i { font-style: normal; font-family: var(--font-m); font-size: 11px; color: var(--muted); }
-#buy div b { min-width: 46px; text-align: right; font-family: var(--font-m); font-weight: 400; color: var(--accent); }
-#buy div.off { opacity: .38; }
-/* 买不了的那一行：红一下、左右晃 */
-#buy div.denied { animation: buy-row-denied .4s ease-out; }
-@keyframes buy-row-denied {
-  0% { background: rgba(200, 40, 30, .5); opacity: 1; transform: none; }
+#buy h5 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 14px; font-weight: 600; letter-spacing: .08em; }
+#buy p { margin: 10px 0 0; font-size: 11px; color: var(--dim); }
+
+.buy-cols { display: flex; gap: 14px; }
+.buy-cols section { width: 230px; transition: opacity .15s; }
+.buy-cols section.sel h5 kbd { color: var(--ink); background: var(--accent); border-color: var(--accent); }
+.buy-cols section.dim { opacity: .45; }
+/* 分类还没选时，商品的号是暗的（这时按数字键选的是分类） */
+.buy-cols section:not(.sel) .buy-card kbd { opacity: .35; }
+
+.buy-card {
+  position: relative; display: grid; grid-template-columns: auto 30px 1fr auto; grid-template-rows: auto auto;
+  column-gap: 8px; align-items: center; margin-bottom: 6px; padding: 8px 10px;
+  background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .08);
+  transition: background .1s, border-color .1s;
+}
+.buy-card > kbd { grid-row: 1 / 3; }
+.buy-card > svg { grid-row: 1 / 3; width: 28px; height: 28px; }
+.buy-card span { grid-column: 3; }
+.buy-card i { grid-column: 3; font-style: normal; font-family: var(--font-m); font-size: 11px; color: var(--muted); }
+.buy-card > b { grid-column: 4; grid-row: 1 / 3; font-family: var(--font-m); font-weight: 400; color: var(--accent); }
+.buy-card.hover { background: rgba(255, 95, 0, .16); border-color: var(--accent); }
+.buy-card.off { opacity: .4; }
+.buy-card.off.hover { background: rgba(255, 255, 255, .06); border-color: var(--dim); }
+#buy svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; color: var(--accent); }
+.buy-card.off svg { color: var(--muted); }
+
+.buy-packs { display: flex; gap: 10px; }
+.buy-card.pack { display: flex; flex-direction: column; align-items: stretch; width: 170px; min-height: 150px; margin: 0; }
+.buy-card.pack ul { flex: 1; margin: 0; padding: 0; list-style: none; }
+.buy-card.pack li { display: flex; align-items: center; gap: 6px; padding: 2px 0; font-size: 12px; }
+.buy-card.pack li svg { width: 16px; height: 16px; }
+.buy-card.pack li span { flex: 1; }
+.buy-card.pack li i { font-style: normal; font-family: var(--font-m); font-size: 11px; }
+/* 套餐里每一样：要买的亮，已经够了的暗（划掉），钱不够、会跳过的红 */
+.buy-card.pack li.have { opacity: .4; text-decoration: line-through; }
+.buy-card.pack li.poor { color: #e0614f; }
+.buy-card.pack li.poor svg { color: #e0614f; }
+.buy-card.pack ul.empty li { color: var(--dim); font-size: 11px; line-height: 1.5; }
+.buy-card.pack > b { margin-top: 8px; text-align: right; font-size: 16px; }
+
+/* 买不了的那张卡：红一下、左右晃 */
+.buy-card.denied { animation: buy-card-denied .4s ease-out; }
+@keyframes buy-card-denied {
+  0% { background: rgba(200, 40, 30, .5); transform: none; }
   20% { transform: translateX(-6px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); }
-  100% { background: transparent; transform: none; }
+  100% { transform: none; }
 }
-#buy p { margin: 8px 0 0; font-size: 11px; color: var(--dim); }
+
+/* 菜单里的光标：鼠标锁定着，系统光标看不见，自己画一个（economy.js 移动它） */
+#buy-cursor { position: absolute; left: 0; top: 0; display: none; pointer-events: none; }
+#buy-cursor svg { display: block; width: 18px; height: 18px; fill: #fff; stroke: #000; stroke-width: 1; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .6)); }
 
 /* 左上：本局统计 */
 #stats {

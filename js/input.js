@@ -189,7 +189,7 @@ Game.Input = class Input {
     return m;
   }
 
-  // 把这一帧"刚按下"的某个动作吃掉，后面的代码就看不到了（购买面板开着时，3 / 4 / 5 是买东西，不切武器）
+  // 把这一帧"刚按下"的某个动作吃掉，后面的代码就看不到了（购买菜单开着时数字键是买东西，不切武器）
   consumeAction(action) {
     for (const c of this.bindings[action] || []) this.pressed.delete(c);
   }
@@ -274,5 +274,5 @@ Game.Input.ACTIONS = [
   ['jump', '跳跃'], ['crouch', '下蹲（按住）'], ['sprint', '奔跑（按住）'],
   ['fire', '射击 / 投掷'], ['reload', '换弹'],
   ['slotRifle', '主武器'], ['slotPistol', '手枪'], ['slotFrag', '手雷'], ['slotFlash', '闪光弹'], ['slotSmoke', '烟雾弹'],
-  ['lastWeapon', '上一把武器'], ['buy', '购买（在出生点）'], ['resetStats', '重置统计（训练场）'],
+  ['lastWeapon', '上一把武器'], ['buy', '购买（在出生点）'], ['quickBuy', '快捷购买（在出生点）'], ['resetStats', '重置统计（训练场）'],
 ];

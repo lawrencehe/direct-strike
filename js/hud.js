@@ -12,7 +12,7 @@ Game.Hud = class Hud {
       acc: $('stat-acc'), kills: $('stat-kills'),
       ammo: $('ammo'), ammoCur: $('ammo-cur'), ammoMax: $('ammo-max'), weapons: $('weapons'),
       flashWhite: $('flash-white'),
-      money: $('money'), moneyVal: $('money-val'), moneyGain: $('money-gain'), buyCue: $('buy-cue'), buyCueKey: $('buy-cue-key'), buy: $('buy'),
+      money: $('money'), moneyVal: $('money-val'), moneyGain: $('money-gain'), buyCue: $('buy-cue'), buyCueKey: $('buy-cue-key'), buyCueKey2: $('buy-cue-key2'), buy: $('buy'), buyCursor: $('buy-cursor'),
       health: $('health'), healthVal: $('health-val'), healthBar: $('health-bar'), healthTrail: $('health-trail'),
       damageFlash: $('damage-flash'), damageBlood: $('damage-blood'), damageDir: $('damage-dir'),
       wave: $('wave-info'), banner: $('banner'), hint: $('hint'),
@@ -42,7 +42,7 @@ Game.Hud = class Hud {
     const key = (a) => this.input ? Game.Input.bindingName(this.input.bindings[a]) : '?';
     const common = `${key('reload')} 换弹 · ${key('lastWeapon')} / 滚轮 切枪`;
     this.el.hint.textContent = battle
-      ? `${common} · ${key('buy')} 出生点购买 · Esc 暂停`
+      ? `${common} · ${key('buy')} / ${key('quickBuy')} 出生点购买 · Esc 暂停`
       : `${common} · ${key('resetStats')} 重置统计 · Esc 暂停`;
     this.mode = mode;
     this.damageTimer = this.bannerTimer = 0;
@@ -110,10 +110,10 @@ Game.Hud = class Hud {
     this.slotPulse = { action, t0: performance.now() };
   }
 
-  // 面板里买不了的那一行：红一下、左右晃
-  buyRowDenied(index) {
-    const row = this.el.buy.querySelectorAll('div')[index];
-    if (row) Hud.replay(row, 'denied');
+  // 菜单里买不了的那张卡：红一下、左右晃
+  buyDenied(id) {
+    const card = this.el.buy.querySelector(`[data-buy="${id}"]`);
+    if (card) Hud.replay(card, 'denied');
   }
 
   // 不在购买区按了购买键：灰色购物车从左边探出来晃一下又收回
@@ -122,22 +122,65 @@ Game.Hud = class Hud {
   }
 
   // 在购买区里：屏幕左侧的购物车图标（不用文字）。state：'ok' 买得起东西（橙色）| 'poor' 买不起（灰）| null 收起
-  setBuyCue(state, keyName) {
+  setBuyCue(state, keyName, quickName) {
     const el = this.el.buyCue;
     if (keyName && this.el.buyCueKey.textContent !== keyName) this.el.buyCueKey.textContent = keyName;
+    if (quickName && this.el.buyCueKey2.textContent !== quickName) this.el.buyCueKey2.textContent = quickName;
     el.classList.toggle('show', !!state);
     el.classList.toggle('poor', state === 'poor');
     if (state) el.classList.remove('denied');
   }
 
-  // 购买面板。rows: [{ key, name, price, count, max, ok }]，null 表示关掉
-  setBuyMenu(rows, money, closeKey) {
+  // 购买菜单（#81），view 由 economy.refreshMenu 给，null 表示关掉：
+  //   { type: 'classic', money, cat, cats: [{ name, items: [{ id, name, price, count, max, ok }] }], buyKey, quickKey }
+  //   { type: 'quick', money, packs: [{ id, name, custom, cost, ok, lines: [{ kind, name, want, state }] }], buyKey, quickKey }
+  // 每张卡都带 data-buy（商品或套餐的 id），鼠标点哪张由 buyCursor 判断
+  setBuyMenu(view) {
     const el = this.el.buy;
-    el.style.display = rows ? 'block' : 'none';
-    if (!rows) return;
-    el.innerHTML = `<h4>购买<b>$${money}</b></h4>` + rows.map((r) =>
-      `<div class="${r.ok ? '' : 'off'}"><kbd>${r.key}</kbd><span>${r.name}</span><i>${r.count} / ${r.max}</i><b>$${r.price}</b></div>`
-    ).join('') + `<p>${closeKey} 关闭 · 离开出生点自动关闭</p>`;
+    el.style.display = view ? 'block' : 'none';
+    this.el.buyCursor.style.display = view ? 'block' : 'none';
+    this.buyCards = null;
+    this.buyHover = null;
+    if (!view) return;
+    const icon = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${Hud.BUY_ICONS[k]}</svg>`;
+    const head = (title) => `<header><h4>${title}</h4><b>$${view.money}</b></header>`;
+    let html;
+    if (view.type === 'classic') {
+      html = head('购买') + '<div class="buy-cols">' + view.cats.map((c, ci) =>
+        `<section class="${view.cat === ci ? 'sel' : view.cat >= 0 ? 'dim' : ''}"><h5><kbd>${ci + 1}</kbd>${c.name}</h5>` +
+        c.items.map((it, ii) =>
+          `<div class="buy-card${it.ok ? '' : ' off'}" data-buy="${it.id}"><kbd>${ii + 1}</kbd>${icon(it.id)}` +
+          `<span>${it.name}</span><i>${it.count} / ${it.max}</i><b>$${it.price}</b></div>`).join('') +
+        '</section>').join('') + '</div>' +
+        `<p>${view.cat < 0 ? '数字键选分类' : '数字键选商品 · 退格返回'} · 点击购买 · ${view.quickKey} 快捷套餐 · ${view.buyKey} 关闭</p>`;
+    } else {
+      const lineHtml = (l) => `<li class="${l.state}">${icon(l.kind)}<span>${l.name}</span><i>×${l.want}</i></li>`;
+      html = head('快捷购买') + '<div class="buy-packs">' + view.packs.map((p, i) =>
+        `<div class="buy-card pack${p.ok ? '' : ' off'}" data-buy="${p.id}"><h5><kbd>${i + 1}</kbd>${p.name}</h5>` +
+        (p.lines.length ? `<ul>${p.lines.map(lineHtml).join('')}</ul>` : '<ul class="empty"><li>在 B 菜单里买过一次后，自动记住那套</li></ul>') +
+        `<b>${p.ok ? `$${p.cost}` : p.lines.length && p.lines.every((l) => l.state === 'have') ? '已齐' : '—'}</b></div>`).join('') + '</div>' +
+        `<p>已有的跳过，钱不够的跳过 · 点击或数字键购买 · ${view.buyKey} 经典菜单 · ${view.quickKey} 关闭</p>`;
+    }
+    el.className = view.type;
+    el.innerHTML = html;
+  }
+
+  // 菜单里的光标移到 (x, y)（屏幕像素），返回光标下面那张卡的 id（没有就 null）
+  buyCursor(x, y) {
+    this.el.buyCursor.style.transform = `translate(${x}px, ${y}px)`;
+    // 卡片的位置在菜单重画后量一次，之后每帧只比坐标（getBoundingClientRect 每帧对几张卡来说也不贵，但没必要）
+    const size = `${window.innerWidth}x${window.innerHeight}`;
+    if (!this.buyCards || this.buyCardsSize !== size) {
+      this.buyCardsSize = size;
+      this.buyCards = [...this.el.buy.querySelectorAll('[data-buy]')].map((c) => ({ el: c, id: c.dataset.buy, r: c.getBoundingClientRect() }));
+    }
+    const hit = this.buyCards.find((c) => x >= c.r.left && x <= c.r.right && y >= c.r.top && y <= c.r.bottom);
+    const id = hit ? hit.id : null;
+    if (id !== this.buyHover) {
+      for (const c of this.buyCards) c.el.classList.toggle('hover', c.id === id);
+      this.buyHover = id;
+    }
+    return id;
   }
 
   // 武器栏。slots: [{ action, name, count?, on, empty }]
@@ -301,4 +344,13 @@ Game.Hud = class Hud {
     }
     this.el.damageDir.style.opacity = this.damageTimer;
   }
+};
+
+// 购买菜单里的小图标（内嵌 SVG 路径，线条用 currentColor）
+Game.Hud.BUY_ICONS = {
+  rifle: '<path d="M8 3h7l-1 18H9z"/><path d="M9 8h6M9 13h5"/>',                                     // 步枪弹匣
+  pistol: '<path d="M9 4h6v16H9z"/><path d="M9 9h6"/>',                                                // 手枪弹匣
+  frag: '<circle cx="12" cy="14" r="6"/><path d="M10 8V5h4v3M14 5l4-2"/>',                            // 手雷
+  flash: '<path d="M9 7h6v13H9z"/><path d="M10 7V4h4v3M6 10l-2-1M6 14H3M18 10l2-1M18 14h3"/>',       // 闪光弹
+  smoke: '<path d="M8 8h8v12H8z"/><path d="M10 8V5h4v3M8 12h8"/>',                                    // 烟雾弹
 };

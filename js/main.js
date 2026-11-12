@@ -260,9 +260,9 @@ function startGame(mapData) {
       time += dt;
       player.extraColliders = bots.aliveBoxes();
       if (player.alive) {
+        economy.update(dt);       // 要在 player、weapon 之前：购买菜单开着时鼠标移动是光标、左键和数字键是买东西
         player.update(dt, input);
         camera.updateMatrixWorld();
-        economy.update(dt);       // 要在 weapon 之前：购买面板开着时 3 / 4 / 5 是买东西
         weapon.update(dt, input);
       } else {
         player.updateDead(dt);
