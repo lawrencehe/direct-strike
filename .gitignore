@@ -2,6 +2,7 @@
 refer/
 
 # 本地工具链的依赖和产物，不入仓库
+.tripo/
 tools/node_modules
 tools/out/
 __pycache__/

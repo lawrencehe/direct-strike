@@ -31,7 +31,7 @@
 ## 开发工具
 
 - 工具链在 `tools/`，安装用 `tools/setup.sh`。
-- 做负责人指定的 issue 用 `/issue`，验证用 `/verify`，模型用 `/glb`，图片用 `/img`，骨骼动画用 `/rig`，地图用 `/map`，发布用 `/deploy`，提交推送部署一条龙用 `/ship`。
+- 做负责人指定的 issue 用 `/issue`，验证用 `/verify`，模型用 `/glb`，图片用 `/img`，骨骼动画用 `/rig`，AI 生成底模用 `/tripo`，地图用 `/map`，发布用 `/deploy`，提交推送部署一条龙用 `/ship`。
 - 改完代码或资源要先跑 `/verify`，玩法逻辑的改动再写针对性测试（`docs/testing.md`）。
 - 这台机器没有 GPU：截图和报错可信，帧率不可信。真机上的帧率、动画和手感问题，让负责人用游戏里的开发者模式录下来上传，
   再用 `node tools/devlog/analyze.mjs` 看报告、曲线和视频帧（`docs/devmode.md`）。
@@ -49,6 +49,7 @@
 - `refer/` 是用户的创意草图，已 gitignore，不要删、不要提交；用户说"看图"就是指这里，动手前先看图。
 - 项目方向：1v1 对战框架优先，创意玩法由用户自己加，不要擅自扩展玩法。
 - **枪械、人物、地图一律用 Blender 建模导出 glb，不再用 JS 几何体或 Canvas 画贴图。** 建模脚本和母版放 `assets-src/`，先渲染预览图给用户确认再接进游戏。特效和 UI 除外。详见 `docs/decisions.md`。
+  Tripo（AI 生成 3D）只出底模，必须进 Blender 修整；花积分前先报价、负责人同意再跑（`/tripo`，#72）。
 - 新资源加地图时按地图拆分、按需加载，首次下载体积保持小。资源用 CC0 / MIT / CC BY 4.0，登记在 `assets/LICENSES.md`；CC BY 要写清署名（作者、链接、授权、改动），不用 NC / ND / SA。
 - 可调数值放进 `js/config.js`，带中文注释。
 

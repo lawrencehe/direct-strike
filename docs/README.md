@@ -25,10 +25,10 @@ AI 助手（Claude Code）的约定在根目录的 `CLAUDE.md`，它也指向这
 | [maps.md](maps.md) | 地图 JSON 格式、改地图、加新地图 |
 | [deploy.md](deploy.md) | 线上架构、发布、回滚、首次接入 |
 | [game-references.md](game-references.md) | 可参考的开源游戏：联网对战（Quake III）、手感和武器数值（AssaultCube、Xonotic）、1v1 地图（Xonotic、Red Eclipse） |
-| [art-sources.md](art-sources.md) | 找枪械参考图、CC0 模型、PBR 材质的网站；授权规则；挑好后交什么 |
+| [art-sources.md](art-sources.md) | 找枪械参考图、CC0 模型、PBR 材质的网站；用 Tripo 生成底模的流程；授权规则；挑好后交什么 |
 | [../assets/LICENSES.md](../assets/LICENSES.md) | 第三方资源的来源和协议、怎么换 NPC 模型 |
 | `../js/config.js` | 所有可调参数，每项都有中文注释 |
-| `../.claude/skills/*/SKILL.md` | `/verify`、`/ship`、`/deploy`、`/glb`、`/img`、`/rig`、`/map` 这些命令的详细步骤 |
+| `../.claude/skills/*/SKILL.md` | `/verify`、`/ship`、`/deploy`、`/glb`、`/img`、`/rig`、`/tripo`、`/map` 这些命令的详细步骤 |
 
 ## 维护规则
 
