@@ -31,7 +31,16 @@ Game.World = (function () {
   // 贴图在 assets/maps/<地图>/textures/<名字>_{diff,nor,rough}.webp（颜色、法线、粗糙度），
   // environment 是环境光 HDRI（只给材质照明和反射，不当天空显示）。
   // 开局前全部下载好，build 时直接用；下载失败就退回 textures.js 画的贴图，游戏照常能玩。
-  const loaded = { surfaces: {}, env: null };
+  const loaded = { surfaces: {}, env: null, models: {}, containerDiff: {} };
+
+  // 道具模型（#50）：地图文件的 models 列出 物体类型 → glb（相对 assets/maps/<地图>/），
+  // 有模型的类型用模型显示，碰撞和子弹仍按原来的方块（看不见的碰撞盒），所以换模型不影响走位、NPC 和地图检查。
+  // 没下载成功就退回方块，游戏照常能玩。
+  function loadGLB(path) {
+    return new Promise((resolve, reject) => {
+      new THREE.GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load(path, (g) => resolve(g.scene), undefined, reject);
+    });
+  }
 
   async function loadAssets(name, map) {
     const dir = `assets/maps/${name}/`;
@@ -48,6 +57,22 @@ Game.World = (function () {
       ]);
       loaded.surfaces[key] = { diff, nor, rough, tile };
     });
+    for (const [type, file] of Object.entries(map.models || {})) {
+      jobs.push(loadGLB(dir + file).then((m) => { loaded.models[type] = m; }));
+    }
+    // 集装箱每种颜色一张颜色贴图（几何、法线、粗糙度共用），文件名 container_<颜色>_diff.webp，和 glb 放一起
+    if (map.models && map.models.container) {
+      const base = dir + map.models.container.replace(/[^/]*$/, '');
+      const colors = new Set(map.objects.filter((o) => o.type === 'container').map((o) => o.color.slice(1).toLowerCase()));
+      for (const c of colors) {
+        jobs.push(texLoader.loadAsync(`${base}container_${c}_diff.webp`).then((t) => {
+          t.encoding = THREE.sRGBEncoding;
+          t.flipY = false;          // 和 glb 里的贴图一样（glTF 的 UV 原点在左上）
+          t.anisotropy = 8;
+          loaded.containerDiff[c] = t;
+        }));
+      }
+    }
     if (map.environment) {
       jobs.push(new THREE.RGBELoader().loadAsync(dir + map.environment).then((t) => {
         t.mapping = THREE.EquirectangularReflectionMapping;   // 渲染器会自动转成 PMREM
@@ -168,8 +193,47 @@ Game.World = (function () {
       return containerCache[color];
     }
 
+    // 放一个道具模型：模型原点在底面中心，rotY 绕竖轴转（弧度）。模型只管显示，不进碰撞和子弹判定
+    function placeModel(type, x, y, z, rotY, materialFor) {
+      const obj = loaded.models[type].clone();
+      obj.userData.prop = type;          // 测试用：找到场景里的道具模型
+      obj.position.set(x, y, z);
+      obj.rotation.y = rotY;
+      obj.traverse((o) => {
+        if (!o.isMesh) return;
+        o.castShadow = o.receiveShadow = true;
+        if (materialFor) o.material = materialFor(o.material);
+      });
+      scene.add(obj);
+      return obj;
+    }
+    // 看不见、但挡人挡子弹的方块：配合 placeModel 用，尺寸和原来的方块一样
+    const proxyMat = new THREE.MeshBasicMaterial({ visible: false });
+    function addProxy(w, h, d, x, y, z) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), proxyMat);
+      mesh.position.set(x, y + h / 2, z);
+      scene.add(mesh);
+      return register(mesh);
+    }
+
     // 集装箱：alongZ=false 时长边沿 x 轴。y 指底部高度（叠放时传 C_H）
+    const containerModelMats = {};
     function addContainer(x, y, z, alongZ, color, label) {
+      if (loaded.models.container) {
+        const c = color.slice(1).toLowerCase();
+        const mat = (base) => {
+          if (!containerModelMats[c]) {
+            containerModelMats[c] = base.clone();
+            if (loaded.containerDiff[c]) containerModelMats[c].map = loaded.containerDiff[c];
+          }
+          return containerModelMats[c];
+        };
+        // 门朝哪头按位置定，同一排的箱子不会全朝一个方向
+        const flip = (Math.round(x * 7 + z * 13 + y) & 1) ? Math.PI : 0;
+        placeModel('container', x, y, z, (alongZ ? Math.PI / 2 : 0) + flip, mat);
+        const w = alongZ ? C_W : C_L, d = alongZ ? C_L : C_W;
+        return addProxy(w, C_H, d, x, y, z);
+      }
       const m = containerMats(color, label);
       // BoxGeometry 的六个面顺序：+x, -x, +y, -y, +z, -z
       const faces = alongZ
@@ -345,9 +409,47 @@ Game.World = (function () {
         const [w, h, d] = o.size, [x, y, z] = o.pos;
         addBlocker(w, h, d, x, y, z);
       },
+      // 只显示的模型（地图文件 models 里的名字），rot 绕竖轴转（弧度）。碰撞另外用 proxy / blocker 写
+      model(o) {
+        if (loaded.models[o.model]) placeModel(o.model, o.x, o.y || 0, o.z, o.rot || 0);
+      },
+      // 配合 model 的碰撞：看不见、挡人挡子弹的方块（shoot: false 时只挡人，比如栏杆）。
+      // 写了 model 的，那个模型没加载上就把方块用 material 画出来，不会出现看不见的墙
+      proxy(o) {
+        const [w, h, d] = o.size, [x, y, z] = o.pos;
+        if (o.model && !loaded.models[o.model]) {
+          if (o.material) addBox(w, h, d, x, y, z, material(o.material), { shoot: o.shoot !== false });
+          else if (o.shoot === false) addBlocker(w, h, d, x, y, z);
+          return;
+        }
+        if (o.shoot === false) return addBlocker(w, h, d, x, y, z);
+        addProxy(w, h, d, x, y, z);
+      },
       container(o) { addContainer(o.x, o.y || 0, o.z, o.alongZ, o.color, o.label); },
-      // 水泥隔离墩
-      jersey(o) { addBox(o.alongX ? 2.4 : 0.5, 0.85, o.alongX ? 0.5 : 2.4, o.x, 0, o.z, mats.concreteDark); },
+      // 水泥隔离墩：有模型用模型（新泽西式断面、顶上两个吊环），碰撞仍是 2.4 × 0.85 × 0.5 的方块
+      jersey(o) {
+        const w = o.alongX ? 2.4 : 0.5, d = o.alongX ? 0.5 : 2.4;
+        if (!loaded.models.jersey) return addBox(w, 0.85, d, o.x, 0, o.z, mats.concreteDark);
+        const flip = (Math.round(o.x * 3 + o.z * 5) & 1) ? Math.PI : 0;
+        placeModel('jersey', o.x, 0, o.z, (o.alongX ? 0 : Math.PI / 2) + flip);
+        addProxy(w, 0.85, d, o.x, 0, o.z);
+      },
+      // 沙袋墙：高 0.9、厚 0.6，len 是长度（米，模型有 3 和 4 两种），alongZ 时长边沿 z；y 是底部高度
+      sandbags(o) {
+        const y = o.y || 0;
+        const w = o.alongZ ? 0.6 : o.len, d = o.alongZ ? o.len : 0.6;
+        const part = loaded.models.sandbags && loaded.models.sandbags.getObjectByName(`len_${o.len}`);
+        if (!part) return addBox(w, 0.9, d, o.x, y, o.z, mats.sandbag);
+        // 套一层组再摆：压缩过的 glb 靠节点自己的位移和缩放还原顶点坐标，不能直接改节点的 position
+        const obj = new THREE.Group();
+        obj.userData.prop = 'sandbags';
+        obj.add(part.clone());
+        obj.position.set(o.x, y, o.z);
+        obj.rotation.y = (o.alongZ ? Math.PI / 2 : 0) + ((Math.round(o.x + o.z) & 1) ? Math.PI : 0);
+        obj.traverse((m) => { if (m.isMesh) m.castShadow = m.receiveShadow = true; });
+        scene.add(obj);
+        addProxy(w, 0.9, d, o.x, y, o.z);
+      },
       barrel(o) { addCylinder(0.3, 0.9, o.x, 0, o.z, material(o.material)); },
       // 倒着的油桶（只做视觉，碰撞用方块）
       barrelLying(o) {

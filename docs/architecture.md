@@ -63,7 +63,8 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 ## 两套场景
 
 - **世界场景**：地图、NPC、特效、投掷物，用 `camera`。
-  地图的 PBR 贴图和环境光 HDRI 在 `World.loadMap` 里随地图文件一起下载完，`World.build` 再同步建场景（#50）。
+  地图的 PBR 贴图、环境光 HDRI 和道具模型（地图文件的 `models`）在 `World.loadMap` 里随地图文件一起下载完，`World.build` 再同步建场景（#50）。
+  有模型的物体用模型显示，碰撞和子弹判定用看不见的同尺寸方块（`addProxy`），细节见 `maps.md` 的"道具模型"。
   HDRI 只挂在 build 时场景里已有的地图材质上（`envMap`，强度 `graphics.mapEnvIntensity`），后加进来的 NPC、特效不受影响，天空仍是原来的天空球。
 - **枪模场景**：手里的枪、手、手雷，用 `weaponCamera`（单独的 FOV 和近平面），画在最上层，贴墙时枪不会插进墙里。
   它有自己的半球光、太阳和环境贴图，和世界场景的光照无关。

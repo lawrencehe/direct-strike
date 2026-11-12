@@ -1,4 +1,4 @@
-# Direct-Strike v0.38
+# Direct-Strike v0.39
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -94,10 +94,10 @@ NPC 死亡是实时物理（布娃娃）：爆头会被打飞，打身体有踉�
 
 ## 地图
 
-一座废弃的集装箱堆场，36 × 48 米。南北两头是出生点，中间一座带台阶的高台，
+一座废弃的集装箱堆场，36 × 48 米。南北两头是出生点，中间一座战术平台（楼梯朝东，台上有沙袋和弹药箱），
 两侧各有一排集装箱和一条侧道。所有掩体、出生点、NPC 巡逻点、靶子位置都在 `maps/yard.json` 里，
-格式说明见 `docs/maps.md`。地面、水泥用真实的 PBR 材质（Poly Haven，CC0），环境光用 HDRI，文件在 `assets/maps/yard/`；
-集装箱、沙袋和其他道具还是 `js/textures.js` 用 Canvas 画的贴图，正在逐个换成模型（#50）。
+格式说明见 `docs/maps.md`。地面、水泥用真实的 PBR 材质（Poly Haven，CC0），环境光用 HDRI；集装箱、隔离墩、沙袋墙是 Blender 建的模型，中央战术平台是 Tripo 生成再修整的（`assets/maps/yard/props/`）。文件在 `assets/maps/yard/`；
+油桶、轮胎、电缆盘、木托盘、货车和远景还是 `js/textures.js` 用 Canvas 画的贴图，正在逐个换成模型（#50）。
 
 ## 目录结构
 
@@ -129,6 +129,7 @@ direct-strike/
 │   ├── ui/maps/             首页的地图预览图（游戏截图）
 │   ├── maps/yard/             yard 地图的材质（textures/*.webp：颜色、法线、粗糙度）和环境光 env.hdr，
 │   │                          由 assets-src/maps/yard/fetch_textures.py 从 Poly Haven 下载转换
+│   │                          props/：集装箱、隔离墩、沙袋墙、中央平台模型，由 assets-src/maps/yard/props/build.sh 生成
 │   ├── models/human/ukrainian-soldier.glb  NPC 模型（Mixamo 骨骼，带待机/走/跑动画）
 │   ├── models/human/init_soldier.glb  可选的 NPC 形象"特种兵"，也是动画来源
 │   ├── models/arm/arm.glb           第一人称手臂（蒙皮模型，CC0）
