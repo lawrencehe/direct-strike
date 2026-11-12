@@ -4,6 +4,7 @@ refer/
 # 本地工具链的依赖和产物，不入仓库
 tools/node_modules
 tools/out/
+__pycache__/
 
 # 体积大的原始下载和中间母版，只在本机保留；可由 build.sh 重新生成的不入仓库
 assets-src/models/human/ukrainian-soldier-download.glb
@@ -13,6 +14,9 @@ assets-src/models/human/ukrainian-soldier/textures/
 assets-src/models/gun/m4-download.glb
 assets-src/models/gun/sg-handgun-download.glb
 assets-src/models/gun/sg-handgun/
+# 可由 build.py 重新生成的地图模型母版和拆分检查图
+assets-src/models/map/*/central-platform.glb
+assets-src/models/map/*/debug.glb
 # 还没接进游戏的原始下载（锯短霰弹枪 + 手臂动画、另一套第一人称手臂）
 assets-src/models/arm/
 
