@@ -81,7 +81,7 @@ Game.UI = class UI {
       ['移动', ['forward', 'left', 'back', 'right'].map(k).join(' ')],
       ['射击 / 投掷', k('fire')], ['换弹', k('reload')], ['跳跃', k('jump')],
       ['下蹲', k('crouch')], ['奔跑', k('sprint')],
-      ...(mode === 'range' ? [] : [['出生点购买', k('buy')]]),
+      ...(mode === 'range' ? [] : [['出生点购买', k('buy')], ['快捷购买', k('quickBuy')]]),
       ['切换武器', `${['slotRifle', 'slotPistol', 'slotFrag', 'slotFlash', 'slotSmoke'].map(k).join(' ')} / 滚轮`],
       ['暂停', 'Esc'],
     ];

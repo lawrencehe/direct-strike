@@ -28,8 +28,9 @@ await p.evaluate(() => {
   window.release = (c) => game.input.down.delete(c);
   window.tick = (sec, step = 1 / 60) => {
     for (let t = 0; t < sec - 1e-9; t += step) {
+      if (game.player.alive) game.economy.update(step);   // 顺序和 main.js 一样：economy 在 player、weapon 之前
       game.player.update(step, game.input); game.camera.updateMatrixWorld();
-      if (game.player.alive) { game.economy.update(step); game.weapon.update(step, game.input); }
+      if (game.player.alive) game.weapon.update(step, game.input);
       game.bots.update(step); game.grenades.update(step); game.hud.update(step, game.player);
       game.input.endFrame();
     }
@@ -39,7 +40,11 @@ await p.evaluate(() => {
   for (const n of ['empty', 'purchase', 'denied']) { const f = a[n].bind(a); a[n] = () => { sounds.push(n); f(); }; }
   window.ammo = (s) => { const x = game.weapon.guns[s]; return [x.ammo, x.reserve]; };
   window.hudAmmo = () => document.getElementById('ammo-cur').textContent + ' ' + document.getElementById('ammo-max').textContent;
-  window.buy = (code) => { press('KeyB'); tick(1 / 60); press(code); tick(1 / 60); };
+  // 在 B 菜单里买子弹：菜单没开就按 B 开，再按 1（弹药分类）、按 code（1 AK / 2 手枪）。买完菜单不关（#81）
+  window.buy = (code) => {
+    if (game.economy.menu !== 'classic') { press('KeyB'); tick(1 / 60); }
+    press('Digit1'); tick(1 / 60); press(code); tick(1 / 60);
+  };
 });
 
 // ---- 1. 开局 ----
@@ -82,7 +87,7 @@ r = await p.evaluate(() => {
   const loaded = ammo('rifle');
   buy('Digit1'); buy('Digit1');
   const full = { money: e.money, rifle: ammo('rifle') };
-  buy('Digit1');   // 满了，买不了，面板不关
+  buy('Digit1');   // 满了，买不了，面板照样开着
   const denied = { money: e.money, open: e.open, sounds: [...sounds] };
   press('KeyB'); tick(1 / 60);   // 关面板
   // 离上限不到一个弹匣：只补到上限，按发收钱
@@ -92,7 +97,7 @@ r = await p.evaluate(() => {
   return { one, loaded, full, denied, partial };
 });
 check(r.one.money === 540 && r.one.rifle.join() === '0,30', '买 AK 一个弹匣 $60，进备弹', r.one);
-check(r.one.current === 'rifle' && !r.one.pending && !r.one.open, '买成功面板关掉，不切枪', r.one);
+check(r.one.current === 'rifle' && !r.one.pending && r.one.open, '买成功面板不关（#81），不切枪', r.one);
 check(r.loaded.join() === '30,0', '空枪买到子弹自动换上', r.loaded);
 check(r.full.money === 420 && r.full.rifle.join() === '30,60', '最多 3 个弹匣（含枪里那个）', r.full);
 check(r.denied.money === 420 && r.denied.open && r.denied.sounds.includes('denied'), '带满了买不了：不扣钱、面板不关、响一声', r.denied);
@@ -104,15 +109,14 @@ r = await p.evaluate(() => {
   game.weapon.guns.pistol.ammo = 3;
   buy('Digit2');
   const out = { money: e.money, pistol: ammo('pistol') };
-  e.money = 2000;
-  press('KeyB'); tick(1 / 60);   // 截面板用
+  e.money = 2000; e.refreshMenu();   // 截面板用（菜单还开着）
   return out;
 });
 check(r.money === 390 && r.pistol.join() === '3,10', '手枪一个弹匣 10 发 $20', r);
 await p.waitForTimeout(700);
 await p.screenshot({ path: `${OUT}ammo-buy-menu.jpg`, type: 'jpeg', quality: 85 });
-r = await p.evaluate(() => [...document.querySelectorAll('#buy div')].map((d) => d.textContent));
-check(r.length === 5 && /AK 弹匣/.test(r[0]) && /\$60/.test(r[0]) && /\$20/.test(r[1]), '面板五行：AK 子弹、手枪子弹、三种投掷物', r);
+r = await p.evaluate(() => [...document.querySelectorAll('#buy .buy-card')].map((d) => d.textContent));
+check(r.length === 5 && /AK 弹匣/.test(r[0]) && /\$60/.test(r[0]) && /\$20/.test(r[1]), '面板五张卡：AK 子弹、手枪子弹、三种投掷物', r);
 
 // ---- 5. 重生 ----
 r = await p.evaluate(() => {

@@ -28,8 +28,9 @@ await p.evaluate(() => {
   window.release = (c) => game.input.down.delete(c);
   window.tick = (sec, step = 1 / 60) => {
     for (let t = 0; t < sec - 1e-9; t += step) {
+      if (game.player.alive) game.economy.update(step);   // 顺序和 main.js 一样：economy 在 player、weapon 之前
       game.player.update(step, game.input); game.camera.updateMatrixWorld();
-      if (game.player.alive) { game.economy.update(step); game.weapon.update(step, game.input); }
+      if (game.player.alive) game.weapon.update(step, game.input);
       game.bots.update(step); game.grenades.update(step); game.hud.update(step, game.player);
       game.input.endFrame();
     }

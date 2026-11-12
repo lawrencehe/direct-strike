@@ -51,8 +51,9 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 `main.js` 的 `frame()` 每帧：
 
 1. `dt` 最长限制 0.05 秒（切出窗口回来不会穿墙）。
-2. 指针锁定时才更新玩法：`player → economy → weapon → targets → bots → grenades`。玩家死了只更新倒地镜头和重生倒计时。
-   `economy` 必须在 `weapon` 前面：购买面板开着时它用 `input.consumeAction` 吃掉投掷物的槽位键，武器就不会切过去。
+2. 指针锁定时才更新玩法：`economy → player → weapon → targets → bots → grenades`。玩家死了只更新倒地镜头和重生倒计时。
+   `economy` 必须在 `player` 和 `weapon` 前面：购买菜单开着时它先拿走鼠标移动（移光标，不转视角）、左键（点卡片，不开枪）、数字键和滚轮（买东西，不切枪），见 #81。
+   它判断在不在购买区用的是上一帧的位置，差一帧没关系。
 3. 不管锁没锁都更新 `world`（云、动画）和 `hud`，然后 `input.endFrame()` 清掉本帧的"刚按下"。
 4. 渲染两次：先画世界场景，清深度，再画枪模场景（首页和简报不画枪模）。
 5. 开发者模式打开时：`endFrame` 之前 `DevLog.sample(rawDt, dt)` 录这一帧（要读"刚按下"），渲染之后 `DevLog.afterRender` 补上这一帧的 CPU 时间、拷一帧画面。
@@ -100,12 +101,14 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
   重生时 `economy.onRespawn` 把不足 `startMoney` 的补上（#7）。
   子弹（#7）：每把枪 `gun.ammo`（枪里）+ `gun.reserve`（备弹），换弹从备弹里扣、备弹不够一个弹匣就全装上；没备弹 `startReload` 直接不换，
   打空不再自动换弹，扣扳机响 `audio.empty()`。训练场 `weapon.unlimitedAmmo` 备弹无限（HUD 显示 ∞）。
-  买子弹进备弹（`weapon.addAmmo`），上限 `weapons.maxMags` 个弹匣按发数算（`ammoRoom`），面板里 1 / 2 键买。
+  买子弹进备弹（`weapon.addAmmo`），上限 `weapons.maxMags` 个弹匣按发数算（`ammoRoom`）。
   NPC 也有 `ammo` / `reserve`，开局和玩家一样，没有经济买不了；两把都空了 `outOfAmmo()`，交战时背离玩家跑开（#7）。
   购买区是这条命的出生点 `player.spawn` 周围 `economy.buyRadius` 米（对决里每次重生的点不一样，环跟着走），地上的环一开始就放进场景、不用时透明度 0（避免中途编译材质）。
-  购买面板不解锁鼠标（解锁会触发暂停），开着照样能走能看能开枪；走出购买区、阵亡、再按购买键都会关。
-  按槽位键买：买成功关面板，这一下的槽位键被 `input.consumeAction` 吃掉（不切武器），再按一次才切过去；买不了（钱不够 / 带满）面板不关；
-  同一帧按了几个槽位键都吃掉，只买第一个能买的（#33）。
+  购买菜单（#81）：`economy.menu` 是 `'classic'`（B）/ `'quick'`（F）/ `null`，界面由 `hud.setBuyMenu(view)` 画，每张卡带 `data-buy`（商品或 `pack0`…）。
+  菜单不解锁鼠标（解锁会触发暂停）：`economy.menuInput` 把鼠标移动量加到 `economy.cursor` 上，`hud.buyCursor(x, y)` 移光标、比卡片的位置（菜单重画后量一次）返回悬停的卡；
+  同时吃掉数字键（先读后吃，槽位键默认就是数字键）、槽位键、上一把、滚轮，开火键连"按住"也放掉。走出购买区、阵亡、再按同一个键都会关。
+  Smart Buy 是 `economy.smartPlan(items)`：只算不买，返回要买的每一件和每一样的状态（F 卡片上的"已有 / 要买 / 钱不够"和总价都用它），点了再 `buyPlan` 照着买。
+  关 B 菜单时 `saveCustom` 把这次买过的那几样记成自定义套餐（`localStorage` 的 `ds.buy.custom.v1`）。
   投掷物数量：`weapon.refill(false)` 回到开局数量（重生、新一局，多买的随人一起没了），`refill(true)` 不收走多买的（波次之间）。
 - **投掷物**（`grenades.js`）：方块反弹物理、爆炸伤害、`simulate` 用同样的物理预演落点（NPC 挑丢法用）、闪光按距离和朝向致盲、烟团挡 NPC 视线（`blocksSight`），飞行轨迹是 `Trail` 类。
   - 引信出手就开始算，飞在空中到时间也炸（`grenades.js` 每帧扣 `fuse`）。手雷 2 秒（#5）：平抛十几米约 1 秒落地，3 秒时雷还要在地上躺 2 秒，对方早跑开了；
@@ -196,7 +199,7 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 - **换弹动作里枪身回正要和左手回护木同步。** `Weapon.RELOAD` 里 `tilt` 的下降段和 `grab` 的下降段要对齐；
   枪还侧倾着而左手已经回到护木，手臂 IK 会把第一人称的袖子拉得很长。改了时间段要按进度截图看（`tools/tests/reload-nade-economy.mjs`）。
 - **换弹、投掷的音效不要提前排。** `audio` 是 Web Audio，排好的声音没法取消；中途切枪尾音照样响。按动作进度到点再调（`Weapon.RELOAD.*.cues`）。
-- **测试脚本的 tick 要调 `economy.update`，而且在 `weapon.update` 之前**，和 `main.js` 的帧循环一致，否则购买面板的按键会被武器当成切枪。
+- **测试脚本的 tick 要调 `economy.update`，而且在 `player.update` 和 `weapon.update` 之前**，和 `main.js` 的帧循环一致，否则购买菜单的按键会被武器当成切枪、鼠标会被拿去转视角。
 - **glb 枪模换了要重新对手的位置。** 手臂是 `arm.glb`（蒙皮模型），握把、护木的位置写在 `weapon.js` 末尾的 `Weapon.VIEW` 里（`right` / `left`）；
   换模型后用侧视截图（把枪转 90 度）检查手有没有握在握把和护木上。
 - **手臂每帧要 `solve()`。** `gunmodel.js` 的 `buildArms` 按握持坐标系摆手腕骨骼；小臂从"手腕不弯"的方向往 `armDir` 转，手腕最多弯 `wristMaxBend`，

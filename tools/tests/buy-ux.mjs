@@ -1,5 +1,5 @@
-// v0.30 的针对性测试：购买体验（#33）
-//   1. 面板里买成功后面板立刻关掉，这一下不切武器；紧接着再按槽位键就切到投掷物
+// v0.30 的针对性测试：购买体验（#33），按 #81 的 B 经典菜单更新过（菜单本身的测试见 buy-menu.mjs）
+//   1. 菜单里买成功不切武器、面板不关；关了菜单再按槽位键就切到投掷物
 //   2. 买不了（带满 / 钱不够）时面板不关
 //   3. 购买区里没有文字提示，左侧是购物车图标：买得起亮、买不起灰、面板开着收起、出区收起
 //   4. 每个操作都有回应（不用文字）：买成功 purchase 音效 + 武器栏那一格闪亮回弹 + 钱数闪、飘 -$价格；
@@ -24,8 +24,9 @@ await p.evaluate(() => {
   window.press = (c) => game.input.pressed.add(c);
   window.tick = (sec, step = 1 / 60) => {
     for (let t = 0; t < sec - 1e-9; t += step) {
+      if (game.player.alive) game.economy.update(step);   // 顺序和 main.js 一样：economy 在 player、weapon 之前
       game.player.update(step, game.input); game.camera.updateMatrixWorld();
-      if (game.player.alive) { game.economy.update(step); game.weapon.update(step, game.input); }
+      if (game.player.alive) game.weapon.update(step, game.input);
       game.bots.update(step); game.grenades.update(step); game.hud.update(step, game.player);
       game.input.endFrame();
     }
@@ -42,7 +43,8 @@ await p.evaluate(() => {
   };
   window.cue = () => {
     const el = document.getElementById('buy-cue');
-    return { show: el.classList.contains('show'), poor: el.classList.contains('poor'), key: document.getElementById('buy-cue-key').textContent };
+    return { show: el.classList.contains('show'), poor: el.classList.contains('poor'), key: document.getElementById('buy-cue-key').textContent,
+    key2: document.getElementById('buy-cue-key2').textContent };
   };
 });
 
@@ -54,7 +56,7 @@ let r = await p.evaluate(() => {
   pl.position.copy(pl.spawn); tick(0.3);
   return { zone: e.inZone, cue: cue(), text: !!document.getElementById('buy-tip') };
 });
-check(r.zone && r.cue.show && r.cue.poor && r.cue.key === 'B', '进购买区：左侧出购物车图标，没钱是灰的，键帽显示 B', r);
+check(r.zone && r.cue.show && r.cue.poor && r.cue.key === 'B' && r.cue.key2 === 'F', '进购买区：左侧出购物车图标，没钱是灰的，键帽显示 B 和 F', r);
 check(!r.text, '准星下方的文字提示没有了', r);
 await p.waitForTimeout(500);
 await p.screenshot({ path: `${OUT}buy-cue-poor.jpg`, type: 'jpeg', quality: 85 });
@@ -71,14 +73,15 @@ check(r.open && !r.cue.show, '按 B 打开面板，购物车图标收起', r);
 await p.waitForTimeout(500);
 await p.screenshot({ path: `${OUT}buy-cue-menu.jpg`, type: 'jpeg', quality: 85 });
 
-// ---- 买成功立刻关面板，不切枪；再按 3 切到手雷 ----
+// ---- 买成功：不切枪，面板不关；关了菜单再按 3 切到手雷 ----
 r = await p.evaluate(() => {
   const e = game.economy, w = game.weapon;
   const before = w.counts.frag;
   sounds.length = 0;
-  press('Digit3'); tick(1 / 60);
+  press('Digit2'); tick(1 / 60);     // 投掷物分类
+  press('Digit1'); tick(1 / 60);     // 手雷
   const afterBuy = { open: e.open, frag: w.counts.frag, money: e.money, current: w.current, pending: w.pending,
-    menu: document.getElementById('buy').style.display, cue: cue(), sounds: [...sounds], fb: feedback() };
+    menu: document.getElementById('buy').style.display, sounds: [...sounds], fb: feedback() };
   return { before, afterBuy };
 });
 check(r.afterBuy.sounds.join() === 'purchase', '买成功：放 purchase 音效', r.afterBuy.sounds);
@@ -93,17 +96,19 @@ r = { ...r, ...(await p.evaluate(() => {
   w.refreshHud();
   const el = document.querySelector('#weapons .slot.bought');
   const mid = el ? parseFloat(el.style.animationDelay) : null;
+  press('KeyB'); tick(1 / 60);       // 关菜单
+  const cueBack = cue().show;
   press('Digit3'); tick(0.6);
-  return { mid, cur: w.current };
+  return { mid, cur: w.current, cueBack };
 })) };
 check(r.mid !== null && r.mid < 0, '武器栏重画后闪亮接着播（不从头来）', r.mid);
 await p.waitForTimeout(800);
 r.gone = await p.evaluate(() => { game.weapon.refreshHud(); return feedback().slot.length; });
 check(r.gone === 0, `过了 boughtPulse 秒闪亮消失`, r.gone);
-check(r.afterBuy.frag === r.before + 1 && r.afterBuy.money === 700, '按 3 买到一个手雷，扣 300', r.afterBuy);
-check(!r.afterBuy.open && r.afterBuy.menu === 'none' && r.afterBuy.cue.show, '买成功面板立刻关掉，购物车图标回来', r.afterBuy);
+check(r.afterBuy.frag === r.before + 1 && r.afterBuy.money === 700, '按 2、1 买到一个手雷，扣 300', r.afterBuy);
+check(r.afterBuy.open && r.afterBuy.menu === 'block', '买成功面板不关，可以接着买（#81）', r.afterBuy);
 check(r.afterBuy.current === 'rifle' && !r.afterBuy.pending, '买的那一下不切武器', r.afterBuy);
-check(r.cur === 'frag', '紧接着再按 3 就切到手雷', r.cur);
+check(r.cueBack && r.cur === 'frag', '按 B 关了菜单，购物车图标回来；再按 3 就切到手雷', r);
 
 // ---- 买不了时面板不关 ----
 r = await p.evaluate(() => {
@@ -111,23 +116,23 @@ r = await p.evaluate(() => {
   w.equipNow('rifle'); tick(0.1);
   press('KeyB'); tick(1 / 60);
   sounds.length = 0;
-  press('Digit3'); tick(1 / 60);     // 手雷已经带满 2 个
-  const rows = [...document.querySelectorAll('#buy div')].map((el) => el.classList.contains('denied'));
-  return { open: e.open, frag: w.counts.frag, money: e.money, current: w.current, sounds: [...sounds], rows };
+  press('Digit2'); tick(1 / 60); press('Digit1'); tick(1 / 60);     // 手雷已经带满 2 个
+  const cards = [...document.querySelectorAll('#buy .buy-card')].map((el) => el.classList.contains('denied'));
+  return { open: e.open, frag: w.counts.frag, money: e.money, current: w.current, sounds: [...sounds], cards };
 });
 check(r.open && r.frag === 2 && r.money === 700 && r.current === 'rifle', '带满买不了：面板不关、不扣钱、不切枪', r);
-check(r.sounds.join() === 'denied' && r.rows.join() === 'false,false,true,false,false', '买不了：放 denied 音效，手雷那一行（面板第 3 行，前两行是子弹）红一下晃一下', r);
+check(r.sounds.join() === 'denied' && r.cards.join() === 'false,false,true,false,false', '买不了：放 denied 音效，手雷那张卡红一下晃一下', r);
 await p.waitForTimeout(60);
 await p.screenshot({ path: `${OUT}buy-denied.jpg`, type: 'jpeg', quality: 85 });
 
-// ---- 同一帧按两个键只买一个 ----
+// ---- 同一帧按两个数字键只认第一个 ----
 r = await p.evaluate(() => {
   const e = game.economy, w = game.weapon;
   const before = { ...w.counts };
-  press('Digit4'); press('Digit5'); tick(1 / 60);
+  press('Digit2'); press('Digit3'); tick(1 / 60);   // 还停在投掷物分类：2 闪光、3 烟雾
   return { before, after: { ...w.counts }, open: e.open, current: w.current };
 });
-check(r.after.flash === r.before.flash + 1 && r.after.smoke === r.before.smoke && !r.open && r.current === 'rifle', '同一帧按 4 和 5：只买闪光，面板关掉，不切枪', r);
+check(r.after.flash === r.before.flash + 1 && r.after.smoke === r.before.smoke && r.open && r.current === 'rifle', '同一帧按 2 和 3：只买闪光，面板不关，不切枪', r);
 
 // ---- 出区收起 ----
 r = await p.evaluate(() => { game.player.position.x += 6; tick(0.1); return cue(); });

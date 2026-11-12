@@ -20,8 +20,9 @@ await p.evaluate(() => {
   window.release = (c) => game.input.down.delete(c);
   window.tick = (sec, step = 1 / 60) => {
     for (let t = 0; t < sec - 1e-9; t += step) {
+      if (game.player.alive) game.economy.update(step);   // 顺序和 main.js 一样：economy 在 player、weapon 之前
       game.player.update(step, game.input); game.camera.updateMatrixWorld();
-      if (game.player.alive) { game.economy.update(step); game.weapon.update(step, game.input); }
+      if (game.player.alive) game.weapon.update(step, game.input);
       game.bots.update(step); game.grenades.update(step); game.hud.update(step, game.player);
       game.input.endFrame();
     }
@@ -103,12 +104,12 @@ r = await p.evaluate(() => {
   press('KeyB'); tick(1 / 60);
   const open = e.open;
   const before = { ...w.counts };
-  // 买成功面板就关了（v0.30），再买要重新按 B；买不了面板不关
-  press('Digit3'); tick(1 / 60);
-  press('KeyB'); tick(1 / 60); press('Digit3'); tick(1 / 60);
-  press('KeyB'); tick(1 / 60); press('Digit3'); tick(1 / 60);   // 上限 2，这次买不了，面板还开着
-  press('Digit4'); tick(1 / 60);
-  press('KeyB'); tick(1 / 60);         // 截面板用
+  // 先按分类（2 投掷物）再按商品（1 手雷 / 2 闪光）；买到了回到选分类，面板不关（#81）
+  // 前面扔掉了开局的手雷，这时 0 个：买两次到上限 2，第三次买不了（还停在投掷物分类），接着按 2 就是闪光
+  press('Digit2'); tick(1 / 60); press('Digit1'); tick(1 / 60);
+  press('Digit2'); tick(1 / 60); press('Digit1'); tick(1 / 60);
+  press('Digit2'); tick(1 / 60); press('Digit1'); tick(1 / 60);
+  press('Digit2'); tick(1 / 60);       // 闪光；面板开着截图用
   return { zone, tip, open, before, after: { ...w.counts }, money: e.money, current: w.current, pending: w.pending };
 });
 check(r.zone && r.open && r.tip, '出生点里按 B 打开面板', r);

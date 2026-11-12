@@ -293,6 +293,21 @@ Game.Config = {
     bulletPrice: 2,        // 子弹一发多少钱。一次买一个弹匣（AK 30 发 $60、手枪 10 发 $20），离上限（weapons.maxMags）不到一个弹匣就只补到上限
     buyRadius: 3,          // 购买区：出生点周围几米（地上有一圈环）
     boughtPulse: 0.7,      // 买成功后武器栏里那一格闪亮、放大回弹几秒（同时钱数闪一下、旁边飘 "-$价格"）
+    cursorSpeed: 1,        // 购买菜单开着时屏幕上的光标：鼠标移动 1 像素，光标走几像素（#81）
+    // B 经典菜单的分类，一类一列，顺序就是数字键：先按分类的号、再按商品的号（#81）。
+    // 商品：rifle / pistol 是主武器 / 手枪一个弹匣的子弹，frag / flash / smoke 是一个投掷物
+    categories: [
+      { name: '弹药', items: ['rifle', 'pistol'] },
+      { name: '投掷物', items: ['frag', 'flash', 'smoke'] },
+    ],
+    // F 快捷菜单的套餐（后面还有一张"自定义"，是上一次在 B 菜单里买完的装备）。按数字键或点一下就 Smart Buy（#81）：
+    // items 的顺序就是优先级，数字是"买到多少"——子弹按弹匣算（含枪里那个），投掷物按个，超过上限按上限（99 = 买满）。
+    // 已经够了的跳过；钱不够买下一件就跳过这一样，接着买后面的。
+    packages: [
+      { name: '补满', items: [['rifle', 99], ['frag', 99], ['flash', 99], ['smoke', 99], ['pistol', 99]] },
+      { name: '突击', items: [['rifle', 3], ['frag', 2], ['flash', 1]] },
+      { name: '经济', items: [['rifle', 2], ['flash', 1]] },
+    ],
   },
 
   // 1v1 对决
@@ -405,7 +420,8 @@ Game.Config = {
     slotFlash:  ['Digit4'],
     slotSmoke:  ['Digit5'],
     lastWeapon: ['KeyQ'],       // 切回上一把武器（滚轮也能切枪）
-    buy:        ['KeyB'],       // 在出生点打开购买面板，开着时按投掷物的槽位键购买
+    buy:        ['KeyB'],       // 在出生点打开经典购买菜单（数字键先选分类再选商品，也能鼠标点）
+    quickBuy:   ['KeyF'],       // 在出生点打开快捷套餐菜单（按数字键或点一下买一整套）
     resetStats: ['KeyT'],
   },
 };
