@@ -1,5 +1,5 @@
 // ============================================================
-// 玩家设置：灵敏度、视野、音量、准星颜色、自动全屏、对决杀数、上次选的模式、选的装备（主副武器、NPC 形象）
+// 玩家设置：灵敏度、视野、音量、准星颜色、自动全屏、对决杀数、上次选的模式、选的装备（主副武器、NPC 形象）、天气 / 时段
 // 存在浏览器 localStorage 里，下次打开还在。加载时把值写回 Game.Config，
 // 游戏其他地方照常读 Game.Config，不用关心设置是从哪来的。
 // 默认值和可调范围在 config.js 的 view / audio / duel / ui / loadout 里。
@@ -24,6 +24,7 @@ Game.Settings = (() => {
     rifle: Object.keys(L.rifle)[0],
     pistol: Object.keys(L.pistol)[0],
     npc: Object.keys(L.npc)[0],
+    weather: C.weather.default,              // 天气 / 时段（#77），预设在 config.js 的 weather.presets
   };
   const valid = {
     sensitivity: (v) => typeof v === 'number' && v >= C.ui.sensitivityRange[0] && v <= C.ui.sensitivityRange[1],
@@ -36,6 +37,7 @@ Game.Settings = (() => {
     rifle: (v) => Object.prototype.hasOwnProperty.call(L.rifle, v),
     pistol: (v) => Object.prototype.hasOwnProperty.call(L.pistol, v),
     npc: (v) => Object.prototype.hasOwnProperty.call(L.npc, v),
+    weather: (v) => Object.prototype.hasOwnProperty.call(C.weather.presets, v),
   };
 
   const baseSensitivity = C.view.mouseSensitivity;
@@ -77,7 +79,7 @@ Game.Settings = (() => {
       save();
       for (const fn of listeners) fn(k, v);
     },
-    // 恢复默认（不含上次选的模式、对决杀数和装备，它们不在设置页里）
+    // 恢复默认（不含上次选的模式、对决杀数、装备和天气，它们不在设置页里）
     reset() {
       for (const k of ['sensitivity', 'fov', 'volume', 'crosshair', 'fullscreen']) this.set(k, defaults[k]);
     },

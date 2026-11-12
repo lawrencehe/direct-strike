@@ -57,8 +57,59 @@ Game.Config = {
 
   graphics: {
     shadowMapSize: 2048,   // 阴影贴图分辨率。卡的话改成 1024
-    exposure: 1.0,         // 画面整体亮度
-    mapEnvIntensity: 0.5,  // 地图物体的环境光（HDRI）强度：越大越亮、金属反光越明显，0 等于不用（#50）
+    // 画面亮度（曝光）和环境光强度跟着天气走，在下面 weather.presets 里
+  },
+
+  // 天气 / 时段（#77）：首页地图下面选，存在玩家设置里，切换立刻生效（不用重开）。
+  // 每个预设管天空、雾、灯光、曝光、环境光和地面湿不湿；所有地图共用，地图只提供晴天的环境光（maps/*.json 的 environment）。
+  // 素材在 assets/weather/<目录>/（sky.webp 天空、env.hdr 环境光），由 assets-src/weather/fetch_weather.py 生成；第一次用到时才下载。
+  weather: {
+    default: 'sunny',
+    presets: {
+      // 晴天：原来的样子。天空、云、太阳都是 textures.js 程序画的
+      sunny: {
+        name: '晴天',
+        sky: null,                 // null = 程序画的天空 + 云 + 太阳；否则是 assets/weather/ 下的目录名，用里面的 sky.webp
+        env: null,                 // 环境光：HDRI 的目录名（用里面的 env.hdr）；'sky' = 拿天空贴图当环境光；null = 用地图自己的 environment
+        exposure: 1.0,             // 画面整体亮度（色调映射前的曝光）
+        envIntensity: 0.5,         // 地图物体的环境光（HDRI）强度：越大越亮、金属反光越明显，0 等于不用（#50）
+        fog: { color: 0xd6cbb8, near: 45, far: 260 },
+        hemi: { sky: 0xbfd4ee, ground: 0x6b5a46, intensity: 0.55 },             // 半球光：天空色 / 地面反光色
+        sun: { color: 0xffe3c0, intensity: 1.35, dir: [-0.55, 0.5, 0.42] },   // 平行光（投影子）
+        weaponHemi: 0.8,           // 手里的枪单独一个场景，有自己的灯：半球光强度
+        weaponSun: { color: 0xffe3c0, intensity: 0.9 },
+        hills: 0xffffff,           // 远山剪影乘的颜色
+        lampGlow: 0.6,             // 场边灯柱灯头的自发光强度
+        dust: 0.55,                // 空中尘埃的不透明度
+        wet: 0,                    // 地面湿度 0 ~ 1：越湿地面越暗、越光滑（反光），见下面 wetGround
+        extraPuddles: 0,           // 除了地图里的水洼，再撒多少个（只撒在场地里，位置每次一样）
+      },
+      // 阴雨傍晚：厚云、冷蓝灰，刚下过雨，地面发暗发亮、水坑多。
+      // 比参考图亮一档：1v1 要能看清对手，所以半球光不压太低
+      rainDusk: {
+        name: '阴雨傍晚',
+        sky: 'rain-dusk',
+        skyColor: 0xffffff,        // 天空贴图再乘的颜色（调亮暗用；贴图本身已经调过色，天空不做色调映射）
+        env: 'sky',                // HDRI 的地平线有一圈亮光，水洼映出来是白斑；直接用调过色的天空，反射和看到的天一致
+        exposure: 0.85,
+        envIntensity: 0.9,
+        fog: { color: 0x3a4554, near: 25, far: 190 },
+        hemi: { sky: 0x8fa3c0, ground: 0x2c3036, intensity: 0.9 },
+        sun: { color: 0xa8bcd8, intensity: 0.45, dir: [0.35, 0.75, -0.55] },  // 云后的天光：弱、冷、偏高，影子很淡
+        weaponHemi: 0.75,
+        weaponSun: { color: 0xb8c8e0, intensity: 0.45 },
+        hills: 0x5d6a7c,
+        lampGlow: 2.2,             // 天暗了，灯头亮起来
+        dust: 0,
+        wet: 1,
+        extraPuddles: 16,
+      },
+    },
+    // 地面湿透（wet = 1）时：粗糙度乘多少（越小越光滑、越能映出天光和灯）、颜色乘多少（湿了发暗）；中间按 wet 插值
+    wetGround: { roughness: 0.55, color: 0.72 },
+    // 水洼在 wet = 0 / 1 时的粗糙度、不透明度和反光（环境光强度再乘的倍数）。
+    // 晴天别太光滑，否则对着太阳是一块刺眼的亮斑；雨天太亮会像一块浅蓝色的布（还没有实时反射，映不出周围的东西）
+    puddle: { dry: { roughness: 0.3, opacity: 0.6, env: 1 }, wet: { roughness: 0.08, opacity: 0.7, env: 0.4 } },
   },
 
   // 武器。枪的参数按把写，共用的放外面

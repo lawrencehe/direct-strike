@@ -9,7 +9,7 @@ node tools/verify.mjs            # Claude Code 里是 /verify
 ```
 
 它会起一个本机静态服务，用无头 Chromium 打开游戏，检查 WebGL、模型加载、控制台报错，并给各模式截图（`tools/out/verify/`）。
-输出"问题: 0"才算通过。`--url https://game.lightup.host` 可以验证线上版本，其他参数见脚本开头。
+输出"问题: 0"才算通过。`--url https://game.lightup.host` 可以验证线上版本，`--weather rainDusk` 先换天气再截图（文件名带天气，#77），其他参数见脚本开头。
 
 ## 写针对性的测试脚本
 
@@ -79,6 +79,7 @@ await g.close();
 | `tools/tests/input-focus.mjs` | #6：先锁鼠标再全屏、锁定被拒自动重试、全屏接管键盘后短按 Esc 只暂停、失焦和 ⌘ 后按键放开并自动暂停（开发机上约两分钟） |
 | `tools/tests/real-sfx.mjs` | #45：录音全部下载解码、起音在开头；开枪按选的枪放录音、NPC 和爆炸越远越闷越轻；空枪换弹四段按顺序响；没下完时退回合成声 |
 | `tools/tests/map-materials.mjs` | #50：地图的 PBR 贴图和环境光 HDRI 加载成功并用上、按真实尺寸铺；从几个固定机位截图看地面和水泥墩的质感（`tools/out/tests/map-materials/`） |
+| `tools/tests/weather.mjs` | #77：默认晴天；点首页按钮切到阴雨傍晚后天空贴图、环境光、曝光、雾、湿地面、多撒的水洼都换上，设置存下来；切回晴天全部还原。两种天气下截图看 12 / 25 米外的 NPC 能不能看清（`tools/out/tests/weather/`） |
 | `tools/tests/arm-wrist.mjs` | #3：每把枪、换弹中、三种投掷物的手腕相对绑定姿势弯折不超过 `wristMaxBend`、没有扭转；#11：步枪左手肘不在画面中间、小臂从画面下方伸出 |
 
 ```bash
