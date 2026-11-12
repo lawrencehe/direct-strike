@@ -167,6 +167,21 @@ Game.UI = class UI {
     img.src = `${Game.Config.ui.mapPreview}${Game.Config.map}.webp`;
     $('map-name').textContent = this.world.mapName;
 
+    // 天气 / 时段（#77）：存进设置，main.js 收到变化后换场景
+    const weather = $('weather-pick');
+    for (const [key, p] of Object.entries(Game.Config.weather.presets)) {
+      const b = document.createElement('button');
+      b.textContent = p.name;
+      b.dataset.key = key;
+      b.addEventListener('click', () => Game.Settings.set('weather', key));
+      weather.appendChild(b);
+    }
+    const renderWeather = () => {
+      for (const b of weather.children) b.classList.toggle('on', b.dataset.key === Game.Settings.get('weather'));
+    };
+    Game.Settings.onChange((k) => { if (k === 'weather') renderWeather(); });
+    renderWeather();
+
     // 对决杀数
     const duelLen = $('duel-len');
     for (const n of Game.Config.duel.winScoreOptions) {

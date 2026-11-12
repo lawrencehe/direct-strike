@@ -62,6 +62,8 @@
 | [Poly Haven](https://polyhaven.com) | PBR 材质、HDRI 环境光、少量模型 | 全部 CC0 |
 | [ambientCG](https://ambientcg.com) | 大量 PBR 材质：混凝土、砖墙、金属、木头、油漆、生锈 | 全部 CC0 |
 
+天空：选 Poly Haven 的 **Pure Sky** 版 HDRI（只有天空、没有地面），转成普通图片调好色当天空球贴图，同一张图也当环境光（#77，`assets-src/weather/fetch_weather.py`）。
+
 PBR 材质一般包含 5 张贴图：颜色（Color / Albedo）、法线（Normal，选 **GL** 版本）、粗糙度（Roughness）、金属度（Metalness）、AO。
 挑材质时记下名字或链接就行，下载和接入由 Claude 做。
 

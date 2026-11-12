@@ -3,7 +3,8 @@
 // 默认只打印摘要，完整问题列表写到 tools/out/verify/report.json。有问题时退出码为 1。
 //
 // 用法：node tools/verify.mjs [--modes menu,settings,brief,range,duel,waves,pause,result] [--sizes 1280x720,1920x1080]
-//                             [--seconds 3] [--eval "JS 表达式"] [--url https://...]
+//                             [--seconds 3] [--eval "JS 表达式"] [--url https://...] [--weather rainDusk]
+// --weather：先换成这个天气 / 时段（config.js 的 weather.presets 的键）再截图，截图文件名带上天气（#77）
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -18,6 +19,7 @@ const sizes = arg('sizes', '1280x720').split(',').map((s) => s.split('x').map(Nu
 const seconds = Number(arg('seconds', 3));
 const expr = arg('eval');
 const url = arg('url');
+const weather = arg('weather');
 const dir = path.join(OUT, 'verify');
 fs.mkdirSync(dir, { recursive: true });
 
@@ -74,10 +76,19 @@ for (const [width, height] of sizes) {
   report.startupSeconds = startupSeconds;
   console.log(`启动: ${startupSeconds}s（到首帧，含软件渲染开销）`);
   if (!modelOk) { problems.push('NPC 模型加载失败，游戏退回了方块小人'); }
+  if (weather) {
+    const ok = await page.evaluate((w) => {
+      if (!Game.Config.weather.presets[w]) return false;
+      Game.Settings.set('weather', w);
+      return game.world.setWeather(w).then(() => game.world.weather === w);
+    }, weather);
+    if (!ok) problems.push(`天气 ${weather} 没换上（预设不存在或素材加载失败）`);
+  }
+  const tag = weather ? `-${weather}` : '';
   for (const m of modes) {
     await enterMode(page, m);
     const s = await measure(page, seconds * 1000);
-    const png = path.join(dir, `${m}-${width}x${height}.png`);
+    const png = path.join(dir, `${m}${tag}-${width}x${height}.png`);
     const small = png.replace(/\.png$/, '.small.jpg');
     await page.screenshot({ path: png });
     execFileSync('magick', [png, '-resize', '800x800>', '-quality', '75', small]);

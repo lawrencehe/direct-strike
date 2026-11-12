@@ -1,4 +1,4 @@
-# Direct-Strike v0.39
+# Direct-Strike v0.40
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -99,6 +99,9 @@ NPC 死亡是实时物理（布娃娃）：爆头会被打飞，打身体有踉�
 格式说明见 `docs/maps.md`。地面、水泥用真实的 PBR 材质（Poly Haven，CC0），环境光用 HDRI；集装箱、隔离墩、沙袋墙是 Blender 建的模型，中央战术平台是 Tripo 生成再修整的（`assets/maps/yard/props/`）。文件在 `assets/maps/yard/`；
 油桶、轮胎、电缆盘、木托盘、货车和远景还是 `js/textures.js` 用 Canvas 画的贴图，正在逐个换成模型（#50）。
 
+首页地图下面可以选**天气 / 时段**：晴天，或者阴雨傍晚（厚云、冷蓝灰、刚下过雨的湿地面和水洼，比晴天暗但看得清对手）。
+点了立刻换，记在浏览器里。每种天气的天空、雾、灯光、曝光、地面湿度在 `config.js` 的 `weather.presets`（#77）。
+
 ## 目录结构
 
 ```
@@ -130,6 +133,7 @@ direct-strike/
 │   ├── maps/yard/             yard 地图的材质（textures/*.webp：颜色、法线、粗糙度）和环境光 env.hdr，
 │   │                          由 assets-src/maps/yard/fetch_textures.py 从 Poly Haven 下载转换
 │   │                          props/：集装箱、隔离墩、沙袋墙、中央平台模型，由 assets-src/maps/yard/props/build.sh 生成
+│   ├── weather/rain-dusk/sky.webp  阴雨傍晚的天空（Poly Haven CC0 HDRI 调色），由 assets-src/weather/fetch_weather.py 生成
 │   ├── models/human/ukrainian-soldier.glb  NPC 模型（Mixamo 骨骼，带待机/走/跑动画）
 │   ├── models/human/init_soldier.glb  可选的 NPC 形象"特种兵"，也是动画来源
 │   ├── models/arm/arm.glb           第一人称手臂（蒙皮模型，CC0）
@@ -145,7 +149,7 @@ direct-strike/
 │   └── SkeletonUtils.js     复制带骨骼的模型（多个 NPC 共用一份模型数据）
 └── js/
     ├── config.js     ★ 所有可调参数（手感、武器、NPC 难度、对决规则、画质……）
-    ├── settings.js   玩家设置（灵敏度、视野、音量、准星、自动全屏、对决杀数）：存浏览器，写回 config
+    ├── settings.js   玩家设置（灵敏度、视野、音量、准星、自动全屏、对决杀数、装备、天气）：存浏览器，写回 config
     ├── main.js       入口：创建对象、模式切换、全屏和锁鼠标、游戏循环
     ├── input.js      键盘鼠标输入、指针锁定、按键绑定（改键 + 保存）
     ├── physics.js    ★ 方块碰撞 + 自动上台阶（玩家和 NPC 共用）
@@ -157,7 +161,7 @@ direct-strike/
     ├── ragdoll.js    布娃娃：NPC 死亡时的物理（Verlet 质点 + 约束），不同死法的冲量都在这里
     ├── character.js  ★ NPC 外观：加载模型、按位移驱动走/跑动画（不滑步）、腿和上半身分开转、持枪姿势（简易 IK）、判定盒
     ├── bots.js       ★ NPC 脑子：状态机 AI、视野感知、点射、换弹切枪、丢雷、绕障碍；对决 / 波次管理
-    ├── world.js      ★ 场景构建器：把地图数据变成 3D 场景；各种物体的造型、天空、光照
+    ├── world.js      ★ 场景构建器：把地图数据变成 3D 场景；各种物体的造型、天空、光照，按天气预设换天空和光照（setWeather）
     ├── textures.js   程序生成的贴图（沥青、水泥、集装箱、沙袋、铁丝网、天空……）
     ├── targets.js    靶子（状态机：立着 → 倒下 → 立起）
     ├── effects.js    曳光、枪口火光、血（血雾、血滴、血迹、血泊）、爆炸

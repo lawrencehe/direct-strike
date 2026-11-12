@@ -20,6 +20,7 @@
 | `maps/yard/props/sandbag.glb` | 自己用 Blender 脚本建模（`sandbag.py`），材质烘焙时用了 Poly Haven 的 [Hessian 230](https://polyhaven.com/a/hessian_230) | 同上 |
 | `maps/yard/props/central-platform.glb` | Tripo 生成（H3.1，`v3.1-20260211`），任务号 `b5b32867-c004-4a8b-b86a-af5b1e765a0e`，参考图：负责人用 AI 生成的场景概念图，裁出中央平台部分 | Tripo 付费账号生成，可商用（见 #72）。**有改动**：删掉参考图前景里被一起生成的枪，按区域拆成 base / canopy / cover / lamp_l / lamp_r 五个节点，缩放到真实尺寸（台面高 1.4 米），原点放在底面中心，贴图转 WebP；脚本 `assets-src/models/map/central-platform/build.py`，原始输出在 `tripo/` |
 | `maps/yard/env.hdr` | [Abandoned Parking](https://polyhaven.com/a/abandoned_parking)（1k HDRI），作者 Sergej Majboroda，来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。未改动 |
+| `weather/rain-dusk/sky.webp` | [Kloppenheim 07 (Pure Sky)](https://polyhaven.com/a/kloppenheim_07_puresky)（4k HDRI），作者 Greg Zaal（天空修饰 Jarod Guest），来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：转成普通图片，降饱和、加对比、压暗偏蓝，转 WebP（#77） |
 | `../vendor/RGBELoader.js` | three.js r147 `examples/js/loaders/RGBELoader.js` | MIT |
 | `../vendor/GLTFLoader.js` | three.js r147 `examples/js/loaders/GLTFLoader.js` | MIT |
 | `../vendor/SkeletonUtils.js` | three.js r147 `examples/js/utils/SkeletonUtils.js` | MIT |
@@ -65,6 +66,7 @@ CC BY 授权要求署名：作者、原作链接、授权名称、是否修改�
 `ui/maps/` 下的地图预览图是游戏自己的截图。
 
 `assets/maps/yard/props/` 下的道具模型由 `assets-src/maps/yard/props/build.sh` 生成（#50）。
+`assets/weather/` 下的天空贴图由 `assets-src/weather/fetch_weather.py` 从 Poly Haven 下载、调色而成（#77），原始下载在 `assets-src/weather/download/`，不入仓库。
 `assets/maps/yard/` 下的材质和 HDRI 由 `assets-src/maps/yard/fetch_textures.py` 从 Poly Haven 下载、转换而成；原始下载在 `assets-src/maps/yard/download/`，不入仓库，随时可重新下载。
 
 其余贴图（集装箱、沙袋、远景楼房等）、音效由代码实时生成（`js/textures.js`、`js/audio.js`），没有外部文件。

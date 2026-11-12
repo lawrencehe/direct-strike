@@ -75,7 +75,7 @@
       <header class="topbar">
         <a class="brand" href="#" data-tab="play">
           <img src="assets/brand/logo-dark.png" alt="" width="63" height="32">
-          <span>DIRECT-STRIKE <small>v0.39</small></span>
+          <span>DIRECT-STRIKE <small>v0.40</small></span>
         </a>
         <nav class="tabs">
           <a href="#" data-tab="play" class="on">作战</a>
@@ -107,6 +107,11 @@
             </div>
           </div>
           <div class="deploy-body">
+            <!-- 天气 / 时段（#77）：可选项在 config.js 的 weather.presets，点了立刻换 -->
+            <div class="opt">
+              <span class="eyebrow">天气 / 时段</span>
+              <div class="seg" id="weather-pick"></div>
+            </div>
             <div class="opt" id="opt-duel">
               <span class="eyebrow">获胜条件</span>
               <div class="seg" id="duel-len"></div>

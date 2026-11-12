@@ -34,7 +34,7 @@ function startGame(mapData) {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputEncoding = THREE.sRGBEncoding;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;   // 电影式色调映射：高光不会死白，颜色更有层次
-  renderer.toneMappingExposure = Game.Config.graphics.exposure;
+  // 曝光（画面整体亮度）跟着天气，见下面 world.onWeather
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.autoClear = false;  // 要分两次画（世界 + 枪模），手动清屏
@@ -50,7 +50,8 @@ function startGame(mapData) {
   const weaponScene = new THREE.Scene();
   const weaponCamera = new THREE.PerspectiveCamera(Game.Config.view.weaponFov, aspect, 0.01, 10);
   weaponScene.add(weaponCamera);
-  weaponScene.add(new THREE.HemisphereLight(0xdfefff, 0x5a5040, 0.8));
+  const weaponHemi = new THREE.HemisphereLight(0xdfefff, 0x5a5040, 0.8);
+  weaponScene.add(weaponHemi);
   weaponScene.environment = Game.GunModel.environment();   // 让枪上的金属件有反光
   const weaponSun = new THREE.DirectionalLight(0xffe3c0, 0.9);
   weaponSun.position.set(-1, 2, 1);
@@ -58,6 +59,14 @@ function startGame(mapData) {
 
   // ---- 游戏对象 ----
   const world = Game.World.build(scene, mapData);
+  // 天气 / 时段（#77）：世界场景的天空、雾、灯光在 world.js 里换；曝光和枪模场景的灯在这里
+  world.onWeather = (p) => {
+    renderer.toneMappingExposure = p.exposure;
+    weaponHemi.intensity = p.weaponHemi;
+    weaponSun.color.setHex(p.weaponSun.color);
+    weaponSun.intensity = p.weaponSun.intensity;
+  };
+  world.onWeather(Game.Config.weather.presets[world.weather]);
   const targets = Game.Targets.create(scene, world.targetLayout);
   const input = new Game.Input(canvas);
   const audio = new Game.Audio();
@@ -225,6 +234,7 @@ function startGame(mapData) {
   Game.Settings.onChange((k) => {
     if (k === 'fov') { camera.fov = Game.Config.view.fov; camera.updateProjectionMatrix(); }
     if (k === 'volume') audio.setVolume(Game.Config.audio.volume);
+    if (k === 'weather') world.setWeather(Game.Settings.get('weather'));
   });
 
   window.addEventListener('resize', () => {

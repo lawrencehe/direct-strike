@@ -22,8 +22,45 @@ Game.World = (function () {
     const res = await fetch(`maps/${name}.json`);
     if (!res.ok) throw new Error(`地图 ${name} 加载失败（HTTP ${res.status}）`);
     const map = await res.json();
-    await loadAssets(name, map);
+    // 开局要用的天气素材和地图素材一起下载（其他天气第一次切过去时再下载）
+    await Promise.all([loadAssets(name, map), loadWeather(currentWeatherKey()).catch(() => {})]);
     return map;
+  }
+
+  // ---------- 天气素材（#77） ----------
+  // 预设在 config.js 的 weather.presets；sky / env 是 assets/weather/ 下的目录名。
+  // 按目录缓存下载结果（Promise），同一份素材只下一次；下载失败的那一项是 null，退回程序画的天空 / 地图自己的环境光
+  const weatherCache = {};
+  const presetOf = (key) => Game.Config.weather.presets[key] || Game.Config.weather.presets[Game.Config.weather.default];
+  const currentWeatherKey = () => (Game.Settings ? Game.Settings.get('weather') : Game.Config.weather.default);
+
+  function loadWeather(key) {
+    const p = presetOf(key);
+    const job = (kind, dir, load) => {
+      if (!dir) return Promise.resolve(null);
+      const id = `${kind}:${dir}`;
+      if (!weatherCache[id]) {
+        weatherCache[id] = load(`assets/weather/${dir}/`).catch((err) => {
+          console.warn(`天气素材加载失败（${id}），退回默认：`, err);
+          return null;
+        });
+      }
+      return weatherCache[id];
+    };
+    return Promise.all([
+      job('sky', p.sky, (d) => new THREE.TextureLoader().loadAsync(d + 'sky.webp').then((t) => {
+        t.encoding = THREE.sRGBEncoding;
+        // 同一张图再当环境光用（env: 'sky'）：反射里看到的就是头顶这片天，水洼不会映出天空里没有的亮光
+        const env = t.clone();
+        env.mapping = THREE.EquirectangularReflectionMapping;
+        t.userData.env = env;
+        return t;
+      })),
+      job('env', p.env === 'sky' ? null : p.env, (d) => new THREE.RGBELoader().loadAsync(d + 'env.hdr').then((t) => {
+        t.mapping = THREE.EquirectangularReflectionMapping;
+        return t;
+      })),
+    ]).then(([sky, env]) => ({ sky, env }));
   }
 
   // ---------- 真实材质（#50） ----------
@@ -170,7 +207,7 @@ Game.World = (function () {
       fence: new THREE.MeshStandardMaterial({
         map: T.chainlink(), transparent: true, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.6, metalness: 0.5,
       }),
-      // 水洼：边缘用 alphaMap 渐隐，粗糙度别太低，否则对着太阳看是一块刺眼的亮斑
+      // 水洼：边缘用 alphaMap 渐隐；粗糙度和不透明度跟着天气（weather.puddle）
       puddle: new THREE.MeshStandardMaterial({
         color: 0x2a3440, roughness: 0.3, metalness: 0.3, transparent: true, opacity: 0.6,
         alphaMap: T.softDisc('rgba(255,255,255,1)', 'rgba(255,255,255,0)'), depthWrite: false,
@@ -179,6 +216,9 @@ Game.World = (function () {
         map: T.softDisc('rgba(10,8,6,0.75)', 'rgba(10,8,6,0)'), transparent: true, depthWrite: false,
       }),
     };
+
+    // 灯柱的灯头：所有灯共用，亮度跟着天气（lampGlow）
+    const lampMat = new THREE.MeshStandardMaterial({ color: 0x333333, emissive: 0xfff2cc, emissiveIntensity: 0.6 });
 
     // 集装箱材质：按颜色缓存，每种颜色生成一次贴图
     const containerCache = {};
@@ -244,27 +284,28 @@ Game.World = (function () {
     }
 
     // ---------- 天空、雾、灯光 ----------
-    const horizon = 0xd6cbb8;
-    scene.fog = new THREE.Fog(horizon, 45, 260);
+    // 颜色、强度都在 setWeather 里按天气预设设，这里只建对象
+    scene.fog = new THREE.Fog(0xffffff, 45, 260);
 
-    const skyDome = new THREE.Mesh(
-      new THREE.SphereGeometry(280, 32, 16),
-      new THREE.MeshBasicMaterial({ map: T.sky(), side: THREE.BackSide, fog: false, depthWrite: false })
-    );
+    // 天空球两种材质：程序画的（晴天，走色调映射）和天气贴图（已经调好色，不做色调映射，所见即所得）
+    const proceduralSkyMat = new THREE.MeshBasicMaterial({ map: T.sky(), side: THREE.BackSide, fog: false, depthWrite: false });
+    const imageSkyMat = new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false, depthWrite: false, toneMapped: false });
+    const skyDome = new THREE.Mesh(new THREE.SphereGeometry(280, 32, 16), proceduralSkyMat);
     scene.add(skyDome);
 
-    const sunDir = new THREE.Vector3(-0.55, 0.5, 0.42).normalize();
+    // 程序画的太阳和云放一组，换成天空贴图时整组藏起来
+    const proceduralSky = new THREE.Group();
+    scene.add(proceduralSky);
     const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({
       map: T.softDisc('rgba(255,250,225,1)', 'rgba(255,230,180,0)'), fog: false, depthWrite: false,
       blending: THREE.AdditiveBlending,
     }));
-    sunSprite.position.copy(sunDir).multiplyScalar(250);
     sunSprite.scale.setScalar(60);
-    scene.add(sunSprite);
+    proceduralSky.add(sunSprite);
 
-    scene.add(new THREE.HemisphereLight(0xbfd4ee, 0x6b5a46, 0.55));
-    const sun = new THREE.DirectionalLight(0xffe3c0, 1.35);
-    sun.position.copy(sunDir).multiplyScalar(60);
+    const hemi = new THREE.HemisphereLight(0xffffff, 0xffffff, 1);
+    scene.add(hemi);
+    const sun = new THREE.DirectionalLight(0xffffff, 1);
     sun.castShadow = true;
     sun.shadow.mapSize.set(Game.Config.graphics.shadowMapSize, Game.Config.graphics.shadowMapSize);
     const sr = map.shadowRange;
@@ -288,7 +329,7 @@ Game.World = (function () {
       const s = new THREE.Sprite(mat);
       s.position.set(Math.cos(a) * r, Math.tan(elev) * r, Math.sin(a) * r);
       s.scale.set(width, width * 0.5, 1);
-      scene.add(s);
+      proceduralSky.add(s);
       animated.push({ obj: s, angle: a, radius: r, speed: 0.003 + Math.random() * 0.004 });
     }
     const cirrusTex = T.cirrus();
@@ -299,7 +340,7 @@ Game.World = (function () {
       s.position.set(Math.cos(a) * r, Math.tan(elev) * r, Math.sin(a) * r);
       const width = 150 + Math.random() * 80;
       s.scale.set(width, width * 0.25, 1);
-      scene.add(s);
+      proceduralSky.add(s);
       animated.push({ obj: s, angle: a, radius: r, speed: 0.002 + Math.random() * 0.002 });
     }
 
@@ -352,14 +393,29 @@ Game.World = (function () {
     }
 
     // 水洼和油渍
-    const puddle = (x, z, w, d, rot) => {
-      const m = new THREE.Mesh(new THREE.CircleGeometry(1, 24), mats.puddle);
+    const puddleGeo = new THREE.CircleGeometry(1, 24);
+    const puddle = (x, z, w, d, rot, parent = scene) => {
+      const m = new THREE.Mesh(puddleGeo, mats.puddle);
       m.rotation.set(-Math.PI / 2, 0, rot);
       m.scale.set(w, d, 1);
       m.position.set(x, 0.006, z);
-      scene.add(m);
+      parent.add(m);
+      return m;
     };
     map.puddles.forEach((p) => puddle(p.x, p.z, p.w, p.d, p.rot));
+    // 下过雨的天气多撒的水洼（extraPuddles）：用固定种子的随机数，每次开局位置一样；按最多的那个天气建好，用几个显示几个
+    const extraPuddles = [];
+    {
+      let seed = 77;
+      const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      const most = Math.max(0, ...Object.values(Game.Config.weather.presets).map((p) => p.extraPuddles || 0));
+      for (let i = 0; i < most; i++) {
+        const w = 0.6 + rnd() * 1.6;
+        const m = puddle((rnd() - 0.5) * (map.yard.w - 3), (rnd() - 0.5) * (map.yard.d - 3), w, w * (0.4 + rnd() * 0.4), rnd() * Math.PI);
+        m.visible = false;
+        extraPuddles.push(m);
+      }
+    }
     const stain = (x, z, r) => {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(r * 2, r * 2), mats.stain);
       m.rotation.x = -Math.PI / 2;
@@ -466,8 +522,7 @@ Game.World = (function () {
         addCylinder(0.08, 7, o.x, 0, o.z, mats.metalDark);
         const armDir = o.x < 0 ? 1 : -1;
         addBox(1.2, 0.08, 0.08, o.x + armDir * 0.6, 6.8, o.z, mats.metalDark, { collide: false });
-        const lamp = addBox(0.5, 0.18, 0.3, o.x + armDir * 1.1, 6.7, o.z,
-          new THREE.MeshStandardMaterial({ color: 0x333, emissive: 0xfff2cc, emissiveIntensity: 0.6 }), { collide: false });
+        const lamp = addBox(0.5, 0.18, 0.3, o.x + armDir * 1.1, 6.7, o.z, lampMat, { collide: false });
         lamp.castShadow = false;
       },
       // 轮胎堆
@@ -545,17 +600,16 @@ Game.World = (function () {
     }
 
     // ---------- 环境光 HDRI：给地图里的材质加环境照明和反射（#50） ----------
-    // 只给这时场景里已有的地图物体加；人物、手里的枪不受影响。强度在 config.js 的 graphics.mapEnvIntensity
-    if (loaded.env) {
-      scene.traverse((o) => {
-        for (const m of [].concat(o.material || [])) {
-          if (m.isMeshStandardMaterial && !m.envMap) {
-            m.envMap = loaded.env;
-            m.envMapIntensity = Game.Config.graphics.mapEnvIntensity;
-          }
-        }
-      });
-    }
+    // 只给这时场景里已有的地图物体加；人物、手里的枪不受影响。用哪张、多强跟着天气（setWeather）
+    const envMats = new Set();
+    scene.traverse((o) => {
+      for (const m of [].concat(o.material || [])) if (m.isMeshStandardMaterial && !m.envMap) envMats.add(m);
+    });
+
+    // 地面湿了变暗变光滑（#77）：记下这些材质原来的粗糙度和颜色，按天气的 wet 插值
+    const wetMats = [mats.asphalt, mats.dirt, mats.concrete, mats.concreteDark, padMat, debrisMat]
+      .filter((m) => m && m.isMeshStandardMaterial)
+      .map((m) => ({ m, roughness: m.roughness, color: m.color.clone() }));
 
     // ---------- 空气中的尘埃 ----------
     const dustCount = 400;
@@ -568,11 +622,77 @@ Game.World = (function () {
     }
     const dustGeo = new THREE.BufferGeometry();
     dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
-    const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
+    const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({   // 不透明度跟着天气（dust）
       map: T.softDisc('rgba(255,245,225,0.9)', 'rgba(255,245,225,0)'),
       size: 0.07, transparent: true, opacity: 0.55, depthWrite: false, sizeAttenuation: true,
     }));
     scene.add(dust);
+
+    // ---------- 天气 / 时段（#77） ----------
+    // 按预设改天空、雾、灯光、环境光、地面湿度；曝光和枪模场景的灯在 main.js（onWeather 回调）。
+    // 素材没下载完先下载，下载期间又换了别的就不管这次
+    const hillsBase = hills.material.color.clone();
+    const tmp = new THREE.Color();
+    const result = { onWeather: null, weather: null };
+    let wanted = null;
+
+    function applyWeather(key, assets) {
+      const p = presetOf(key);
+      const W = Game.Config.weather;
+      const env = (p.env === 'sky' && assets.sky) ? assets.sky.userData.env : (assets.env || loaded.env);
+      const useImage = !!assets.sky;
+
+      if (useImage) {
+        imageSkyMat.map = assets.sky;
+        imageSkyMat.color.setHex(p.skyColor ?? 0xffffff);
+        imageSkyMat.needsUpdate = true;
+      }
+      skyDome.material = useImage ? imageSkyMat : proceduralSkyMat;
+      proceduralSky.visible = !useImage;
+
+      scene.fog.color.setHex(p.fog.color);
+      scene.fog.near = p.fog.near;
+      scene.fog.far = p.fog.far;
+      hemi.color.setHex(p.hemi.sky);
+      hemi.groundColor.setHex(p.hemi.ground);
+      hemi.intensity = p.hemi.intensity;
+      const dir = new THREE.Vector3(...p.sun.dir).normalize();
+      sun.color.setHex(p.sun.color);
+      sun.intensity = p.sun.intensity;
+      sun.position.copy(dir).multiplyScalar(60);
+      sunSprite.position.copy(dir).multiplyScalar(250);
+      hills.material.color.copy(hillsBase).multiply(tmp.setHex(p.hills));
+      lampMat.emissiveIntensity = p.lampGlow;
+      dust.material.opacity = p.dust;
+      dust.visible = p.dust > 0;
+
+      for (const m of envMats) {
+        if (m.envMap !== env) { m.envMap = env; m.needsUpdate = true; }
+        m.envMapIntensity = env ? p.envIntensity : 0;
+      }
+      const wet = p.wet || 0;
+      for (const { m, roughness, color } of wetMats) {
+        m.roughness = roughness * THREE.MathUtils.lerp(1, W.wetGround.roughness, wet);
+        m.color.copy(color).multiplyScalar(THREE.MathUtils.lerp(1, W.wetGround.color, wet));
+      }
+      mats.puddle.roughness = THREE.MathUtils.lerp(W.puddle.dry.roughness, W.puddle.wet.roughness, wet);
+      mats.puddle.opacity = THREE.MathUtils.lerp(W.puddle.dry.opacity, W.puddle.wet.opacity, wet);
+      mats.puddle.envMapIntensity *= THREE.MathUtils.lerp(W.puddle.dry.env, W.puddle.wet.env, wet);
+      extraPuddles.forEach((m, i) => { m.visible = i < (p.extraPuddles || 0); });
+
+      result.weather = key;
+      if (result.onWeather) result.onWeather(p);
+    }
+
+    // 换天气：返回 Promise，素材下载完、换好了才 resolve
+    function setWeather(key) {
+      wanted = key;
+      return loadWeather(key).then((assets) => { if (wanted === key) applyWeather(key, assets); });
+    }
+    // 开局时的天气素材在 loadMap 里已经下载好（缓存里有），这里同步换上，第一帧就是对的
+    wanted = currentWeatherKey();
+    applyWeather(wanted, { sky: null, env: null });
+    setWeather(wanted);
 
     // ---------- 每帧更新：尘埃飘动、云移动 ----------
     let time = 0;
@@ -595,13 +715,13 @@ Game.World = (function () {
       }
     }
 
-    return {
-      colliders, shootables, update,
+    return Object.assign(result, {
+      colliders, shootables, update, setWeather,
       mapName: map.name || Game.Config.map,   // 界面上显示的地图名
       spawns: map.spawns, navPoints: map.navPoints, rangeSpawn: map.rangeSpawn,
       targetLayout: map.targets, bounds: map.bounds,
       spawn: new THREE.Vector3(map.spawns[0].x, 0, map.spawns[0].z),
-    };
+    });
   }
 
   return { build, loadMap };

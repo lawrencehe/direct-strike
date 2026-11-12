@@ -7,7 +7,7 @@
 
 ```
 加载页 boot ──→ 首页 home（不全屏）
-                 ├─ 作战：选模式 → 看地图、调获胜条件、选装备（主副武器、对手形象）→ [进入战斗]
+                 ├─ 作战：选模式 → 看地图、选天气 / 时段、调获胜条件、选装备（主副武器、对手形象）→ [进入战斗]
                  └─ 设置：灵敏度、视野、准星颜色、自动全屏、音量、改键
                        │ 点"进入战斗"：进入全屏 + 开局
                        ▼
@@ -48,6 +48,9 @@
 改键另存在 `fps.keys.v1`（见 `input.js`）。
 装备选择也存在这里（`rifle` / `pistol` / `npc`，值是 `config.loadout` 的 key），写回 `weapons.rifle` / `weapons.pistol` / `character.model`，见 `architecture.md` 的"可选装备"。
 首页的装备行由 `ui.js` 的 `pickHtml` 按 `config.loadout` 生成，加一项不用改界面代码；"对手"一行只在有 NPC 的模式显示。
+天气 / 时段也存在这里（`weather`，值是 `config.weather.presets` 的 key，#77）：首页地图卡片下面一排按钮（`#weather-pick`），按预设生成，
+点了立刻换，首页背后的 3D 场景当场变，不用重开；第一次切到某个天气要先下载它的天空贴图（几十 KB），下载完才换。
+天气和装备一样不在设置页里，"恢复默认设置"不动它。
 
 加一项设置：`settings.js` 的 `defaults` 和 `valid` 各加一行，`apply` 里写回 Config；`index.html` 的 `#settings` 里加控件；`ui.js` 的 `buildSettings` 里绑定。
 
