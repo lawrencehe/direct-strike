@@ -18,6 +18,21 @@ tools/setup.sh
 | pngquant / oxipng / cwebp / ImageMagick / rsvg-convert | 系统版本（oxipng 10.2.1） | 图片处理 |
 | GitHub CLI（`gh`） | 系统版本 | 开 issue、建和合并 PR、建 Release（`ship.sh` 要用）。不在 `setup.sh` 里，开发机上登录的是机器账号 primorigin（见下面"GitHub 账号"） |
 
+| Tripo CLI（`tripo`） | 0.11.2 | AI 从图片 / 文字生成 3D 底模（#72），`setup.sh` 用 npm 全局安装；要登录，见下面"Tripo" |
+
+## Tripo
+
+用来生成模型底模，流程和规约见 `art-sources.md` 的"用 Tripo 生成底模"，Claude 的操作步骤见 `/tripo` skill（#72）。
+
+- 安装：`npm install -g tripo-cli`（官方仓库 [vast-enterprise/Tripo-API-CLI](https://github.com/vast-enterprise/Tripo-API-CLI)），装在 nvm 的 node 下。
+- 登录（负责人做，key 不经过聊天）：在 Claude Code 里输入 `! tripo login --region ov`，浏览器授权后 key 自动存到 `~/.tripo/config.json`。
+  现在登录的是负责人的**国际站**账号（`ov`，控制台 developers.tripo3d.ai）。换开发机要重新登录。
+- 检查：`tripo whoami`（账号和余额）、`tripo balance`、`tripo usage`（最近花了多少）、`tripo doctor`（排查登录和网络）。
+- 充值：`tripo topup` 打开充值页（负责人做）。
+- 文档：`tripo docs --llm`（给 AI 看的完整规则），`tripo docs --topic commands/generate`（模型版本、参数、价格）。
+- 在哪个目录跑 `tripo`，就在那里写一个 `.tripo/context.json`（记上一个任务号，`@last` 用），已 gitignore。
+- 这个 CLI 默认会把用量统计（命令名、任务号、花了多少积分）发给 Tripo，不发提示词、图片和模型；不想发就设 `TRIPO_ANALYTICS_ENABLED=0`。
+
 ## GitHub 账号
 
 开发机上 Claude 用机器账号 **primorigin** 操作 GitHub，负责人 lawrencehe 在网页上操作，两边在 GitHub 上分得开（#46）。

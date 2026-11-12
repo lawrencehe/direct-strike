@@ -1,14 +1,14 @@
 # 项目状态
 
-> 最近更新：2026-11-11　｜　**每次做完一件事都要更新本页**，规则见 `CLAUDE.md` 的"文档和项目状态"。
+> 最近更新：2026-11-12　｜　**每次做完一件事都要更新本页**，规则见 `CLAUDE.md` 的"文档和项目状态"。
 > 本页只写"现在怎样"，旧内容直接改掉或删掉；历史看 GitHub 的 issue、PR、Releases 和 git log。
 
 ## 版本
 
 | | 版本 | 说明 |
 |---|---|---|
-| 线上 https://game.lightup.host | v0.37 | 从 `main` 部署（2026-11-11） |
-| `main` | v0.37 | 各版本的改动看 [Releases](https://github.com/lawrencehe/direct-strike/releases) |
+| 线上 https://game.lightup.host | v0.38 | 从 `main` 部署（2026-11-12） |
+| `main` | v0.38 | 各版本的改动看 [Releases](https://github.com/lawrencehe/direct-strike/releases) |
 
 ## 进行中
 

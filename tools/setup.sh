@@ -30,4 +30,7 @@ fi
 
 npm ci
 npx playwright install --with-deps chromium
+
+# Tripo CLI（AI 生成底模，#72）：装完还要负责人登录，见 docs/tools.md 的"Tripo"
+command -v tripo >/dev/null || npm install -g tripo-cli@0.11.2
 echo "完成。确认 ~/.local/bin 在 PATH 里。"
