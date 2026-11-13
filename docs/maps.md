@@ -50,8 +50,8 @@
 | `container` | `x`、`z`，可选 `y`，`alongZ`、`color`、`label` | 集装箱（6 × 2.6 × 2.44 米），叠放时 `y` 填 `2.6` |
 | `jersey` | `x`、`z`、`alongX` | 水泥隔离墩（2.4 × 0.85 × 0.5 米） |
 | `sandbags` | `x`、`z`、`len`（2、3 或 4），可选 `y`、`alongZ` | 沙袋墙（高 0.9、厚 0.6 米），`alongZ` 时长边沿 z |
-| `barrel` | `x`、`z`、`material` | 油桶（高 0.9、半径 0.3）。有模型时显示模型，`material`（`barrelRed`、`barrelBlue`、`barrelGrey`）只在模型没加载上时用 |
-| `barrelLying` | `x`、`z` | 倒着的油桶 |
+| `barrel` | `x`、`z`、`material` | 油桶（高 0.9、半径 0.3），`material` 是漆色：`barrelRed`、`barrelBlue`、`barrelGrey` |
+| `barrelLying` | `x`、`z` | 倒着的油桶（红色） |
 | `lampPost` | `x`、`z` | 灯柱，灯臂朝地图中心 |
 | `tires` | `x`、`z` | 轮胎堆 |
 | `ammoCrates` | `x`、`z`，可选 `alongZ` | 一堆弹药箱：三层台阶（6 + 4 + 1 个），占地约 1.24 × 1.02、高约 1 米，每层一个碰撞方块 |
@@ -98,7 +98,9 @@
   glb 里有三段直墙（节点 `len_2`、`len_3`、`len_4`），`len` 只能是 2、3、4。脚本里还有 L 形转角 `corner` 和 U 形 `u`（`MODULES`，一条折线一个模块），
   目前只出预览（`tools/out/props/sandbag-tripo-preview.glb`）不进游戏；地图要用时加进 `GAME_MODULES` 并在 `world.js` 加造型。
 - **油桶**（#98）：Tripo 文字生成的锈绿色 55 加仑桶，`steel-drum/build.py` 只缩放到高 0.9、减面到 2000。每个桶按位置转一个角度；
-  碰撞和子弹仍是原来的圆柱（立着的）或圆柱 + 方块（倒着的），只是看不见。地图里的 `material` 颜色在有模型时不起作用。
+  碰撞和子弹仍是原来的圆柱（立着的）或圆柱 + 方块（倒着的），只是看不见。
+  漆色（#100）：模型只有一套锈绿色贴图，`world.js` 的 `drumMaterial` 按地图的 `material` 每种颜色克隆一份材质，shader 里按贴图 绿 / 红 的比值认出漆面
+  （漆面接近 1，锈偏红、0.45–0.75），漆面换成 `Config.props.drumPaint` 的颜色、亮度不变，锈斑保留。加颜色就在 `drumPaint` 里加一项，不用重新烘贴图。
 - **弹药箱**（#98）：`ammo-crate.glb` 一个箱子 0.6 × 0.33 × 0.34 米，`ammoCrates` 把 11 个码成三层台阶，每个箱子按序号掉头、偏一点点；
   每层一个看不见的碰撞方块，能一层层踩上去。
 - 模型下载失败时退回原来的方块，游戏照常能玩。

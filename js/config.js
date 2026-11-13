@@ -67,6 +67,18 @@ Game.Config = {
     // 画面亮度（曝光）和环境光强度跟着天气走，在下面 weather.presets 里
   },
 
+  // 地图道具
+  props: {
+    // 油桶模型的漆色（#100）：地图里 barrel 的 material 名 → 漆色（sRGB 十六进制）。
+    // 模型本来是锈绿色，shader 只把漆面换成这个颜色、保留原来的明暗，锈斑不动。
+    drumPaint: {
+      barrelRed: 0x9a1a14,
+      barrelBlue: 0x1d4f8c,
+      barrelGrey: 0x6a6d70,
+    },
+    drumPaintMask: [0.72, 0.88],  // 漆面判定：贴图 绿 / 红 的比值，低于前一个算锈、高于后一个算漆，中间过渡
+  },
+
   // 天气 / 时段（#77）：首页地图下面选，存在玩家设置里，切换立刻生效（不用重开）。
   // 每个预设管天空、雾、灯光、曝光、环境光和地面湿不湿；所有地图共用，地图只提供晴天的环境光（maps/*.json 的 environment）。
   // 素材在 assets/weather/<目录>/（sky.webp 天空、env.hdr 环境光），由 assets-src/weather/fetch_weather.py 生成；第一次用到时才下载。
