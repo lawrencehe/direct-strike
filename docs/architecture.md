@@ -6,10 +6,23 @@
 
 - 没有构建步骤，也没有模块系统。`index.html` 按顺序加载 `vendor/` 和 `js/` 下的脚本，每个文件往全局 `Game` 上挂一个东西
   （`Game.Config`、`Game.Player`、`Game.Weapon`……）。**后加载的可以用先加载的，反过来不行**，新文件要插到正确位置。
-- 顺序：`config → settings → physics → audio → input → textures → effects → truck → world → targets → ragdoll → character → player → gunmodel → grenades → weapon → bots → hud → economy → ui → devlog → main`。
+- 顺序：`config → assets → settings → physics → audio → input → textures → effects → truck → world → targets → ragdoll → character → player → gunmodel → grenades → weapon → bots → hud → economy → ui → devlog → main`。
   `settings` 紧跟 `config`：它把玩家存在浏览器里的设置写回 `Game.Config`，后面的文件读到的就是玩家的值。
-- `main.js` 先异步加载 `maps/<config.map>.json`、首页选中的主副武器枪模（`GunModel.loadGun`）和第一人称手臂（`GunModel.loadArms`），都加载完才调用 `startGame` 创建所有对象；
-  加载页显示进度，任何一个失败，错误显示在加载页上。NPC 模型也是异步加载，加载完首页才允许进对战模式。
+- **打开网页只建首页，点"进入战斗"才下载资源、创建游戏**（#85）。`main.js` 的 `Game.Main` 分两段：
+  - `boot()`：`Assets.init()` 读资源清单，`World.loadMapData` 只读地图文件（几 KB，首页显示地图名），建 `input / audio / hud / ui`
+    （`ui.world` 先是只有 `mapName` 的占位），`DevLog.attach` 先给这几个（首页设置里就能解锁开发者），显示首页。首页背景是静态截图，
+    这一段换装备只记选择不下载（`ui.onLoadout` 直接返回）。
+  - `load(mode)`（点"进入战斗"，全屏已在点击里同步发起）：`Assets.prefetch` 把这一局要的文件读进内存——地图目录、开局天气目录、
+    选中的主副武器、手臂、音效，对战模式再加 NPC 模型——加载页显示"下载资源 x / y MB"；然后照常 `World.loadMap`、`GunModel.loadGun / loadArms`、
+    `Character.load` 解码，`startGame(mapData, shell)` 创建渲染器和其余对象，`body.game-ready` 让首页背景换成实时 3D，最后 `game.deploy(mode)` 开局进简报。
+    之后再进战斗直接 `deploy`，不再下载。任何一步失败，原因显示在加载页上，下面有"返回首页"，再点进入战斗会重试。
+  - 测试脚本用 `Game.Main.load(mode)` 直接建游戏（`tools/lib/game-page.mjs`）。
+- **资源缓存**（`assets.js`，#85）：部署时 `tools/build-manifest.mjs` 生成 `assets/manifest.json`（`maps/`、`assets/{maps,models,weather,sound}/` 下每个文件的大小、内容哈希，整体一个版本号）。
+  清单每次打开都问服务器；文件存在浏览器 Cache Storage，键是 `路径?v=哈希`，哈希没变不发请求，变了只重下那一个；
+  本地版本号（localStorage）和清单不一样时删掉清单里已经没有的旧文件。读进内存后是 blob URL，
+  three.js 的 `DefaultLoadingManager.setURLModifier` 把原路径换成它，所以加载器照常用原路径，只是先 `await Assets.ensure(path)`；普通 `fetch` 用 `Assets.url(path)`。
+  **新加一种资源**：放进清单的目录里，加载前 `ensure`（或整目录 `prefetch(under(dir))`），要算进进入战斗的进度条就加到 `Game.Main.load` 的文件列表里。
+  没有清单（本地 `start.sh`、`server/api.py --static`，控制台会有一条清单 404）时什么都不缓存，加载器直接走网络，改了素材刷新就能看到。
 - 浏览器控制台里的 `window.game` 能拿到所有对象（`game.player`、`game.weapon`、`game.bots`……），调试和测试脚本都靠它。
 
 ## 可选装备（换枪、换 NPC 形象）
@@ -22,7 +35,7 @@
 - NPC 形象：`Character.load()` 按 `character.model` 加载（有缓存），之后新生成的 NPC 用它。NPC 每局开始时重建，所以换形象下一局生效。
 - NPC 的枪和玩家用同一套 `loadout`，但不跟着玩家的选择：每个 NPC 出生时 `bots.Manager.pickGuns` 每格随机挑一把（#54），
   数值用 `Settings.gunConfig(slot, key)`（默认数值 + 那把枪的覆盖项），存在 `bot.gun`，不读 `Game.Config.weapons`（那是玩家选的）。
-  玩家没选的枪在首页出来后由 `main.js` 后台下载，首次加载体积不变；`pickGuns` 只从已经下载好的里挑（`GunModel.isGunLoaded`），都没好就用玩家选的。
+  玩家没选的枪在游戏创建后（进入战斗时）由 `main.js` 后台下载，不算进进度条；`pickGuns` 只从已经下载好的里挑（`GunModel.isGunLoaded`），都没好就用玩家选的。
   NPC 手上的 glb 枪模克隆自 `GunModel.loadedGun(path)`，网格材质共用，标 `userData.shared` 不释放；
   右手 / 左手 IK 的目标直接用第一人称的握持点 `Weapon.VIEW[key].right.pos` / `left.pos`（左手往下挪 `GUARD_SHIFT` 托在护木下），
   枪的位置按"握把落在方块枪握把的同一点"摆，所以加新枪只要 `Weapon.VIEW` 写好，NPC 不用另调。glb 没下载好时退回方块步枪 / 默认手枪。
@@ -43,7 +56,7 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 
 - 状态变化用回调通知 `main.js`：`player.onDamage / onDeath`、`bots.onChange / onWaveCleared / onDuelEnd`、`input.onLockChange`。
 - `shootables` 是开枪射线能打到的网格数组，`main.js` 按模式和 NPC 生死原地更新（`refreshShootables`）。
-- 三种模式（range / duel / waves）由 `main.js` 的 `startMode` 切换。首页背后也是 `range`（没有 NPC），镜头停在 `config.ui.menuCamera`。
+- 三种模式（range / duel / waves）由 `main.js` 的 `startMode` 切换。游戏创建后回首页，背后是 `range`（没有 NPC），镜头停在 `config.ui.menuCamera`。
 - 界面流程（首页 → 简报 → 战斗 → 暂停 / 结算）见 `ui.md`。
 
 ## 游戏循环

@@ -1,4 +1,4 @@
-# Direct-Strike v0.41
+# Direct-Strike v0.42
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -126,7 +126,7 @@ direct-strike/
 │   ├── maps.md           地图文件格式、怎么改地图、怎么加新地图
 │   └── deploy.md         部署架构、首次接入、回滚
 ├── maps/yard.json    ★ 地图数据：掩体、出生点、巡逻点、靶子
-├── tools/            开发工具（验证、模型、图片、骨骼、地图），不发布；tools/tests/ 是留在仓库里的针对性测试，
+├── tools/            开发工具（验证、模型、图片、骨骼、地图、资源清单 build-manifest.mjs），不发布；tools/tests/ 是留在仓库里的针对性测试，
 │                     tools/devlog/analyze.mjs 分析开发者模式上传的数据
 ├── assets-src/       未压缩的模型母版和 Blender 加工脚本（音效的剪辑脚本 assets-src/sound/build.py），不发布
 ├── CLAUDE.md         给 AI 助手看的项目约定
@@ -134,6 +134,8 @@ direct-strike/
 ├── assets/
 │   ├── brand/               logo（logo-dark.png 用在深色界面上）、网站图标、分享预览图
 │   ├── ui/maps/             首页的地图预览图（游戏截图）
+│   ├── ui/home-bg.webp      首页背景（训练场截图；进过一次战斗后换成实时 3D）
+│   ├── manifest.json        资源清单（部署时 tools/build-manifest.mjs 生成，不进仓库）
 │   ├── maps/yard/             yard 地图的材质（textures/*.webp：颜色、法线、粗糙度）和环境光 env.hdr，
 │   │                          由 assets-src/maps/yard/fetch_textures.py 从 Poly Haven 下载转换
 │   │                          props/：集装箱、隔离墩、沙袋墙、中央平台模型，由 assets-src/maps/yard/props/build.sh 生成
@@ -153,8 +155,9 @@ direct-strike/
 │   └── SkeletonUtils.js     复制带骨骼的模型（多个 NPC 共用一份模型数据）
 └── js/
     ├── config.js     ★ 所有可调参数（手感、武器、NPC 难度、对决规则、画质……）
+    ├── assets.js     资源下载和本地缓存：按清单比对哈希，没变用浏览器里存的，变了才下
     ├── settings.js   玩家设置（灵敏度、视野、音量、准星、自动全屏、对决杀数、装备、天气）：存浏览器，写回 config
-    ├── main.js       入口：创建对象、模式切换、全屏和锁鼠标、游戏循环
+    ├── main.js       入口：打开网页只建首页，进入战斗才下载资源、创建对象；模式切换、全屏和锁鼠标、游戏循环
     ├── input.js      键盘鼠标输入、指针锁定、按键绑定（改键 + 保存）
     ├── physics.js    ★ 方块碰撞 + 自动上台阶（玩家和 NPC 共用）
     ├── player.js     ★ 视角、移动、跳跃、生命值、重生

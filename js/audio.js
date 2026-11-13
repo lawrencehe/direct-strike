@@ -35,7 +35,8 @@ Game.Audio = class Audio {
   loadSamples() {
     const S = Game.Config.audio.samples;
     for (const name of S.files) {
-      fetch(S.dir + name + '.mp3')
+      const path = S.dir + name + '.mp3';
+      Game.Assets.ensure(path).then(() => fetch(Game.Assets.url(path)))   // 本地缓存有就不下载（#85）
         .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error('HTTP ' + r.status))))
         .then((data) => new Promise((ok, fail) => this.ctx.decodeAudioData(data, ok, fail)))   // 回调写法：老 Safari 不支持返回 Promise
         .then((buf) => { this.buffers[name] = buf; })

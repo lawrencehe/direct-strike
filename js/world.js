@@ -18,13 +18,31 @@ Game.World = (function () {
   const C_L = 6, C_H = 2.6, C_W = 2.44;
 
   // 加载地图文件。名字对应 maps/<名字>.json，由 config.js 的 map 指定
+  // loadMapData 只读地图文件（几 KB，首页显示地图名要用）；loadMap 再把地图素材和开局天气一起下载好（点进入战斗时，#85）
+  const mapData = {};
+  function loadMapData(name) {
+    if (!mapData[name]) {
+      const path = `maps/${name}.json`;
+      mapData[name] = Game.Assets.ensure(path).then(() => fetch(Game.Assets.url(path))).then((res) => {
+        if (!res.ok) throw new Error(`地图 ${name} 加载失败（HTTP ${res.status}）`);
+        return res.json();
+      });
+      mapData[name].catch(() => { delete mapData[name]; });
+    }
+    return mapData[name];
+  }
+
   async function loadMap(name) {
-    const res = await fetch(`maps/${name}.json`);
-    if (!res.ok) throw new Error(`地图 ${name} 加载失败（HTTP ${res.status}）`);
-    const map = await res.json();
+    const map = await loadMapData(name);
     // 开局要用的天气素材和地图素材一起下载（其他天气第一次切过去时再下载）
     await Promise.all([loadAssets(name, map), loadWeather(currentWeatherKey()).catch(() => {})]);
     return map;
+  }
+
+  // 开局天气要用的素材目录（main.js 点进入战斗时一起预下载，算进进度条）
+  function weatherDirs(key = currentWeatherKey()) {
+    const p = presetOf(key);
+    return [p.sky, p.env === 'sky' ? null : p.env].filter(Boolean).map((d) => `assets/weather/${d}/`);
   }
 
   // ---------- 天气素材（#77） ----------
@@ -40,7 +58,8 @@ Game.World = (function () {
       if (!dir) return Promise.resolve(null);
       const id = `${kind}:${dir}`;
       if (!weatherCache[id]) {
-        weatherCache[id] = load(`assets/weather/${dir}/`).catch((err) => {
+        const d = `assets/weather/${dir}/`;
+        weatherCache[id] = Game.Assets.prefetch(Game.Assets.under(d)).then(() => load(d)).catch((err) => {
           console.warn(`天气素材加载失败（${id}），退回默认：`, err);
           return null;
         });
@@ -81,6 +100,7 @@ Game.World = (function () {
 
   async function loadAssets(name, map) {
     const dir = `assets/maps/${name}/`;
+    await Game.Assets.prefetch(Game.Assets.under(dir));   // 整个地图目录先读进内存（本地缓存有就不下载，#85）
     const texLoader = new THREE.TextureLoader();
     const tex = (file, srgb) => texLoader.loadAsync(dir + file).then((t) => {
       if (srgb) t.encoding = THREE.sRGBEncoding;
@@ -724,5 +744,5 @@ Game.World = (function () {
     });
   }
 
-  return { build, loadMap };
+  return { build, loadMap, loadMapData, weatherDirs };
 })();

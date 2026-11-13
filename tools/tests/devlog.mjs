@@ -164,8 +164,8 @@ try {
   await p.screenshot({ path: path.join(DIR, 'devlog-hud.jpg'), type: 'jpeg', quality: 85 });
   await p.evaluate(() => { game.input.locked = false; });
 
-  // 故意输错密码时浏览器会自动打一条 403，不算问题
-  const problems = g.problems.filter((x) => !/403/.test(x));
+  // 故意输错密码时浏览器会自动打一条 403，不算问题；api.py 的静态服务没有资源清单（和本地 start.sh 一样），404 是正常的不缓存回退（#85）
+  const problems = g.problems.filter((x) => !/403/.test(x) && !/manifest\.json|status of 404/.test(x));
   check(problems.length === 0, '控制台没有报错', problems.join(' | '));
 } catch (e) {
   console.error(e);

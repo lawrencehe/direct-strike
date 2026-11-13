@@ -27,3 +27,4 @@ assets-src/sound/Prepared SFX Library/
 # 地图材质的原始下载（Poly Haven 2k jpg），由 assets-src/maps/*/fetch_textures.py 重新下载
 assets-src/maps/*/download/
 assets-src/weather/download/
+assets/manifest.json

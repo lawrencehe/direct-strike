@@ -120,12 +120,12 @@ Game.GunModel = (function () {
   function loadGun(path) {
     if (!path) return Promise.resolve(null);   // 代码拼的枪，不用下载
     if (!gunAssets[path]) {
-      gunAssets[path] = new Promise((resolve, reject) => {
+      gunAssets[path] = Game.Assets.ensure(path).then(() => new Promise((resolve, reject) => {
         new THREE.GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load(path,
           (gltf) => resolve(gltf.scene),
           undefined,
           (err) => { delete gunAssets[path]; reject(new Error(`枪模加载失败（${path}）：` + (err.message || err))); });
-      });
+      }));
       gunAssets[path].then((scene) => { loaded[path] = scene; }, () => {});
     }
     return gunAssets[path];
@@ -347,12 +347,12 @@ Game.GunModel = (function () {
   // 手指在第一次 solve 时逐节弯到贴住圆柱，之后不再变：手指是手腕的子骨骼，会跟着手走。
   let armAsset = null, armRest = null;
   function loadArms() {
-    return new Promise((resolve, reject) => {
+    return Game.Assets.ensure(Game.Config.weapons.arms.model).then(() => new Promise((resolve, reject) => {
       new THREE.GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load(Game.Config.weapons.arms.model,
         (gltf) => { armAsset = gltf.scene; armRest = measureArms(armAsset); resolve(); },
         undefined,
         (err) => reject(new Error('手臂模型加载失败：' + (err.message || err))));
-    });
+    }));
   }
 
   const FINGERS = ['point', 'middle', 'ring', 'pink'];
