@@ -232,6 +232,26 @@ Game.Input = class Input {
       const saved = JSON.parse(localStorage.getItem(Game.Input.STORAGE_KEY) || 'null');
       if (saved) for (const a of Object.keys(b)) if (Array.isArray(saved[a])) b[a] = saved[a];
     } catch (e) { /* 存的东西坏了就用默认 */ }
+    return Game.Input.dedupeBindings(b);
+  }
+
+  // 同一个键只能给一个动作。存下的改键和后来新加动作的默认键可能撞上
+  // （例如以前把 buy 改成 F，后来新加的 quickBuy 默认也是 F），撞上时：
+  // 用着自己默认键的动作留下这个键，另一个退回它自己的默认键，默认键也被占了就不绑定（#94）
+  static dedupeBindings(b) {
+    const def = Game.Input.defaultBindings();
+    const isDefault = (a) => JSON.stringify(b[a]) === JSON.stringify(def[a]);
+    const owner = {};
+    const order = Object.keys(b).sort((x, y) => isDefault(y) - isDefault(x));   // 用默认键的先占
+    const losers = [];
+    for (const a of order) {
+      if (b[a].some((c) => owner[c])) { losers.push(a); continue; }
+      for (const c of b[a]) owner[c] = a;
+    }
+    for (const a of losers) {
+      b[a] = def[a].some((c) => owner[c]) ? [] : def[a].slice();
+      for (const c of b[a]) owner[c] = a;
+    }
     return b;
   }
 

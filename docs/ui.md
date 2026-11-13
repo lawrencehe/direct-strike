@@ -49,7 +49,8 @@
 `js/settings.js` 加载时从 `localStorage`（键 `direct-strike.settings.v1`）读出设置并写回 `Game.Config`
 （`view.mouseSensitivity`、`view.fov`、`audio.volume`、`view.fullscreen`、`duel.winScore`），游戏其他代码照常读 `Game.Config`。
 默认值就是 `config.js` 里的值，可调范围在 `config.ui`。需要立即生效的（视野、音量、准星颜色）用 `Game.Settings.onChange` 监听。
-改键另存在 `fps.keys.v1`（见 `input.js`）。
+改键另存在 `fps.keys.v1`（见 `input.js`）。读改键时去重：同一个键只给一个动作。存档里的改键可能和后来新加动作的默认键撞上
+（以前把 buy 改成 F，后来新加的 quickBuy 默认也是 F，按 F 就打开了 B 菜单），撞上时用着默认键的动作留下，另一个退回它自己的默认键，默认键也被占了就不绑定（#94）。
 上次在局内买的主武器和手枪也存在这里（`rifle` / `pistol`，值是 `config.loadout` 的 key，#90），写回 `weapons.rifle` / `weapons.pistol`：
 出生拿的手枪、F 套餐里的"主武器"、进入战斗时先下载的枪都按它。
 天气 / 时段也存在这里（`weather`，值是 `config.weather.presets` 的 key，#77）：首页地图卡片下面一排按钮（`#weather-pick`），按预设生成，

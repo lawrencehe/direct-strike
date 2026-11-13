@@ -197,6 +197,8 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
   - NPC（`bots.js` 的 `hitReaction`）：硬直时站住、不开枪、不丢雷（正在丢的雷等硬直完接着丢），点射被打断；死了不走这里，看布娃娃。
     `character.js` 的 `flinch` / `applyFlinch`：第一节脊柱和头绕"上 × 子弹方向"转一下（0.06 秒到最大，`botFlinchTime` 秒回来），手的 IK 还拉在枪上，所以只有上半身往后仰；方块小人整个往后仰。
   - 测试：`tools/tests/hit-reaction.mjs`。
+- **新加按键动作会和玩家存的改键撞键。** `Input.loadBindings` 拿默认键补上存档里没有的动作，再用 `dedupeBindings` 去重（#94）。
+  测试脚本用的都是默认改键，撞键测不出来，要像 `tools/tests/key-conflict.mjs` 那样把存档写进 `localStorage` 再读。
 - **全屏和指针锁定都要用户手势。** `input.lock(fullscreen)` 在按钮的 click 里同步发出两个请求，中间不能 `await`，否则第二个会被拒。
   **顺序必须是先锁鼠标、再请求全屏**：Chrome 里全屏请求会用掉这次手势，玩家按 Esc 退出锁定后再锁又必须有手势，反过来写锁鼠标就被拒。
   锁定失败 `input.js` 会自动重试一次（正在进全屏就等 `fullscreenchange`），还不行才提示。
