@@ -177,8 +177,9 @@ if [ $DEPLOY = 1 ]; then
     for u in /refer/ak.png /.git/HEAD /docs/README.md /server/api.py; do
       c=$(curl -s -o /dev/null -w '%{http_code}' "$SITE$u"); [ "$c" = 404 ] || BAD="$BAD $u=$c(应为404)"
     done
-    curl -s "$SITE/" | grep -q "<small>$CUR</small>" || BAD="$BAD 线上页面不是$CUR"
-    curl -s "$SITE/api/health" | grep -q '"ok": true' || BAD="$BAD 开发接口/api/health不通"
+    # 先读进变量再匹配：pipefail 下 curl | grep -q，grep 匹配到就退出，curl 还没写完会 SIGPIPE，整条管道算失败（#85 上线时连续误报）
+    PAGE=$(curl -s "$SITE/" || true); grep -q "<small>$CUR</small>" <<<"$PAGE" || BAD="$BAD 线上页面不是$CUR"
+    HEALTH=$(curl -s "$SITE/api/health" || true); grep -q '"ok": true' <<<"$HEALTH" || BAD="$BAD 开发接口/api/health不通"
     [ -z "$BAD" ] && break
     if [ $try -lt 3 ]; then sleep 2; fi
   done
