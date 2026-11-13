@@ -1,7 +1,7 @@
 // ============================================================
 // NPC 的外观：加载 glTF 士兵模型、播放动画、摆持枪姿势、挂判定盒
 //
-// 模型由首页选的形象决定（config.js 的 loadout.npc → character.model），都是 Mixamo 骨骼、带待机/走/跑动画。
+// 形象每个 NPC 出生时从 config.js 的 loadout.npc 里随机挑（#90），只挑已经下载好的；都是 Mixamo 骨骼、带待机/走/跑动画。
 // 默认的 ukrainian-soldier.glb 的动画是从 init_soldier.glb 移植过来的，加工流程见 assets-src/models/human/ukrainian-soldier/build.sh。
 // 持枪姿势不是动画，而是每帧把手臂骨骼"掰"向枪上的握把位置（一个很简单的 IK）。
 // 这样换成别的 Mixamo 骨骼模型时，不需要重做持枪动画。
@@ -21,14 +21,15 @@
 Game.Character = (function () {
   const cfg = () => Game.Config.character;
 
-  let asset = null;   // 当前用的模型（gltf）
-  let gait = null;    // 它的步幅 { walk: { stride, footPhase }, run: {...} }，加载后量出来
   const cache = {};   // 文件路径 → Promise<{ gltf, gait } | null>，同一个模型只下载一次
+  const ready = {};   // 文件路径 → { gltf, gait }：已经加载好的形象，NPC 出生时从这里随机挑（gait 是步幅，加载后量出来）
 
-  // 加载 config.character.model（首页选的 NPC 形象），加载完换成当前模型，之后新生成的 NPC 用它。
-  // 返回 Promise<boolean>：false 表示加载失败，NPC 退回方块小人
-  function load() {
-    const path = cfg().model;
+  // 加载一个形象（path 默认是 loadout.npc 里随机的一个）。返回 Promise<boolean>：false 表示加载失败
+  function load(path) {
+    if (!path) {
+      const all = paths();
+      path = all[Math.floor(Math.random() * all.length)];
+    }
     if (!cache[path]) {
       cache[path] = Game.Assets.ensure(path).then(() => new Promise((resolve) => {
         if (!THREE.GLTFLoader) { resolve(null); return; }
@@ -44,14 +45,18 @@ Game.Character = (function () {
           console.warn('NPC 模型加载失败，改用方块小人。用 start.sh 启动本地服务可以解决。', path, err);
           resolve(null);
         });
-      }));
+      }), () => null);
+      cache[path].then((r) => { if (r) ready[path] = r; });
     }
-    return cache[path].then((r) => {
-      if (cfg().model !== path) return !!r;   // 加载期间又换了别的形象
-      asset = r ? r.gltf : null;
-      gait = r ? r.gait : null;
-      return !!r;
-    });
+    return cache[path].then((r) => !!r);
+  }
+
+  // 所有形象的文件路径
+  function paths() { return Object.values(Game.Config.loadout.npc).map((n) => n.model); }
+  // 已经下载好的有几个、随机挑一个（没有就 null）
+  function pick() {
+    const list = Object.values(ready);
+    return list.length ? list[Math.floor(Math.random() * list.length)] : null;
   }
 
   // Mixamo 骨骼名（不带前缀）。不同导出工具的前缀不一样：
@@ -246,13 +251,15 @@ Game.Character = (function () {
 
   // ---------------- glTF 士兵 ----------------
   class SoldierModel {
-    constructor(guns) {
+    constructor(guns, asset) {
+      const { gltf } = asset;
+      this.gait = asset.gait;
       this.root = new THREE.Group();
       this.root.rotation.order = 'YXZ';
       this.hitMeshes = [];
       this.flashMats = [];
 
-      const model = THREE.SkeletonUtils.clone(asset.scene);
+      const model = THREE.SkeletonUtils.clone(gltf.scene);
       model.traverse((o) => {
         if (o.isMesh) {
           o.material = o.material.clone();   // 每个 NPC 自己的材质，受伤闪红互不影响
@@ -279,7 +286,7 @@ Game.Character = (function () {
       this.mixer = new THREE.AnimationMixer(model);
       this.actions = {};
       for (const name of ['Idle', 'Walk', 'Run']) {
-        const clip = THREE.AnimationClip.findByName(asset.animations, name);
+        const clip = THREE.AnimationClip.findByName(gltf.animations, name);
         const a = this.mixer.clipAction(clip);
         a.play();
         a.setEffectiveWeight(name === 'Idle' ? 1 : 0);
@@ -365,7 +372,7 @@ Game.Character = (function () {
       }
 
       // ---- 相位：走了多远就播到哪，脚踩地时的速度 = 位移速度 ----
-      const g = gait;
+      const g = this.gait;
       const stride = THREE.MathUtils.lerp(g.walk.stride, g.run.stride, runMix);
       this.phase += dir * animSpeed * dt / stride;
       this.phase -= Math.floor(this.phase);
@@ -620,9 +627,11 @@ Game.Character = (function () {
   }
 
   // guns = { rifle: key, pistol: key }：手上拿哪两把枪（loadout 里的名字）
+  // 形象从已经下载好的里随机挑一个（#90），一个都没有就用方块小人
   function create(guns) {
-    return asset ? new SoldierModel(guns) : new BlockModel(guns);
+    const asset = pick();
+    return asset ? new SoldierModel(guns, asset) : new BlockModel(guns);
   }
 
-  return { load, create };
+  return { load, create, paths };
 })();

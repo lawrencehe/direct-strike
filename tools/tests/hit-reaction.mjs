@@ -1,6 +1,6 @@
 // #60 的针对性测试：中弹反应
 //   1. 玩家被枪打中：镜头上抬、往远离攻击者的一侧歪，慢慢回正；硬直 stunBullet 秒
-//   2. 硬直时按住 W 走不动、扣扳机打不出；硬直完恢复
+//   2. 硬直时按住 W 走不动、扣扳机打不出；硬直完恢复（拿步枪按住开火；出生只有手枪，#90，测试里直接给上步枪）
 //   3. 硬直完的免疫：紧接着再中弹不再硬直；手雷不受免疫限制，硬直按伤害算
 //   4. HUD：四角溅血显出来再淡掉；血条掉的那一截先留着再缩到当前血量；血量数字闪一下
 //   5. NPC 被打中：硬直（站住、不开枪），上半身顺着子弹方向往后一缩再回来；硬直完接着打
@@ -40,7 +40,12 @@ await p.evaluate(() => {
   game.weapon.fire = (gun) => { shots++; f(gun); };
   // 攻击者在玩家左边 5 米（玩家朝 -z，左边是 -x）
   window.leftOf = () => { const pl = game.player; return new THREE.Vector3(pl.position.x - Math.cos(pl.yaw) * 5, 0, pl.position.z + Math.sin(pl.yaw) * 5); };
-  window.fresh = () => { game.player.reset(); game.weapon.respawn(); game.hud.setHealth(100, 100); tick(1); };
+  // 重生后出生只有手枪（#90），这里给上主武器：第 2 项按住开火要用全自动的步枪
+  window.fresh = () => {
+    game.player.reset(); game.weapon.respawn(); game.hud.setHealth(100, 100);
+    game.weapon.hasRifle = true; game.weapon.equipNow('rifle'); game.weapon.refreshHud();
+    tick(1);
+  };
   tick(0.5);
 });
 

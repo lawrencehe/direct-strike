@@ -1,5 +1,5 @@
 // ============================================================
-// 玩家设置：灵敏度、视野、音量、准星颜色、自动全屏、对决杀数、上次选的模式、选的装备（主副武器、NPC 形象）、天气 / 时段
+// 玩家设置：灵敏度、视野、音量、准星颜色、自动全屏、对决杀数、上次选的模式、上次买的主武器和手枪（#90）、天气 / 时段
 // 存在浏览器 localStorage 里，下次打开还在。加载时把值写回 Game.Config，
 // 游戏其他地方照常读 Game.Config，不用关心设置是从哪来的。
 // 默认值和可调范围在 config.js 的 view / audio / duel / ui / loadout 里。
@@ -9,7 +9,7 @@ Game.Settings = (() => {
   const OLD_DUEL_KEY = 'direct-strike.duelWinScore';   // v0.16 及以前单独存的对决杀数
   const C = Game.Config;
   const L = C.loadout;
-  // 枪的默认数值：选了哪把枪，就用"默认数值 + 那把枪自己写的覆盖项"拼出 weapons.rifle / weapons.pistol
+  // 枪的默认数值：上次买的哪把枪，就用"默认数值 + 那把枪自己写的覆盖项"拼出 weapons.rifle / weapons.pistol
   const baseGun = { rifle: { ...C.weapons.rifle }, pistol: { ...C.weapons.pistol } };
 
   // 每项设置：默认值 + 校验（存的值坏了就退回默认）
@@ -21,9 +21,8 @@ Game.Settings = (() => {
     fullscreen: C.view.fullscreen,
     winScore: C.duel.winScore,
     mode: 'duel',
-    rifle: Object.keys(L.rifle)[0],
-    pistol: Object.keys(L.pistol)[0],
-    npc: Object.keys(L.npc)[0],
+    rifle: Object.keys(L.rifle)[0],          // 上次买的主武器：F 套餐里没主武器时买它（#90）
+    pistol: Object.keys(L.pistol)[0],        // 上次买的手枪：出生时拿它
     weather: C.weather.default,              // 天气 / 时段（#77），预设在 config.js 的 weather.presets
   };
   const valid = {
@@ -36,7 +35,6 @@ Game.Settings = (() => {
     mode: (v) => ['duel', 'waves', 'range'].includes(v),
     rifle: (v) => Object.prototype.hasOwnProperty.call(L.rifle, v),
     pistol: (v) => Object.prototype.hasOwnProperty.call(L.pistol, v),
-    npc: (v) => Object.prototype.hasOwnProperty.call(L.npc, v),
     weather: (v) => Object.prototype.hasOwnProperty.call(C.weather.presets, v),
   };
 
@@ -59,7 +57,6 @@ Game.Settings = (() => {
     C.view.fullscreen = values.fullscreen;
     C.duel.winScore = values.winScore;
     for (const slot of ['rifle', 'pistol']) C.weapons[slot] = { ...baseGun[slot], ...L[slot][values[slot]] };
-    C.character.model = L.npc[values.npc].model;
   }
   apply();
 
@@ -79,7 +76,7 @@ Game.Settings = (() => {
       save();
       for (const fn of listeners) fn(k, v);
     },
-    // 恢复默认（不含上次选的模式、对决杀数、装备和天气，它们不在设置页里）
+    // 恢复默认（不含上次选的模式、对决杀数、上次买的枪和天气，它们不在设置页里）
     reset() {
       for (const k of ['sensitivity', 'fov', 'volume', 'crosshair', 'fullscreen']) this.set(k, defaults[k]);
     },

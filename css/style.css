@@ -210,19 +210,6 @@ body[data-screen="home"]:not(.game-ready) #overlay {
 }
 .seg button:hover { color: var(--ink); border-color: var(--line-2); }
 .seg button.on { color: var(--ink); border-color: var(--accent); background: rgba(255, 95, 0, .14); }
-/* 装备选择：每行左边是槽位名，右边是可选项 */
-.picks { display: flex; flex-direction: column; gap: 4px; }
-.pick { display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 8px; }
-.pick > span { font-family: var(--font-m); font-size: 11px; color: var(--dim); }
-.pick .seg button { padding: 6px 0; font-size: 13px; }
-.pick .seg button.busy { color: var(--dim); }
-.loadout { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
-.loadout div {
-  padding: 7px 4px; text-align: center; border: 1px solid var(--line);
-  background: rgba(233, 228, 212, .03); display: flex; flex-direction: column; gap: 2px;
-}
-.loadout b { font-family: var(--font-d); font-size: 15px; font-weight: 600; }
-.loadout small { font-family: var(--font-m); font-size: 10px; color: var(--dim); }
 
 .btn-deploy {
   position: relative; display: flex; align-items: center; justify-content: space-between;
@@ -502,7 +489,7 @@ b.enemy { color: var(--enemy) !important; }
   100% { opacity: 0; transform: translateX(-24px); }
 }
 
-/* 购买菜单（#81）：屏幕中间，半透明，开着照样能走、能看到周围。B 经典 = 按分类分列的卡片；F 快捷 = 一排套餐卡 */
+/* 购买菜单（#81、#90）：B 经典 = 屏幕中间、按分类分列的卡片，半透明，开着照样能走；F 快捷 = 左侧一列套餐（见下面 #buy.quick） */
 #buy {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   max-width: calc(100vw - 32px); padding: 14px 16px 10px;
@@ -543,19 +530,28 @@ b.enemy { color: var(--enemy) !important; }
 #buy svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; color: var(--accent); }
 .buy-card.off svg { color: var(--muted); }
 
-.buy-packs { display: flex; gap: 10px; }
-.buy-card.pack { display: flex; flex-direction: column; align-items: stretch; width: 170px; min-height: 150px; margin: 0; }
-.buy-card.pack ul { flex: 1; margin: 0; padding: 0; list-style: none; }
-.buy-card.pack li { display: flex; align-items: center; gap: 6px; padding: 2px 0; font-size: 12px; }
-.buy-card.pack li svg { width: 16px; height: 16px; }
-.buy-card.pack li span { flex: 1; }
-.buy-card.pack li i { font-style: normal; font-family: var(--font-m); font-size: 11px; }
-/* 套餐里每一样：要买的亮，已经够了的暗（划掉），钱不够、会跳过的红 */
-.buy-card.pack li.have { opacity: .4; text-decoration: line-through; }
+/* F 快捷菜单（#90）：左侧中间一列窄条（购物车图标的位置），不挡准星，没有光标；一行一个套餐 */
+#buy.quick {
+  left: 20px; transform: translateY(-50%); width: 230px; padding: 10px 12px 8px;
+  background: rgba(10, 11, 8, .78);
+}
+#buy.quick header { margin-bottom: 6px; }
+#buy.quick h4 { font-size: 16px; }
+#buy.quick header b { font-size: 15px; }
+#buy.quick p { margin-top: 6px; }
+.buy-packs { display: flex; flex-direction: column; gap: 5px; }
+.buy-card.pack { display: block; margin: 0; padding: 6px 8px; }
+.buy-card.pack h5 { margin: 0 0 4px; font-size: 14px; }
+.buy-card.pack h5 b { margin-left: auto; font-family: var(--font-m); font-weight: 400; font-size: 13px; color: var(--accent); }
+.buy-card.pack ul { display: flex; flex-wrap: wrap; gap: 2px 8px; margin: 0; padding: 0 0 0 28px; list-style: none; }
+.buy-card.pack li { display: flex; align-items: center; gap: 1px; }
+.buy-card.pack li svg { width: 18px; height: 18px; }
+.buy-card.pack li i { font-style: normal; font-family: var(--font-m); font-size: 10px; }
+/* 套餐里每一样：要买的亮，已经够了的暗，钱不够、会跳过的红 */
+.buy-card.pack li.have { opacity: .3; }
 .buy-card.pack li.poor { color: #e0614f; }
 .buy-card.pack li.poor svg { color: #e0614f; }
-.buy-card.pack ul.empty li { color: var(--dim); font-size: 11px; line-height: 1.5; }
-.buy-card.pack > b { margin-top: 8px; text-align: right; font-size: 16px; }
+.buy-card.pack ul.empty li { color: var(--dim); font-size: 11px; }
 
 /* 买不了的那张卡：红一下、左右晃 */
 .buy-card.denied { animation: buy-card-denied .4s ease-out; }
@@ -644,6 +640,7 @@ b.enemy { color: var(--enemy) !important; }
   100% { transform: none; box-shadow: none; }
 }
 #weapons .slot.empty { opacity: .35; }
+#weapons .slot.none { opacity: .2; }   /* 还没买主武器（#90） */
 
 #hint {
   position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);

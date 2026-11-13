@@ -1,10 +1,11 @@
-// v0.41 的针对性测试：B 经典菜单 / F 快捷套餐菜单（#81）
-//   1. 菜单开着：鼠标移动的是光标（不转视角），左键点卡片购买（不开枪），按住开火不打，滚轮不切枪，WASD 照样能走
-//   2. B：数字键先选分类再选商品，买完回到选分类、面板不关；退格回到选分类；鼠标点卡片也能买
-//   3. F：Smart Buy——"买到多少"，已经够了的跳过，钱不够的那一样跳过、接着买后面的；买完关面板；什么都买不了时晃一下不关
-//   4. 自定义套餐：没记过时是空的；关 B 菜单时记住买过的那几样（存在浏览器里），F 里按一下就买回来
+// #81 的针对性测试：B 经典菜单（按 #90 更新过；F 快捷菜单纯键盘、没光标、新套餐的测试在 ingame-buy.mjs）
+//   1. B 菜单开着：鼠标移动的是光标（不转视角），按住开火不打，滚轮不切枪，WASD 照样能走
+//   2. F 开着时按 B 换成经典菜单；数字键先选分类再选商品，买完回到选分类、面板不关；退格回到选分类；鼠标点卡片也能买
+//   3. 卡片上的小字：弹药 / 投掷物写"现有 / 上限"，手上那把枪写"手上"
+//   4. "上次"套餐：没记过时是空的；关 B 菜单时记住买过的那几样（存在浏览器里），F 里按一下就买回来
+//   5. 出了购买区按 F：不开菜单
 // 用法（在仓库根目录）：node tools/tests/buy-menu.mjs
-// 截图在 tools/out/tests/：buy-classic（B 菜单，选了投掷物分类、光标停在闪光上）、buy-quick（F 菜单）
+// 截图在 tools/out/tests/：buy-classic（B 菜单，选了投掷物分类、光标停在闪光上）
 import { mkdirSync } from 'node:fs';
 import { openGame } from '../lib/game-page.mjs';
 const OUT = new URL('../out/tests/', import.meta.url).pathname;
@@ -14,7 +15,7 @@ const p = g.page;
 let fails = 0;
 const check = (ok, name, v) => { if (!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', name, v === undefined ? '' : JSON.stringify(v)); };
 
-await p.evaluate(() => {
+const C = await p.evaluate(() => {
   try { localStorage.removeItem(Game.Economy.CUSTOM_KEY); } catch (e) { /* 忽略 */ }
   game.economy.custom = [];
   game.ui.show(null);
@@ -47,60 +48,29 @@ await p.evaluate(() => {
     return { money: game.economy.money, menu: game.economy.menu, rifle: w.guns.rifle.ammo + w.guns.rifle.reserve,
       pistol: w.guns.pistol.ammo + w.guns.pistol.reserve, ...w.counts, current: w.current };
   };
-  game.weapon.equipNow('rifle');
+  // 出生只有手枪（#90）：直接给上主武器，测按住开火不打、滚轮不切枪要用
+  game.weapon.hasRifle = true; game.weapon.equipNow('rifle'); game.weapon.refreshHud();
   game.player.position.copy(game.player.spawn);
   tick(0.3);
+  const E = Game.Config.economy;
+  return { start: E.startMoney, prices: E.prices, cats: E.categories.map((c) => c.name), rifleKey: game.weapon.guns.rifle.key,
+    throwCat: E.categories.findIndex((c) => c.items.includes('flash')) + 1, maxRifle: game.weapon.maxRounds('rifle') };
 });
+const P = C.prices, T = C.throwCat;   // T：投掷物分类的数字键
 
-// ---- 1. F 菜单：四张套餐卡，光标、视角、开火 ----
+// ---- 1. B 菜单开着：光标、视角、开火、滚轮、走路 ----
 let r = await p.evaluate(() => {
   const pl = game.player, e = game.economy;
-  press('KeyF'); tick(1 / 60);
+  press('KeyB'); tick(1 / 60);
   const yaw = pl.yaw, pitch = pl.pitch;
-  const packs = [...document.querySelectorAll('#buy .buy-card.pack')].map((c) => ({
-    id: c.dataset.buy, name: c.querySelector('h5').textContent, cost: c.querySelector(':scope > b').textContent,
-    lines: [...c.querySelectorAll('li')].map((l) => `${l.className}:${l.querySelector('span') ? l.querySelector('span').textContent : l.textContent}`),
-    off: c.classList.contains('off') }));
-  pointAt('pack1');
+  pointAt('smoke');
   const hover = document.querySelector('#buy .hover');
-  const cursor = document.getElementById('buy-cursor').style.display;
-  return { menu: e.menu, packs, yawSame: pl.yaw === yaw && pl.pitch === pitch, hover: hover && hover.dataset.buy, cursor,
-    cue: document.getElementById('buy-cue').classList.contains('show') };
-});
-check(r.menu === 'quick' && r.cursor === 'block' && !r.cue, '在出生点按 F：打开快捷菜单，出光标，购物车图标收起', r);
-check(r.packs.map((x) => x.name).join() === '1补满,2突击,3经济,4自定义', '四张套餐：补满 / 突击 / 经济 / 自定义', r.packs.map((x) => x.name));
-const assault = r.packs[1];
-check(assault.cost === '$420' && assault.lines.join() === 'buy:AK 弹匣,buy:手雷,poor:闪光',
-  '突击（$600）：AK 补到 3 匣 $120 + 手雷补到 2 个 $300，闪光钱不够标红，显示这次花 $420', assault);
-check(r.packs[3].off && /B 菜单/.test(r.packs[3].lines.join()), '自定义还没记过：灰的，写着在 B 菜单里买过一次后自动记住', r.packs[3]);
-check(r.yawSame && r.hover === 'pack1', '移动鼠标：光标移到突击卡上（高亮），视角不动', r);
-await p.waitForTimeout(500);
-await p.screenshot({ path: `${OUT}buy-quick.jpg`, type: 'jpeg', quality: 85 });
-
-// ---- 2. 点突击：Smart Buy ----
-r = await p.evaluate(() => {
-  const shots = game.hud.stats.shots;
-  sounds.length = 0;
-  click();
-  return { ...state(), shots: game.hud.stats.shots - shots, sounds: [...sounds], menuEl: document.getElementById('buy').style.display,
-    cursor: document.getElementById('buy-cursor').style.display };
-});
-check(r.money === 180 && r.rifle === 90 && r.frag === 2 && r.flash === 0, '点突击：AK 买 2 个弹匣、手雷 1 个，闪光钱不够跳过，剩 $180', r);
-check(r.menu === null && r.menuEl === 'none' && r.cursor === 'none', '套餐买完面板关掉，光标消失', r);
-check(r.shots === 0 && r.sounds.join() === 'purchase' && r.current === 'rifle', '点击不开枪、不切枪，只响一声 purchase', r);
-
-// ---- 3. 什么都买不了：晃一下，面板不关 ----
-r = await p.evaluate(() => {
-  press('KeyF'); tick(1 / 60);
-  sounds.length = 0;
-  press('Digit3'); tick(1 / 60);   // 经济：AK 已经 3 匣（跳过），闪光 $200 买不起
-  return { ...state(), sounds: [...sounds], denied: document.querySelector('#buy [data-buy="pack2"]').classList.contains('denied') };
-});
-check(r.menu === 'quick' && r.money === 180 && r.sounds.join() === 'denied' && r.denied, '经济套餐什么都买不了：卡片晃一下、响 denied，面板不关', r);
-
-// ---- 4. 菜单开着：按住开火不打，滚轮不切枪，WASD 能走 ----
-r = await p.evaluate(() => {
-  const pl = game.player, shots = game.hud.stats.shots, ammo = game.weapon.guns.rifle.ammo, x0 = pl.position.clone();
+  const look = { yawSame: pl.yaw === yaw && pl.pitch === pitch, hover: hover && hover.dataset.buy, menu: e.menu,
+    cursor: document.getElementById('buy-cursor').style.display, cue: document.getElementById('buy-cue').classList.contains('show') };
+  // 光标移到左上角（不在卡片上），不然下面按开火就是点卡片买东西
+  game.input.mouseX -= 10000; game.input.mouseY -= 10000; tick(1 / 60);
+  look.away = !document.querySelector('#buy .hover');
+  const shots = game.hud.stats.shots, ammo = game.weapon.guns.rifle.ammo, x0 = pl.position.clone();
   game.input.down.add('Mouse0'); press('Mouse0');
   game.input.wheel = 1;
   game.input.down.add('KeyW');
@@ -108,57 +78,72 @@ r = await p.evaluate(() => {
   game.input.down.delete('KeyW'); game.input.down.delete('Mouse0');
   const moved = pl.position.distanceTo(x0);
   pl.position.copy(pl.spawn); tick(1 / 60);
-  return { shots: game.hud.stats.shots - shots, ammo: game.weapon.guns.rifle.ammo === ammo, current: game.weapon.current, pending: game.weapon.pending, moved, menu: game.economy.menu };
+  return { look, shots: game.hud.stats.shots - shots, ammo: game.weapon.guns.rifle.ammo === ammo, current: game.weapon.current,
+    pending: game.weapon.pending, moved, menu: e.menu };
 });
-check(r.shots === 0 && r.ammo && r.current === 'rifle' && !r.pending, '菜单开着：按住开火不打、滚轮不切枪', r);
-check(r.moved > 0.3 && r.menu === 'quick', '菜单开着照样能走', r);
+check(r.look.menu === 'classic' && r.look.cursor === 'block' && !r.look.cue, '在出生点按 B：打开经典菜单，出光标，购物车图标收起', r.look);
+check(r.look.yawSame && r.look.hover === 'smoke', '移动鼠标：光标移到烟雾卡上（高亮），视角不动', r.look);
+check(r.look.away && r.shots === 0 && r.ammo && r.current === 'rifle' && !r.pending, 'B 菜单开着：按住开火不打、滚轮不切枪', r);check(r.moved > 0.3 && r.menu === 'classic', 'B 菜单开着照样能走', r);
 
-// ---- 5. B 经典菜单：先选分类再选商品，鼠标点 ----
-r = await p.evaluate(() => {
+// ---- 2. F 开着按 B 换成经典菜单；先选分类再选商品，鼠标点 ----
+r = await p.evaluate((T) => {
   const e = game.economy;
-  e.money = 2000; game.hud.setMoney(2000);
+  press('KeyB'); tick(1 / 60);       // 关掉
+  press('KeyF'); tick(1 / 60);
+  const quick = e.menu;
+  e.money = Game.Config.economy.startMoney; game.hud.setMoney(e.money);
   press('KeyB'); tick(1 / 60);       // F 开着时按 B：换成经典菜单
   const opened = e.menu;
-  press('Digit2'); tick(1 / 60);     // 投掷物
+  const cats = [...document.querySelectorAll('.buy-cols section h5')].map((h) => h.textContent);
+  press(`Digit${T}`); tick(1 / 60);  // 投掷物
   const cat = e.cat, sel = document.querySelector('.buy-cols section.sel h5').textContent;
   press('Backspace'); tick(1 / 60);
   const back = e.cat;
-  press('Digit2'); tick(1 / 60);
+  press(`Digit${T}`); tick(1 / 60);
   sounds.length = 0;
   press('Digit3'); tick(1 / 60);     // 烟雾
   const afterSmoke = { ...state(), cat: e.cat, sounds: [...sounds] };
   pointAt('flash'); click();         // 鼠标点闪光
   const afterFlash = state();
-  press('Digit2'); tick(1 / 60);     // 选投掷物，光标停在闪光上，截图用
+  const notes = Object.fromEntries([...document.querySelectorAll('#buy .buy-card')].map((c) => [c.dataset.buy, c.querySelector('i').textContent]));
+  press(`Digit${T}`); tick(1 / 60); // 选投掷物，光标停在闪光上，截图用
   pointAt('flash');
-  return { opened, cat, sel, back, afterSmoke, afterFlash };
-});
-check(r.opened === 'classic', 'F 菜单开着时按 B：换成经典菜单', r.opened);
-check(r.cat === 1 && r.sel === '2投掷物' && r.back === -1, '按 2 选中投掷物分类（高亮），退格回到选分类', r);
-check(r.afterSmoke.smoke === 1 && r.afterSmoke.money === 1700 && r.afterSmoke.menu === 'classic' && r.afterSmoke.cat === -1,
-  '再按 3 买到烟雾：扣 $300，面板不关，回到选分类', r.afterSmoke);
-check(r.afterFlash.flash === 1 && r.afterFlash.money === 1500 && r.afterFlash.menu === 'classic', '鼠标点闪光卡：买到，扣 $200，面板不关', r.afterFlash);
+  return { quick, opened, cats, cat, sel, back, afterSmoke, afterFlash, notes };
+}, T);
+check(r.quick === 'quick' && r.opened === 'classic', 'F 菜单开着时按 B：换成经典菜单', r);
+check(r.cats.length === 4 && r.cats.join() === C.cats.map((n, i) => `${i + 1}${n}`).join(), 'B 菜单四个分类：主武器 / 手枪 / 弹药 / 投掷物', r.cats);
+check(r.cat === T - 1 && r.sel === `${T}投掷物` && r.back === -1, `按 ${T} 选中投掷物分类（高亮），退格回到选分类`, r);
+check(r.afterSmoke.smoke === 1 && r.afterSmoke.money === C.start - P.smoke && r.afterSmoke.menu === 'classic' && r.afterSmoke.cat === -1
+  && r.afterSmoke.sounds.join() === 'purchase', `再按 3 买到烟雾：扣 $${P.smoke}，面板不关，回到选分类`, r.afterSmoke);
+check(r.afterFlash.flash === 1 && r.afterFlash.money === C.start - P.smoke - P.flash && r.afterFlash.menu === 'classic',
+  `鼠标点闪光卡：买到，扣 $${P.flash}，面板不关`, r.afterFlash);
+check(r.notes.flash === '1 / 2' && r.notes.smoke === '1 / 1' && r.notes.frag === '1 / 2', '投掷物卡片写"现有 / 上限"', r.notes);
+check(r.notes.rifle === `${r.afterFlash.rifle} / ${C.maxRifle}` && r.notes[C.rifleKey] === '手上', '弹药卡片写现有几发 / 上限，手上那把枪写"手上"', r.notes);
 await p.waitForTimeout(500);
 await p.screenshot({ path: `${OUT}buy-classic.jpg`, type: 'jpeg', quality: 85 });
 
-// ---- 6. 自定义套餐：关 B 时记住买过的那几样 ----
+// ---- 3. "上次"套餐：关 B 时记住买过的那几样 ----
 r = await p.evaluate(() => {
   const e = game.economy, w = game.weapon;
+  const empty = e.packages().at(-1).items.length;   // 关 B 之前，"上次"还没记过
   press('KeyB'); tick(1 / 60);       // 关 B → 记住
   const saved = JSON.parse(localStorage.getItem(Game.Economy.CUSTOM_KEY));
   w.respawn(); e.money = 1000; game.hud.setMoney(1000);
   const before = state();
   press('KeyF'); tick(1 / 60);
-  const lines = [...document.querySelectorAll('#buy [data-buy="pack3"] li')].map((l) => l.textContent);
-  press('Digit4'); tick(1 / 60);
-  return { saved, before, lines, after: state() };
+  const cards = [...document.querySelectorAll('#buy .buy-card.pack')];
+  const last = cards.at(-1);
+  const lines = [...last.querySelectorAll('li')].map((l) => l.title);
+  press(`Digit${cards.length}`); tick(1 / 60);
+  return { empty, saved, before, name: last.querySelector('h5').textContent, n: cards.length, lines, after: state() };
 });
+check(r.empty === 0, '"上次"没记过时是空的', r.empty);
 check(JSON.stringify(r.saved) === '[["smoke",1],["flash",1]]', '关 B 菜单时，按买的先后记下烟雾 1、闪光 1（存在浏览器里）', r.saved);
-check(r.lines.join() === '烟雾×1,闪光×1', 'F 菜单的自定义卡显示烟雾 ×1、闪光 ×1', r.lines);
-check(r.before.smoke === 0 && r.after.smoke === 1 && r.after.flash === 1 && r.after.money === 500 && r.after.menu === null,
-  '重生后按 F、4：买回烟雾和闪光，扣 $500，面板关掉', r);
+check(/上次/.test(r.name) && r.lines.join() === '烟雾,闪光', 'F 菜单最后一张"上次"：烟雾、闪光', r);
+check(r.before.smoke === 0 && r.after.smoke === 1 && r.after.flash === 1 && r.after.money === 1000 - P.smoke - P.flash && r.after.menu === null,
+  `重生后按 F、${r.n}：买回烟雾和闪光，扣 $${P.smoke + P.flash}，面板关掉`, r);
 
-// ---- 7. 出区：不开菜单 ----
+// ---- 4. 出区：不开菜单 ----
 r = await p.evaluate(() => {
   game.player.position.x += 6; tick(0.1);
   sounds.length = 0;

@@ -2,7 +2,7 @@
 // 界面流程：加载 → 首页 → 作战简报 → 战斗 ⇄ 暂停 → 结算 → 首页
 //
 //   boot    加载页：地图、枪模、手臂加载进度（main.js 在创建游戏对象前就会用到，所以是静态方法）
-//   home    首页：选模式、看地图和装备、设置。不全屏，背后是训练场的 3D 画面
+//   home    首页：选模式、看地图、天气、杀数、设置（枪在局内买，NPC 随机，首页不选装备，#90）。不全屏，背后是训练场的 3D 画面
 //   brief   作战简报：点"进入战斗"后进入全屏并显示，再点一下锁定鼠标开始
 //   null    战斗中：所有界面隐藏，只剩 HUD
 //   pause   暂停：按 Esc 解锁鼠标时出现，可以继续、改设置、重开、回首页
@@ -34,7 +34,6 @@ Game.UI = class UI {
     this.mode = Game.Settings.get('mode');   // 首页当前选中的模式
     this.npcReady = false;
     this.npcNote = 'NPC 模型加载中…';
-    this.loading = {};       // 正在下载模型的装备槽：rifle / pistol / npc → true
 
     // main.js 设置的回调
     this.onDeploy = null;    // (mode) 点"进入战斗"：开局并进入全屏
@@ -42,7 +41,6 @@ Game.UI = class UI {
     this.onResume = null;    // 暂停里点"继续"
     this.onRestart = null;   // 重新开始 / 再来一局
     this.onQuit = null;      // 回首页
-    this.onLoadout = null;   // (slot) 首页换了装备：下载并换上新模型，返回 Promise
 
     this.buildHome();
     this.buildSettings();
@@ -192,12 +190,6 @@ Game.UI = class UI {
       duelLen.appendChild(b);
     }
 
-    // 装备选择：点按钮切换（事件委托，按钮每次 renderMode 重画）
-    $('loadout-pick').addEventListener('click', (e) => {
-      const b = e.target.closest('button[data-slot]');
-      if (b) this.pickLoadout(b.dataset.slot, b.dataset.key);
-    });
-
     $('btn-deploy').addEventListener('click', () => {
       if (this.deployBlocked()) return;
       this.audio.init();
@@ -228,32 +220,7 @@ Game.UI = class UI {
   }
 
   deployBlocked() {
-    return (UI.MODES[this.mode].npc && (!this.npcReady || this.loading.npc)) || this.loading.rifle || this.loading.pistol;
-  }
-
-  // 换装备：存进设置（settings 写回 Game.Config），交给 main.js 下载模型；失败就换回原来的
-  pickLoadout(slot, key) {
-    const prev = Game.Settings.get(slot);
-    if (key === prev || this.loading[slot]) return;
-    Game.Settings.set(slot, key);
-    this.loading[slot] = true;
-    this.renderMode();
-    const done = this.onLoadout ? this.onLoadout(slot) : Promise.resolve();
-    done.then((ok) => {
-      if (ok === false) {    // NPC 模型加载失败
-        this.toast(`${Game.Config.loadout.npc[key].name} 模型加载失败`);
-        Game.Settings.set(slot, prev);
-        return this.onLoadout(slot);
-      }
-    }).catch((err) => {
-      console.error(err);
-      this.toast(`${Game.Config.loadout[slot][key].name} 模型加载失败`);
-      Game.Settings.set(slot, prev);
-      return this.onLoadout(slot);
-    }).finally(() => {
-      this.loading[slot] = false;
-      this.renderMode();
-    });
+    return UI.MODES[this.mode].npc && !this.npcReady;
   }
 
   // 按当前选中的模式刷新首页
@@ -266,41 +233,14 @@ Game.UI = class UI {
     for (const b of document.querySelectorAll('#mode-list .mode')) b.classList.toggle('on', b.dataset.mode === this.mode);
     $('opt-duel').style.display = this.mode === 'duel' ? '' : 'none';
     for (const b of $('duel-len').children) b.classList.toggle('on', Number(b.dataset.n) === Game.Config.duel.winScore);
-    $('loadout-pick').innerHTML = this.pickHtml();
-    $('loadout').innerHTML = this.loadoutHtml();
 
     const blocked = this.deployBlocked();
     const btn = $('btn-deploy');
     btn.disabled = blocked;
-    btn.firstElementChild.textContent = !blocked ? '进入战斗'
-      : this.loading.rifle || this.loading.pistol ? '枪模加载中…' : 'NPC 模型加载中…';
+    btn.firstElementChild.textContent = blocked ? 'NPC 模型加载中…' : '进入战斗';
     const chip = $('npc-status');
     chip.textContent = this.npcNote;
     chip.style.display = this.npcNote ? '' : 'none';
-  }
-
-  // 可切换的装备：主武器、副武器，有 NPC 的模式再加一行对手形象
-  pickHtml() {
-    const L = Game.Config.loadout;
-    const rows = [['rifle', '主武器'], ['pistol', '副武器']];
-    if (UI.MODES[this.mode].npc) rows.push(['npc', '对手']);
-    return rows.map(([slot, label]) => {
-      const cur = Game.Settings.get(slot);
-      const btns = Object.entries(L[slot]).map(([key, it]) => {
-        const on = key === cur;
-        const busy = on && this.loading[slot];
-        return `<button data-slot="${slot}" data-key="${key}" class="${on ? 'on' : ''}${busy ? ' busy' : ''}">${it.name}${busy ? '…' : ''}</button>`;
-      }).join('');
-      return `<div class="pick"><span>${label}</span><div class="seg">${btns}</div></div>`;
-    }).join('');
-  }
-
-  // 投掷物：数量
-  loadoutHtml() {
-    const G = Game.Config.grenades;
-    const unlimited = this.mode === 'range';   // 训练场投掷物不限量
-    return ['frag', 'flash', 'smoke']
-      .map((k) => `<div><b>${G[k].name}</b><small>${unlimited ? '× ∞' : `× ${G[k].count}`}</small></div>`).join('');
   }
 
   // ---------- 设置 ----------
@@ -454,20 +394,20 @@ Game.UI = class UI {
 Game.UI.MODES = {
   duel: {
     title: '1v1 对决', en: 'DUEL', sub: '和一名 NPC 对手互相猎杀', npc: true,
-    desc: '在集装箱堆场里和一名 NPC 对手正面交锋。双方装备相同，阵亡后几秒重生，先拿到指定击杀数的一方获胜。',
+    desc: '在集装箱堆场里和一名 NPC 对手正面交锋。出生只有手枪，在出生点买主武器；阵亡后几秒重生，先拿到指定击杀数的一方获胜。',
     tags: () => ['1 名对手', `先到 ${Game.Config.duel.winScore} 杀`, `阵亡 ${Game.Config.duel.respawnDelay} 秒重生`],
-    goal: () => `先拿到 ${Game.Config.duel.winScore} 次击杀。对手的装备和你一样，注意它也会丢雷。`,
+    goal: (k) => `先拿到 ${Game.Config.duel.winScore} 次击杀。出生只有手枪，在出生点按 ${k('quickBuy')} 一键买齐主武器和子弹（死了主武器会丢）。对手随机配枪，注意它也会丢雷。`,
   },
   waves: {
     title: '波次生存', en: 'WAVES', sub: '敌人一波比一波多', npc: true,
     desc: '敌人一波接一波地涌来，人数越来越多。清完一波回满血、补满弹药，只有一条命，看你能撑到第几波。',
     tags: () => ['无限波次', '只有一条命', '清波回血补弹'],
-    goal: () => '消灭每一波敌人。清完一波会回满血、补满弹药，阵亡即结束。',
+    goal: (k) => `消灭每一波敌人。先在出生点按 ${k('quickBuy')} 买主武器。清完一波会回满血、补满弹药，阵亡即结束。`,
   },
   range: {
     title: '训练场', en: 'RANGE', sub: '打靶、练枪、练投掷', npc: false,
-    desc: '站在高台上打固定靶和移动靶，熟悉后坐力、散布和投掷弧线。投掷物不限量，没有敌人。',
+    desc: '站在高台上打固定靶和移动靶，熟悉后坐力、散布和投掷弧线。在出生点免费买枪，子弹和投掷物不限量，没有敌人。',
     tags: () => ['固定靶 + 移动靶', '投掷物不限量', '没有敌人'],
-    goal: (k) => `随便打。按 ${k('resetStats')} 重置统计，Esc 暂停或回首页。`,
+    goal: (k) => `随便打。在出生点按 ${k('quickBuy')} / ${k('buy')} 免费买枪，按 ${k('resetStats')} 重置统计，Esc 暂停或回首页。`,
   },
 };

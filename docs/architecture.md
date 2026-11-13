@@ -11,9 +11,9 @@
 - **打开网页只建首页，点"进入战斗"才下载资源、创建游戏**（#85）。`main.js` 的 `Game.Main` 分两段：
   - `boot()`：`Assets.init()` 读资源清单，`World.loadMapData` 只读地图文件（几 KB，首页显示地图名），建 `input / audio / hud / ui`
     （`ui.world` 先是只有 `mapName` 的占位），`DevLog.attach` 先给这几个（首页设置里就能解锁开发者），显示首页。首页背景是静态截图，
-    这一段换装备只记选择不下载（`ui.onLoadout` 直接返回）。
+    首页这一段不下载任何模型。
   - `load(mode)`（点"进入战斗"，全屏已在点击里同步发起）：`Assets.prefetch` 把这一局要的文件读进内存——地图目录、开局天气目录、
-    选中的主副武器、手臂、音效，对战模式再加 NPC 模型——加载页显示"下载资源 x / y MB"；然后照常 `World.loadMap`、`GunModel.loadGun / loadArms`、
+    上次买的主武器和手枪（`Settings` 的 `rifle` / `pistol`）、手臂、音效，对战模式再加一个随机的 NPC 形象——加载页显示"下载资源 x / y MB"；然后照常 `World.loadMap`、`GunModel.loadGun / loadArms`、
     `Character.load` 解码，`startGame(mapData, shell)` 创建渲染器和其余对象，`body.game-ready` 让首页背景换成实时 3D，最后 `game.deploy(mode)` 开局进简报。
     之后再进战斗直接 `deploy`，不再下载。任何一步失败，原因显示在加载页上，下面有"返回首页"，再点进入战斗会重试。
   - 测试脚本用 `Game.Main.load(mode)` 直接建游戏（`tools/lib/game-page.mjs`）。
@@ -25,17 +25,19 @@
   没有清单（本地 `start.sh`、`server/api.py --static`，控制台会有一条清单 404）时什么都不缓存，加载器直接走网络，改了素材刷新就能看到。
 - 浏览器控制台里的 `window.game` 能拿到所有对象（`game.player`、`game.weapon`、`game.bots`……），调试和测试脚本都靠它。
 
-## 可选装备（换枪、换 NPC 形象）
+## 装备的物料（局内买枪、NPC 随机）
 
-- 可选项在 `config.js` 的 `loadout`（`rifle` / `pistol` / `npc` 三组，key 是存档名）。首页"装备"里点选，存进 `Game.Settings`，
-  `settings.js` 把选中的那项写回 `Game.Config`：`weapons.rifle` / `weapons.pistol` = 默认数值 + 这把枪的覆盖项，`character.model` = NPC 模型路径。
-  所以其他代码照常读 `Game.Config.weapons.rifle`，不用知道选的是哪把。
-- 模型按需下载：开局只加载选中的枪；首页换枪时 `ui.pickLoadout` → `main.js` 的 `ui.onLoadout` → `GunModel.loadGun` 下载（同一文件只下一次），
-  好了再 `weapon.buildGun(slot)` 重建这一格的枪模和手臂。下载期间"进入战斗"不可点；失败就提示并换回原来的。
-- NPC 形象：`Character.load()` 按 `character.model` 加载（有缓存），之后新生成的 NPC 用它。NPC 每局开始时重建，所以换形象下一局生效。
-- NPC 的枪和玩家用同一套 `loadout`，但不跟着玩家的选择：每个 NPC 出生时 `bots.Manager.pickGuns` 每格随机挑一把（#54），
-  数值用 `Settings.gunConfig(slot, key)`（默认数值 + 那把枪的覆盖项），存在 `bot.gun`，不读 `Game.Config.weapons`（那是玩家选的）。
-  玩家没选的枪在游戏创建后（进入战斗时）由 `main.js` 后台下载，不算进进度条；`pickGuns` 只从已经下载好的里挑（`GunModel.isGunLoaded`），都没好就用玩家选的。
+- 可选项在 `config.js` 的 `loadout`（`rifle` / `pistol` / `npc` 三组，key 是存档名）。首页不选装备（#90）：枪在局内的购买区买，
+  买到的那把记进 `Game.Settings` 的 `rifle` / `pistol`（"上次买的"），`settings.js` 把它写回 `Game.Config`：`weapons.rifle` / `weapons.pistol` = 默认数值 + 这把枪的覆盖项。
+  所以其他代码照常读 `Game.Config.weapons.rifle`，不用知道是哪把。出生拿的手枪、F 套餐里的"主武器"、进入战斗时先下载的枪都是"上次买的"。
+- 玩家有没有主武器是 `weapon.hasRifle`（#90）：`reset` / `respawn` 置 false 并掏手枪，`canEquip('rifle')` 跟着它，武器栏那一格 `none`。
+  `economy.giveGun(slot, key)` 先 `Settings.set`，再 `weapon.giveGun(slot)` → `buildGun(slot, true)` 按新的 `Game.Config.weapons[slot]` 重建枪模和手臂（新枪枪里一个满弹匣、没备弹），再切过去。
+- 模型按需下载：进入战斗只下载"上次买的"两把；别的枪在游戏创建后由 `main.js` 后台下载，不算进进度条，没下好之前购买菜单里是灰的（`GunModel.isGunLoaded`）。
+- NPC 形象（#90）：每个 NPC 出生时 `Character.create` 从已经下载好的形象里随机挑一个（`character.js` 的 `ready`，每个形象自己量步幅 `gait`，存在 `SoldierModel.gait`）。
+  进入对战模式时先下载随机的一个，其余在游戏创建后后台下载；一个都没下好时首页"进入战斗"不可点，全都失败退回方块小人。
+- NPC 的枪和玩家用同一套 `loadout`：每个 NPC 出生时 `bots.Manager.pickGuns` 每格随机挑一把（#54），一定有主武器（只有手枪太弱，#90），
+  数值用 `Settings.gunConfig(slot, key)`（默认数值 + 那把枪的覆盖项），存在 `bot.gun`，不读 `Game.Config.weapons`（那是玩家的）。
+  `pickGuns` 只从已经下载好的里挑，都没好就用玩家上次买的（开局前一定下好了）。
   NPC 手上的 glb 枪模克隆自 `GunModel.loadedGun(path)`，网格材质共用，标 `userData.shared` 不释放；
   右手 / 左手 IK 的目标直接用第一人称的握持点 `Weapon.VIEW[key].right.pos` / `left.pos`（左手往下挪 `GUARD_SHIFT` 托在护木下），
   枪的位置按"握把落在方块枪握把的同一点"摆，所以加新枪只要 `Weapon.VIEW` 写好，NPC 不用另调。glb 没下载好时退回方块步枪 / 默认手枪。
@@ -65,7 +67,7 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 
 1. `dt` 最长限制 0.05 秒（切出窗口回来不会穿墙）。
 2. 指针锁定时才更新玩法：`economy → player → weapon → targets → bots → grenades`。玩家死了只更新倒地镜头和重生倒计时。
-   `economy` 必须在 `player` 和 `weapon` 前面：购买菜单开着时它先拿走鼠标移动（移光标，不转视角）、左键（点卡片，不开枪）、数字键和滚轮（买东西，不切枪），见 #81。
+   `economy` 必须在 `player` 和 `weapon` 前面：购买菜单开着时它先拿走数字键（买东西，不切枪）；B 菜单还拿走鼠标移动（移光标，不转视角）、左键（点卡片，不开枪）和滚轮，见 #81、#90。
    它判断在不在购买区用的是上一帧的位置，差一帧没关系。
 3. 不管锁没锁都更新 `world`（云、动画）和 `hud`，然后 `input.endFrame()` 清掉本帧的"刚按下"。
 4. 渲染两次：先画世界场景，清深度，再画枪模场景（首页和简报不画枪模）。
@@ -108,20 +110,24 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
   出手瞬间握片弹开（"叮"一声），`grenades.throw` 带**满的** `fuse` 飞出去，飞出去的雷隐藏拉环和握片（`gunmodel.js` 里握片叫 `spoon`）。
   手上不会炸；人被打死时手一松，雷掉在脚下，从这时开始算满的引信。攥着雷不能切武器，只能丢出去，没有"把环插回去"。
   没有"捏雷"（先松握片再丢让它空爆，#22）。闪光、烟雾同样两道保险。
-- **经济**（`economy.js`，#1，只在对决和波次里有）：`bots.onPlayerKill(hit)` 报告玩家的击杀，`main.js` 按最后一击换算成赏金类型交给 `economy.award`：
+- **经济**（`economy.js`，#1）：对决和波次花钱；训练场 `economy.free`，一切免费、不显示钱、不给赏金（#90）。`bots.onPlayerKill(hit)` 报告玩家的击杀，`main.js` 按最后一击换算成赏金类型交给 `economy.award`：
   `hit.explosion` → 手雷，`hit.part === 'head'` → 爆头，其余 → 普通（手枪、步枪不区分）；NPC 被自己的雷炸死（`hit.byBot`）不给钱。
   钱有上限 `economy.maxMoney`（存款上限，#7），满了再杀不涨。钱跟着整局走，死了不清零；开新一局回到 `startMoney`，
-  重生时 `economy.onRespawn` 把不足 `startMoney` 的补上（#7）。
+  重生时 `economy.onRespawn` 把不足 `startMoney` 的补上（#7）。出生只有手枪、死了掉主武器，所以 `startMoney` 必须 ≥ 最贵的主武器（`gunPrices`），
+  负责人定的"出生后一定买得起主武器"（#90）；`Economy` 构造时检查，不够在控制台报错。
   子弹（#7）：每把枪 `gun.ammo`（枪里）+ `gun.reserve`（备弹），换弹从备弹里扣、备弹不够一个弹匣就全装上；没备弹 `startReload` 直接不换，
   打空不再自动换弹，扣扳机响 `audio.empty()`。训练场 `weapon.unlimitedAmmo` 备弹无限（HUD 显示 ∞）。
   买子弹进备弹（`weapon.addAmmo`），上限 `weapons.maxMags` 个弹匣按发数算（`ammoRoom`）。
   NPC 也有 `ammo` / `reserve`，开局和玩家一样，没有经济买不了；两把都空了 `outOfAmmo()`，交战时背离玩家跑开（#7）。
   购买区是这条命的出生点 `player.spawn` 周围 `economy.buyRadius` 米（对决里每次重生的点不一样，环跟着走），地上的环一开始就放进场景、不用时透明度 0（避免中途编译材质）。
-  购买菜单（#81）：`economy.menu` 是 `'classic'`（B）/ `'quick'`（F）/ `null`，界面由 `hud.setBuyMenu(view)` 画，每张卡带 `data-buy`（商品或 `pack0`…）。
-  菜单不解锁鼠标（解锁会触发暂停）：`economy.menuInput` 把鼠标移动量加到 `economy.cursor` 上，`hud.buyCursor(x, y)` 移光标、比卡片的位置（菜单重画后量一次）返回悬停的卡；
-  同时吃掉数字键（先读后吃，槽位键默认就是数字键）、槽位键、上一把、滚轮，开火键连"按住"也放掉。走出购买区、阵亡、再按同一个键都会关。
-  Smart Buy 是 `economy.smartPlan(items)`：只算不买，返回要买的每一件和每一样的状态（F 卡片上的"已有 / 要买 / 钱不够"和总价都用它），点了再 `buyPlan` 照着买。
-  关 B 菜单时 `saveCustom` 把这次买过的那几样记成自定义套餐（`localStorage` 的 `ds.buy.custom.v1`）。
+  商品：枪（`loadout` 的 key，`Economy.GUN_SLOT` 查是哪一格）、子弹（`rifle` / `pistol`）、投掷物；没有主武器时主武器子弹买不了（`hasGunFor`）。
+  购买菜单（#81、#90）：`economy.menu` 是 `'classic'`（B）/ `'quick'`（F）/ `null`，界面由 `hud.setBuyMenu(view)` 画，每张卡带 `data-buy`（商品或 `pack0`…）。
+  两个菜单都先读后吃数字键（槽位键默认就是数字键）。**F 只吃数字键**，鼠标、开火、滚轮都留给武器和视角（纯键盘，#90）；玩家中弹 `economy.onHurt` 关掉 F。
+  B 不解锁鼠标（解锁会触发暂停）：`economy.menuInput` 把鼠标移动量加到 `economy.cursor` 上，`hud.buyCursor(x, y)` 移光标、比卡片的位置（菜单重画后量一次）返回悬停的卡；
+  同时吃掉槽位键、上一把、滚轮，开火键连"按住"也放掉。走出购买区、阵亡、再按同一个键都会关。
+  Smart Buy 是 `economy.smartPlan(items)`：只算不买，返回要买的每一件和每一样的状态（F 上的"已有 / 要买 / 钱不够"和总价都用它），按了再 `buyPlan` 照着买。
+  套餐里的 `primary`（主武器）：有就跳过，没有买"上次买的"那把；计划里买到主武器之后，后面的主武器子弹按新枪算，`buyPlan` 先给枪再加子弹（新枪会重置子弹）。
+  关 B 菜单时 `saveCustom` 把这次买过的那几样记成"上次"套餐（买过主武器记成 `primary`，换手枪不记；`localStorage` 的 `ds.buy.custom.v1`）。
   投掷物数量：`weapon.refill(false)` 回到开局数量（重生、新一局，多买的随人一起没了），`refill(true)` 不收走多买的（波次之间）。
 - **投掷物**（`grenades.js`）：方块反弹物理、爆炸伤害、`simulate` 用同样的物理预演落点（NPC 挑丢法用）、闪光按距离和朝向致盲、烟团挡 NPC 视线（`blocksSight`），飞行轨迹是 `Trail` 类。
   - 引信出手就开始算，飞在空中到时间也炸（`grenades.js` 每帧扣 `fuse`）。手雷 2 秒（#5）：平抛十几米约 1 秒落地，3 秒时雷还要在地上躺 2 秒，对方早跑开了；

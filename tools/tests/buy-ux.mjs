@@ -1,4 +1,5 @@
-// v0.30 的针对性测试：购买体验（#33），按 #81 的 B 经典菜单更新过（菜单本身的测试见 buy-menu.mjs）
+// v0.30 的针对性测试：购买体验（#33），按 #81 的 B 经典菜单、#90 的分类（主武器 / 手枪 / 弹药 / 投掷物）更新过
+// （菜单本身的测试见 buy-menu.mjs、ingame-buy.mjs）。出生只有手枪（#90），测试里直接给上主武器
 //   1. 菜单里买成功不切武器、面板不关；关了菜单再按槽位键就切到投掷物
 //   2. 买不了（带满 / 钱不够）时面板不关
 //   3. 购买区里没有文字提示，左侧是购物车图标：买得起亮、买不起灰、面板开着收起、出区收起
@@ -35,6 +36,9 @@ await p.evaluate(() => {
   window.sounds = [];
   const a = game.economy.audio;
   for (const n of ['purchase', 'denied']) { const f = a[n].bind(a); a[n] = () => { sounds.push(n); f(); }; }
+  // 投掷物分类的数字键（#90 起是 4）
+  window.T = `Digit${Game.Config.economy.categories.findIndex((c) => c.items.includes('frag')) + 1}`;
+  game.weapon.hasRifle = true; game.weapon.refreshHud();
   window.feedback = () => {
     const slot = [...document.querySelectorAll('#weapons .slot.bought')].map((el) => el.querySelector('kbd').textContent);
     const gain = document.getElementById('money-gain');
@@ -78,15 +82,15 @@ r = await p.evaluate(() => {
   const e = game.economy, w = game.weapon;
   const before = w.counts.frag;
   sounds.length = 0;
-  press('Digit2'); tick(1 / 60);     // 投掷物分类
+  press(T); tick(1 / 60);            // 投掷物分类
   press('Digit1'); tick(1 / 60);     // 手雷
   const afterBuy = { open: e.open, frag: w.counts.frag, money: e.money, current: w.current, pending: w.pending,
     menu: document.getElementById('buy').style.display, sounds: [...sounds], fb: feedback() };
-  return { before, afterBuy };
+  return { before, afterBuy, price: Game.Config.economy.prices.frag };
 });
 check(r.afterBuy.sounds.join() === 'purchase', '买成功：放 purchase 音效', r.afterBuy.sounds);
-check(r.afterBuy.fb.slot.join() === '3' && r.afterBuy.fb.spent && r.afterBuy.fb.gain === '-$300',
-  '买成功：武器栏 3 号格闪亮回弹，钱数闪一下，旁边飘 -$300', r.afterBuy.fb);
+check(r.afterBuy.fb.slot.join() === '3' && r.afterBuy.fb.spent && r.afterBuy.fb.gain === `-$${r.price}`,
+  `买成功：武器栏 3 号格闪亮回弹，钱数闪一下，旁边飘 -$${r.price}`, r.afterBuy.fb);
 await p.waitForTimeout(120);
 await p.screenshot({ path: `${OUT}buy-bought.jpg`, type: 'jpeg', quality: 85 });
 r = { ...r, ...(await p.evaluate(() => {
@@ -105,7 +109,7 @@ check(r.mid !== null && r.mid < 0, '武器栏重画后闪亮接着播（不从�
 await p.waitForTimeout(800);
 r.gone = await p.evaluate(() => { game.weapon.refreshHud(); return feedback().slot.length; });
 check(r.gone === 0, `过了 boughtPulse 秒闪亮消失`, r.gone);
-check(r.afterBuy.frag === r.before + 1 && r.afterBuy.money === 700, '按 2、1 买到一个手雷，扣 300', r.afterBuy);
+check(r.afterBuy.frag === r.before + 1 && r.afterBuy.money === 1000 - r.price, `按投掷物分类、1 买到一个手雷，扣 ${r.price}`, r.afterBuy);
 check(r.afterBuy.open && r.afterBuy.menu === 'block', '买成功面板不关，可以接着买（#81）', r.afterBuy);
 check(r.afterBuy.current === 'rifle' && !r.afterBuy.pending, '买的那一下不切武器', r.afterBuy);
 check(r.cueBack && r.cur === 'frag', '按 B 关了菜单，购物车图标回来；再按 3 就切到手雷', r);
@@ -116,12 +120,13 @@ r = await p.evaluate(() => {
   w.equipNow('rifle'); tick(0.1);
   press('KeyB'); tick(1 / 60);
   sounds.length = 0;
-  press('Digit2'); tick(1 / 60); press('Digit1'); tick(1 / 60);     // 手雷已经带满 2 个
-  const cards = [...document.querySelectorAll('#buy .buy-card')].map((el) => el.classList.contains('denied'));
-  return { open: e.open, frag: w.counts.frag, money: e.money, current: w.current, sounds: [...sounds], cards };
+  press(T); tick(1 / 60); press('Digit1'); tick(1 / 60);     // 手雷已经带满 2 个
+  const cards = [...document.querySelectorAll('#buy .buy-card')].filter((el) => el.classList.contains('denied')).map((el) => el.dataset.buy);
+  const money0 = 1000 - Game.Config.economy.prices.frag;
+  return { open: e.open, frag: w.counts.frag, money: e.money, money0, current: w.current, sounds: [...sounds], cards };
 });
-check(r.open && r.frag === 2 && r.money === 700 && r.current === 'rifle', '带满买不了：面板不关、不扣钱、不切枪', r);
-check(r.sounds.join() === 'denied' && r.cards.join() === 'false,false,true,false,false', '买不了：放 denied 音效，手雷那张卡红一下晃一下', r);
+check(r.open && r.frag === 2 && r.money === r.money0 && r.current === 'rifle', '带满买不了：面板不关、不扣钱、不切枪', r);
+check(r.sounds.join() === 'denied' && r.cards.join() === 'frag', '买不了：放 denied 音效，只有手雷那张卡红一下晃一下', r);
 await p.waitForTimeout(60);
 await p.screenshot({ path: `${OUT}buy-denied.jpg`, type: 'jpeg', quality: 85 });
 
@@ -129,7 +134,7 @@ await p.screenshot({ path: `${OUT}buy-denied.jpg`, type: 'jpeg', quality: 85 });
 r = await p.evaluate(() => {
   const e = game.economy, w = game.weapon;
   const before = { ...w.counts };
-  press('Digit2'); press('Digit3'); tick(1 / 60);   // 还停在投掷物分类：2 闪光、3 烟雾
+  press('Digit2'); press('Digit3'); tick(1 / 60);   // 买不了时还停在投掷物分类：2 闪光、3 烟雾
   return { before, after: { ...w.counts }, open: e.open, current: w.current };
 });
 check(r.after.flash === r.before.flash + 1 && r.after.smoke === r.before.smoke && r.open && r.current === 'rifle', '同一帧按 2 和 3：只买闪光，面板不关，不切枪', r);
