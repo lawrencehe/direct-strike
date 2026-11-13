@@ -49,8 +49,13 @@ fps-game 容器（caddy:alpine，只在 Docker 网络 paseo-relay_default 内开
 容器里看到的 Caddyfile 和 `deploy/Caddyfile` 不一致时改为重建 fps-game（单文件挂载，文件被换掉而不是原地改时容器里看到的还是旧的；
 重建只影响本项目的容器，一两秒，relay 不动）。
 
-缓存策略是 `Cache-Control: no-cache`：浏览器每次先向服务器确认文件有没有变，
-没变就返回 304 用本地缓存。所以推了新版本玩家刷新就能看到，2 MB 的模型又不会被反复下载。
+缓存分两层（#85）：
+
+- **网页本身**（html、js、css、首页图片）：`Cache-Control: no-cache`，浏览器每次先向服务器确认文件有没有变，没变返回 304。推了新版本玩家刷新就能看到。
+- **游戏资源**（地图、贴图、模型、音效）：`deploy.sh` 在 rsync 之后跑 `node tools/build-manifest.mjs "$SITE"`，生成 `$SITE/assets/manifest.json`
+  （每个文件的大小和内容哈希 + 版本号，不进仓库）。游戏按清单把资源存进浏览器的 Cache Storage，以 `路径?v=哈希` 下载，哈希没变连请求都不发，
+  改了哪个文件只重下哪个（`js/assets.js`，`architecture.md` 的"加载方式"）。服务器不认 `?v=`，照常出文件。
+  所以部署时**必须生成清单**；清单缺了游戏也能玩，只是不缓存、每次进战斗都向服务器确认。
 
 ## 首次接入（已经做过，记录在这里以便重建）
 

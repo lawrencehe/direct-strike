@@ -9,23 +9,122 @@
 // ============================================================
 // 界面流程（首页 → 简报 → 战斗 → 暂停 / 结算）在 ui.js，这里只负责开局、锁鼠标、全屏这些动作。
 // ============================================================
-// 地图文件和枪模（首页上次选的主副武器）是异步加载的，都加载完才开始创建游戏对象，加载页显示进度
-// 有问题时把原因显示在加载页上，不要留一个什么都点不动的页面
-{
-  const W = Game.Config.weapons;
-  const loads = [Game.World.loadMap(Game.Config.map), Game.GunModel.loadGun(W.rifle.model), Game.GunModel.loadGun(W.pistol.model), Game.GunModel.loadArms()];
-  let done = 0;
-  Game.UI.bootProgress(0, loads.length + 1);
-  for (const p of loads) p.then(() => Game.UI.bootProgress(++done, loads.length + 1), () => {});
-  Promise.all(loads).then(([mapData]) => startGame(mapData)).catch((err) => {
+// 打开网页只建首页（背景是静态图），不下载地图和模型（#85）。点"进入战斗"才下载这一局要的资源，
+// 加载页显示进度和总大小；资源在本地缓存里且没有更新就不下载（js/assets.js）。都好了再创建渲染器和游戏对象（startGame）。
+// 之后回首页背景换成实时 3D，再进战斗不用再等。
+// 有问题时把原因显示在加载页上，并给一个"返回首页"，不要留一个什么都点不动的页面
+Game.Main = (function () {
+  const $ = (id) => document.getElementById(id);
+  let shell = null;     // 首页就要用的对象 { input, audio, hud, ui }
+  let game = null;      // startGame 的结果（也挂在 window.game 上）
+  let loading = null;   // 正在下载、创建游戏的 Promise
+
+  function fail(err, text) {
     console.error(err);
     window.gameError = err.message;
+    Game.UI.bootError(text || err.message);
+    $('btn-boot-back').hidden = !shell;
+  }
+
+  // 打开网页：读清单和地图文件（几 KB），建首页
+  async function boot() {
+    await Game.Assets.init();
+    const mapData = await Game.World.loadMapData(Game.Config.map);
+    const input = new Game.Input($('game'));
+    const audio = new Game.Audio();
+    const hud = new Game.Hud();
+    hud.input = input;            // 武器栏和底部提示要显示当前绑定的按键
+    const ui = new Game.UI({ input, hud, audio, world: { mapName: mapData.name || Game.Config.map } });
+    shell = { input, audio, hud, ui };
+    // 首页阶段换装备只记下选择，模型进入战斗时一起下载
+    ui.npcReady = true;
+    ui.npcNote = '';
+    ui.onLoadout = () => Promise.resolve();
+    ui.onDeploy = (m) => {
+      enterFullscreen();   // 要在点击里同步发起，不能等下载完
+      load(m).then((g) => g.deploy(m), () => {});
+    };
+    $('btn-boot-back').addEventListener('click', (e) => {
+      e.preventDefault();
+      exitFullscreen();
+      ui.goHome();
+    });
+    Game.DevLog.attach({ input, hud, ui });   // 首页的设置里就能解锁开发者模式；进入战斗后再补上渲染器等
+    ui.goHome();
+    Main.ready = true;
+  }
+
+  // 下载这一局要的资源并创建游戏。mode 决定要不要 NPC 模型。返回 Promise<game>
+  function load(mode) {
+    if (game) return Promise.resolve(game);
+    if (loading) return loading;
+    const { ui } = shell;
+    const C = Game.Config, A = Game.Assets;
+    let failed = false;   // 出错后别的文件还会陆续报进度，不能把错误原因盖掉
+    const bar = (frac, text) => {
+      if (failed) return;
+      $('boot-progress').style.width = `${Math.round(frac * 100)}%`;
+      const el = $('loading');
+      el.classList.remove('error');
+      el.textContent = text;
+    };
+    const MB = (n) => (n / 1048576).toFixed(1);
+    $('btn-boot-back').hidden = true;
+    bar(0, '检查资源…');
+    ui.show('boot');
+    const npc = Game.UI.MODES[mode].npc;
+    loading = (async () => {
+      // 1. 下载：地图目录、开局天气、选中的枪、手臂、音效，对战模式再加 NPC。本地缓存里有的不算
+      const files = [
+        `maps/${C.map}.json`, ...A.under(`assets/maps/${C.map}/`), ...Game.World.weatherDirs().flatMap(A.under),
+        C.weapons.rifle.model, C.weapons.pistol.model, C.weapons.arms.model, ...A.under(C.audio.samples.dir),
+        npc ? C.character.model : null,
+      ].filter(Boolean);
+      const total = await A.prefetch(files, (got, all) => bar(0.85 * got / all, `下载资源 ${MB(got)} / ${MB(all)} MB`));
+      // 2. 解码、创建场景（没有清单时下载也在这一步，进度按件数算）
+      const head = total ? 0.85 : 0;
+      const loads = [Game.World.loadMap(C.map), Game.GunModel.loadGun(C.weapons.rifle.model),
+        Game.GunModel.loadGun(C.weapons.pistol.model), Game.GunModel.loadArms()];
+      if (npc) loads.push(Game.Character.load());
+      let done = 0;
+      const text = A.version ? '准备场景…' : '加载中…';
+      bar(head, text);
+      for (const p of loads) p.then(() => bar(head + (1 - head) * (++done / (loads.length + 1)), text), () => {});
+      const [mapData] = await Promise.all(loads);
+      game = startGame(mapData, shell);
+      bar(1, text);
+      document.body.classList.add('game-ready');   // 回首页时背景换成实时 3D
+      return game;
+    })();
+    loading.catch((err) => {
+      failed = true;
+      loading = null;
+      fail(err);
+    });
+    return loading;
+  }
+
+  const Main = { ready: false, load };
+  boot().catch((err) => {
     // 浏览器不允许 file:// 页面读取地图文件
-    Game.UI.bootError(location.protocol === 'file:' ? '不能直接打开 index.html，请用 start.sh 启动' : err.message);
+    fail(err, location.protocol === 'file:' ? '不能直接打开 index.html，请用 start.sh 启动' : err.message);
   });
+  return Main;
+})();
+
+// 全屏要在点击里同步发起，被拒绝就照常窗口玩
+function enterFullscreen() {
+  const root = document.documentElement;
+  if (Game.Config.view.fullscreen && !document.fullscreenElement && root.requestFullscreen) {
+    root.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+  }
+}
+function exitFullscreen() {
+  if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
 }
 
-function startGame(mapData) {
+// shell：首页阶段已经建好的 { input, audio, hud, ui }
+function startGame(mapData, { input, audio, hud, ui }) {
   const canvas = document.getElementById('game');
 
   // ---- 渲染器 ----
@@ -68,11 +167,7 @@ function startGame(mapData) {
   };
   world.onWeather(Game.Config.weather.presets[world.weather]);
   const targets = Game.Targets.create(scene, world.targetLayout);
-  const input = new Game.Input(canvas);
-  const audio = new Game.Audio();
-  const hud = new Game.Hud();
-  hud.input = input;            // 武器栏和底部提示要显示当前绑定的按键
-  const ui = new Game.UI({ input, hud, audio, world });
+  ui.world = world;
   const effects = new Game.Effects(scene, world.colliders);
   const player = new Game.Player(camera, world.colliders, world.spawn);
 
@@ -182,22 +277,17 @@ function startGame(mapData) {
 
   // ---- 界面动作 ----
   // 全屏和锁鼠标都要在点击里同步发起，这些回调里不能 await
-  const enterFullscreen = () => {
-    const root = document.documentElement;
-    if (Game.Config.view.fullscreen && !document.fullscreenElement && root.requestFullscreen) {
-      root.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});   // 被拒绝就照常窗口玩
-    }
-  };
-  const exitFullscreen = () => {
-    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
-  };
-
+  // 全屏和锁鼠标都要在点击里同步发起，这些回调里不能 await（enterFullscreen 在文件开头）
   // 首页点"进入战斗"：全屏 → 开局 → 简报，简报里再点一下才锁鼠标
-  ui.onDeploy = (m) => {
-    enterFullscreen();
+  // 第一次是下载完资源后由 Game.Main 调 deploy（全屏已经在点击时发起了）
+  function deploy(m) {
     startMode(m);
     player.update(0, input);   // 镜头从首页背景移到出生点
     ui.showBrief(m);
+  }
+  ui.onDeploy = (m) => {
+    enterFullscreen();
+    deploy(m);
   };
   ui.onStart = () => { audio.init(); input.lock(false); };
   ui.onResume = () => { audio.init(); input.lock(Game.Config.view.fullscreen); };
@@ -306,10 +396,10 @@ function startGame(mapData) {
   effects.precompile(renderer, camera);
   grenades.precompile(renderer, camera);
   frame();
-  Game.UI.bootProgress(1, 1);
-  ui.goHome();
 
-  // NPC 模型是异步加载的，加载完才允许进入对战模式
+  // NPC 模型是异步加载的，加载完才允许进入对战模式（对战模式进来的已经加载好了，这里马上就回来）
+  ui.npcReady = false;
+  ui.npcNote = 'NPC 模型加载中…';
   Game.Character.load().then((ok) => ui.setNpcReady(ok));
 
   // NPC 每次出生随机拿 loadout 里的一把主武器、一把副武器（#54）。玩家没选的枪等首页出来后在后台下载，
@@ -329,5 +419,6 @@ function startGame(mapData) {
   };
 
   // 方便在浏览器控制台（F12）里调试，例如输入 game.player.position 查看位置
-  window.game = { scene, camera, renderer, world, targets, input, audio, hud, ui, player, weapon, grenades, effects, bots, economy, startMode };
+  window.game = { scene, camera, renderer, world, targets, input, audio, hud, ui, player, weapon, grenades, effects, bots, economy, startMode, deploy };
+  return window.game;
 }

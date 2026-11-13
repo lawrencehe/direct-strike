@@ -15,6 +15,8 @@ rsync -a --delete \
   --exclude deploy --exclude deploy.sh --exclude 'start.*' --exclude server \
   --exclude docs --exclude .claude --exclude CLAUDE.md --exclude tools --exclude assets-src \
   ./ "$SITE/"
+# 资源清单（#85）：每个游戏资源的大小和内容哈希，浏览器拿它和本地缓存比对，变了的文件才重新下载
+node tools/build-manifest.mjs "$SITE"
 
 # 开发接口要的密码文件和数据目录（首次部署时生成密码，之后不动）
 mkdir -p "$DATA/devlogs" "$API"

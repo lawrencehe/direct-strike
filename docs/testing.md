@@ -15,6 +15,9 @@ node tools/verify.mjs            # Claude Code 里是 /verify
 
 改了玩法逻辑（武器、投掷物、NPC、死亡效果）时，冒烟验证不够，需要写脚本把场景摆出来、模拟操作、检查状态并截图。
 `tools/lib/game-page.mjs` 的 `openGame` 负责启动页面，剩下的靠 `window.game`。
+打开网页只建首页，`openGame` 会调 `Game.Main.load('duel')` 下载资源、创建游戏再回首页（和以前打开网页的状态一样）；
+要测首页本身或进入战斗的加载流程用 `openGame({ cold: true })`，停在首页、没有 `window.game`（#85）。
+它的本地服务每次现算资源清单，测试走和线上一样的缓存路径；用 `server/api.py --static` 起服务的测试没有清单，清单 404 要排除（见 `tests/devlog.mjs`）。
 
 要点：
 
@@ -56,6 +59,8 @@ await g.close();
 ```
 
 `openGame` 还返回 `problems`（控制台报错列表），结束前检查它为空。
+
+`tools/tests/asset-cache.mjs` 测按需下载和缓存：首页不下资源、HUD 不闪、进度和总大小、刷新后零请求、改一个文件只重下一个（#85）。
 
 - 用 tick 推进时如果开着开发者模式，录下的时间是真实时钟，几秒的模拟会挤在一瞬间；要像真机一样的时间，
   每步设 `Game.DevLog._debug.simNow`（毫秒），用完设回 -1，见 `tools/tests/devlog.mjs`。
