@@ -90,6 +90,13 @@ body[data-screen="brief"] #hud { display: none; }
   margin-top: 14px; font-family: var(--font-m); font-size: 12px; letter-spacing: .15em; color: var(--muted);
 }
 #loading.error { color: var(--enemy); letter-spacing: 0; font-family: var(--font-t); font-size: 14px; }
+#btn-boot-back { display: inline-block; margin-top: 18px; }
+#btn-boot-back[hidden] { display: none; }
+
+/* 打开网页时游戏还没创建（点进入战斗才下载资源，#85）：首页背景用训练场的静态截图；创建后（body.game-ready）透出实时 3D */
+body[data-screen="home"]:not(.game-ready) #overlay {
+  background: var(--bg) url(../assets/ui/home-bg.webp) center / cover no-repeat;
+}
 
 /* ============================================================
    首页

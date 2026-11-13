@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { buildManifest } from '../build-manifest.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const OUT = path.join(ROOT, 'tools/out');
@@ -16,6 +17,12 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; cha
 export function startServer() {
   const server = http.createServer((req, res) => {
     const rel = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    // 资源清单每次现算（线上由 deploy.sh 生成），测试走的是和线上一样的"清单 + 本地缓存"路径（#85）
+    if (rel === '/assets/manifest.json') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(buildManifest(ROOT)));
+      return;
+    }
     const file = path.join(ROOT, rel === '/' ? 'index.html' : rel);
     // 防止 ../ 跳出项目目录
     if (!file.startsWith(ROOT + path.sep) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
@@ -28,7 +35,7 @@ export function startServer() {
 }
 
 // mapFile：用这个文件代替游戏配置的地图，用来检查还没启用的新地图
-export async function openGame({ width = 1280, height = 720, url, mapFile } = {}) {
+export async function openGame({ width = 1280, height = 720, url, mapFile, cold = false } = {}) {
   const { server, port } = url ? { server: null, port: 0 } : await startServer();
   const browser = await chromium.launch({
     args: ['--use-angle=swiftshader', '--use-gl=angle', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
@@ -44,12 +51,18 @@ export async function openGame({ width = 1280, height = 720, url, mapFile } = {}
   const t0 = Date.now();
   if (mapFile) await page.route('**/maps/*.json', (r) => r.fulfill({ body: fs.readFileSync(mapFile), contentType: 'application/json' }));
   await page.goto(url || `http://127.0.0.1:${port}/`, { waitUntil: 'commit', timeout: 180000 });
+  // 打开网页只建首页，点"进入战斗"才下载资源、创建游戏（#85）。cold：停在首页，不创建游戏（测首页和加载流程用）；
+  // 否则直接调 Game.Main.load（对决要的资源，含 NPC 模型）创建游戏，再回到首页，和以前打开网页的状态一样。
   // 注意：页面里有 <canvas id="game">，浏览器会自动把它挂成 window.game，所以要等真正的游戏对象（有 startMode）
-  await page.waitForFunction(() => (window.game && window.game.startMode) || window.gameError, null, { timeout: 180000 });
+  await page.waitForFunction(() => (window.Game && Game.Main && Game.Main.ready) || window.gameError, null, { timeout: 180000 });
+  if (!cold) {
+    await page.evaluate(() => Game.Main.load('duel').then((g) => g.ui.goHome(), () => {}));
+    await page.waitForFunction(() => (window.game && window.game.startMode) || window.gameError, null, { timeout: 180000 });
+  }
   const startError = await page.evaluate(() => window.gameError);
   if (startError) { await browser.close(); if (server) server.close(); throw new Error(startError); }
   const startupSeconds = +((Date.now() - t0) / 1000).toFixed(1);
-  const modelOk = await page.evaluate(() => Game.Character.load());
+  const modelOk = cold ? null : await page.evaluate(() => Game.Character.load());
   const close = async () => { await browser.close(); if (server) server.close(); };
   return { page, problems, modelOk, startupSeconds, close };
 }

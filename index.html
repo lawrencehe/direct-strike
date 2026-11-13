@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body data-screen="boot">
   <canvas id="game"></canvas>
 
   <!-- 抬头显示（HUD）：只在战斗中显示，由 hud.js 控制 -->
@@ -64,12 +64,13 @@
   <div id="overlay">
 
     <!-- 加载页 -->
-    <section class="screen" id="scr-boot">
+    <section class="screen on" id="scr-boot">
       <div class="boot">
         <img src="assets/brand/logo-dark.png" alt="Direct-Strike" width="217" height="110">
         <div class="boot-bar"><i id="boot-progress"></i></div>
-        <!-- 地图和枪模加载完之前显示"加载中"，出错时显示原因 -->
+        <!-- 打开网页时显示"加载中"；进入战斗时显示下载进度和大小（main.js 的 Game.Main），出错时显示原因 -->
         <div id="loading">加载中…</div>
+        <a href="#" class="link" id="btn-boot-back" hidden>返回首页</a>
       </div>
     </section>
 
@@ -78,7 +79,7 @@
       <header class="topbar">
         <a class="brand" href="#" data-tab="play">
           <img src="assets/brand/logo-dark.png" alt="" width="63" height="32">
-          <span>DIRECT-STRIKE <small>v0.41</small></span>
+          <span>DIRECT-STRIKE <small>v0.42</small></span>
         </a>
         <nav class="tabs">
           <a href="#" data-tab="play" class="on">作战</a>
@@ -232,6 +233,7 @@
   <script src="vendor/meshopt_decoder.js"></script>
   <script src="vendor/SkeletonUtils.js"></script>
   <script src="js/config.js"></script>
+  <script src="js/assets.js"></script>
   <script src="js/settings.js"></script>
   <script src="js/physics.js"></script>
   <script src="js/audio.js"></script>

@@ -8,6 +8,13 @@ window.Game = window.Game || {};
 Game.Config = {
   map: 'yard',             // 使用哪张地图，对应 maps/<名字>.json
 
+  // 资源下载和本地缓存（js/assets.js，#85）。清单由部署脚本生成（tools/build-manifest.mjs），本地开发没有清单就不缓存
+  assets: {
+    manifest: 'assets/manifest.json',   // 资源清单：每个文件的大小、内容哈希，整体一个版本号
+    cacheName: 'ds-assets',             // 浏览器 Cache Storage 的名字（改了等于让所有玩家重新下载一遍）
+    versionKey: 'ds-assets-version',    // localStorage 里记本地资源版本号的键
+  },
+
   view: {
     fov: 75,               // 视野角度（度）。越大看得越广，但边缘会变形
     weaponFov: 60,         // 枪模单独使用的视野，避免枪被拉伸

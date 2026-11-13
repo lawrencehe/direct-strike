@@ -713,9 +713,11 @@ Game.DevLog = (() => {
 
   return {
     get on() { return on; },
-    // main.js 创建完游戏对象后调用
+    // main.js 调两次：打开网页建首页时（只有 input、hud、ui，设置里就能解锁），创建完游戏对象后再给全的（#85）
     attach(objs) {
+      const first = !g;
       g = objs;
+      if (!first) return;
       Panel.bind();
       if (token && state.enabled) setOn(true);
       if (on && state.video) Video.set(true);

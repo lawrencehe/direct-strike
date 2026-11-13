@@ -30,7 +30,7 @@ Game.Character = (function () {
   function load() {
     const path = cfg().model;
     if (!cache[path]) {
-      cache[path] = new Promise((resolve) => {
+      cache[path] = Game.Assets.ensure(path).then(() => new Promise((resolve) => {
         if (!THREE.GLTFLoader) { resolve(null); return; }
         new THREE.GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load(path, (gltf) => {
           gltf.scene.traverse((o) => {
@@ -44,7 +44,7 @@ Game.Character = (function () {
           console.warn('NPC 模型加载失败，改用方块小人。用 start.sh 启动本地服务可以解决。', path, err);
           resolve(null);
         });
-      });
+      }));
     }
     return cache[path].then((r) => {
       if (cfg().model !== path) return !!r;   // 加载期间又换了别的形象
