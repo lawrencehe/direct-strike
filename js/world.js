@@ -267,6 +267,35 @@ Game.World = (function () {
       scene.add(obj);
       return obj;
     }
+    // 油桶换漆色（#100）：模型只有一套锈绿色贴图，按 Config.props.drumPaint 每种颜色克隆一份材质，
+    // shader 里按贴图的 绿 / 红 比值认出漆面（锈是偏红的），漆面换成目标颜色、亮度不变，锈斑保留原样。
+    const drumMats = {};
+    function drumMaterial(base, name) {
+      const P = Game.Config.props, hex = P.drumPaint[name];
+      if (hex === undefined) return base;
+      if (drumMats[name]) return drumMats[name];
+      const m = base.clone();
+      const paint = new THREE.Color(hex);   // 十六进制按 sRGB 读，内部是线性颜色，和贴图解码后的一致
+      m.onBeforeCompile = (sh) => {
+        sh.uniforms.drumPaint = { value: paint };
+        sh.uniforms.drumMask = { value: new THREE.Vector2(P.drumPaintMask[0], P.drumPaintMask[1]) };
+        sh.fragmentShader = sh.fragmentShader
+          .replace('#include <common>', '#include <common>\nuniform vec3 drumPaint;\nuniform vec2 drumMask;')
+          .replace('#include <map_fragment>', `#include <map_fragment>
+            {
+              vec3 c = diffuseColor.rgb;
+              // 比值在 sRGB 下算（和调参时看贴图的数一致）
+              vec3 s = pow(max(c, vec3(1e-4)), vec3(1.0 / 2.2));
+              float isPaint = smoothstep(drumMask.x, drumMask.y, s.g / max(s.r, 1e-3));
+              const vec3 W = vec3(0.2126, 0.7152, 0.0722);
+              vec3 recolor = drumPaint * (dot(c, W) / max(dot(drumPaint, W), 1e-3));
+              diffuseColor.rgb = mix(c, recolor, isPaint);
+            }`);
+      };
+      m.customProgramCacheKey = () => 'drumPaint';
+      return (drumMats[name] = m);
+    }
+
     // 看不见、但挡人挡子弹的方块：配合 placeModel 用，尺寸和原来的方块一样
     const proxyMat = new THREE.MeshBasicMaterial({ visible: false });
     function addProxy(w, h, d, x, y, z) {
@@ -530,7 +559,8 @@ Game.World = (function () {
       // 没加载上就用 material 画圆柱。朝向按位置定，几个桶不会一模一样
       barrel(o) {
         if (!loaded.models.drum) return addCylinder(0.3, 0.9, o.x, 0, o.z, material(o.material));
-        placeModel('drum', o.x, 0, o.z, (o.x * 2.3 + o.z * 1.7) % (Math.PI * 2));
+        const drum = placeModel('drum', o.x, 0, o.z, (o.x * 2.3 + o.z * 1.7) % (Math.PI * 2), (m) => drumMaterial(m, o.material));
+        drum.userData.paint = o.material;
         addCylinder(0.3, 0.9, o.x, 0, o.z, proxyMat);
       },
       // 倒着的油桶：子弹打圆柱，挡人用方块
@@ -547,9 +577,14 @@ Game.World = (function () {
         const drum = loaded.models.drum.clone();
         drum.rotation.z = Math.PI / 2;
         drum.position.x = 0.45;
-        drum.traverse((m) => { if (m.isMesh) m.castShadow = m.receiveShadow = true; });
+        drum.traverse((m) => {
+          if (!m.isMesh) return;
+          m.castShadow = m.receiveShadow = true;
+          m.material = drumMaterial(m.material, 'barrelRed');
+        });
         const obj = new THREE.Group();
         obj.userData.prop = 'drum';
+        obj.userData.paint = 'barrelRed';
         obj.add(drum);
         obj.position.set(o.x, 0.3, o.z);
         obj.rotation.y = 0.4;

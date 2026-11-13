@@ -1,4 +1,4 @@
-// 地图道具模型的针对性测试（#50 第 2 步、#98）：
+// 地图道具模型的针对性测试（#50 第 2 步、#98、#100）：
 // - 集装箱、隔离墩、沙袋墙、中央战术平台、油桶、弹药箱都用上了模型（不是退回的方块），数量和地图文件一致
 // - 模型摆的位置和大小跟碰撞盒对得上（模型的包围盒和地图里的尺寸差不超过几厘米）；
 //   沙袋墙压缩后靠节点变换还原坐标，摆错会陷进高台里，这里一并检查
@@ -27,7 +27,9 @@ const props = await p.evaluate(() => {
     const b = new THREE.Box3().setFromObject(o);
     const maps = new Set();
     o.traverse((m) => { if (m.isMesh && m.material.map) maps.add(m.material.map.uuid); });
-    out.push({ type: o.userData.prop, min: b.min.toArray(), max: b.max.toArray(), maps: [...maps] });
+    const mats = new Set();
+    o.traverse((m) => { if (m.isMesh) mats.add(m.material.uuid); });
+    out.push({ type: o.userData.prop, min: b.min.toArray(), max: b.max.toArray(), maps: [...maps], mats: [...mats], paint: o.userData.paint });
   });
   return out;
 });
@@ -74,6 +76,11 @@ for (const o of map.objects.filter((q) => q.type === 'barrelLying')) {
   const m = drums.find((q) => near((q.min[0] + q.max[0]) / 2, o.x, 0.15) && near((q.min[2] + q.max[2]) / 2, o.z, 0.15));
   check(m && near(m.min[1], 0, 0.04) && near(m.max[1], 0.62, 0.05), `倒着的油桶 (${o.x}, ${o.z}) 躺在地上`, m ? [m.min, m.max] : '没找到');
 }
+// 油桶漆色（#100）：每种颜色一份材质，同色的桶共用
+const paints = new Set(map.objects.filter((q) => q.type === 'barrel').map((q) => q.material).concat(count('barrelLying') ? ['barrelRed'] : []));
+const paintMats = new Set(drums.map((q) => q.mats.join()));
+check(drums.every((q) => q.paint) && paintMats.size === paints.size, '油桶按地图的颜色上漆（红 / 蓝 / 灰各一份材质）', [paintMats.size, [...paints]]);
+
 // 弹药箱堆（#98）：每堆 6 + 4 + 1 个箱子，落地，最高约 1 米，不超出占地 1.24 × 1.02
 const crates = props.filter((q) => q.type === 'ammoCrate');
 check(crates.length === count('ammoCrates') * 11, '弹药箱堆全部用模型显示', [crates.length, count('ammoCrates') * 11]);
