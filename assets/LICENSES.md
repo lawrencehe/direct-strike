@@ -19,6 +19,7 @@
 | `maps/yard/props/jersey.glb` | 自己用 Blender 脚本建模（`jersey.py`），材质烘焙时用了 Poly Haven 的 [Dirty Concrete](https://polyhaven.com/a/dirty_concrete) | 同上 |
 | `maps/yard/props/sandbag.glb` | 自己用 Blender 脚本建模（`sandbag.py`），材质烘焙时用了 Poly Haven 的 [Hessian 230](https://polyhaven.com/a/hessian_230) | 同上 |
 | `maps/yard/props/central-platform.glb` | Tripo 生成（H3.1，`v3.1-20260211`），任务号 `b5b32867-c004-4a8b-b86a-af5b1e765a0e`，参考图：负责人用 AI 生成的场景概念图，裁出中央平台部分 | Tripo 付费账号生成，可商用（见 #72）。**有改动**：删掉参考图前景里被一起生成的枪，按区域拆成 base / canopy / cover / lamp_l / lamp_r 五个节点，缩放到真实尺寸（台面高 1.4 米），原点放在底面中心，贴图转 WebP；脚本 `assets-src/models/map/central-platform/build.py`，原始输出在 `tripo/` |
+| `maps/yard/props/ammo-crate.glb` | Tripo 生成（H3.1，`v3.1-20260211`），任务号 `22fd052d-3c70-44fe-9f81-e4ce53d18bbf`，参考图：负责人提供（`refer/box.png`） | Tripo 付费账号生成，可商用（见 #72）。**有改动**：删掉悬浮碎粒、合成单网格，缩放到真实尺寸（长 0.6 米），原点放在底面中心，Decimate 减面到 3000，贴图转 WebP；脚本 `assets-src/models/map/ammo-crate/build.py`，原始输出和参考图在 `tripo/` |
 | `maps/yard/env.hdr` | [Abandoned Parking](https://polyhaven.com/a/abandoned_parking)（1k HDRI），作者 Sergej Majboroda，来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。未改动 |
 | `weather/rain-dusk/sky.webp` | [Kloppenheim 07 (Pure Sky)](https://polyhaven.com/a/kloppenheim_07_puresky)（4k HDRI），作者 Greg Zaal（天空修饰 Jarod Guest），来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：转成普通图片，降饱和、加对比、压暗偏蓝，转 WebP（#77） |
 | `../vendor/RGBELoader.js` | three.js r147 `examples/js/loaders/RGBELoader.js` | MIT |
