@@ -526,16 +526,63 @@ Game.World = (function () {
         scene.add(obj);
         addProxy(w, 0.9, d, o.x, y, o.z);
       },
-      barrel(o) { addCylinder(0.3, 0.9, o.x, 0, o.z, material(o.material)); },
-      // 倒着的油桶（只做视觉，碰撞用方块）
+      // 油桶：有模型（Tripo 的锈绿色油桶，#98）用模型，碰撞和子弹判定仍是半径 0.3、高 0.9 的圆柱；
+      // 没加载上就用 material 画圆柱。朝向按位置定，几个桶不会一模一样
+      barrel(o) {
+        if (!loaded.models.drum) return addCylinder(0.3, 0.9, o.x, 0, o.z, material(o.material));
+        placeModel('drum', o.x, 0, o.z, (o.x * 2.3 + o.z * 1.7) % (Math.PI * 2));
+        addCylinder(0.3, 0.9, o.x, 0, o.z, proxyMat);
+      },
+      // 倒着的油桶：子弹打圆柱，挡人用方块
       barrelLying(o) {
-        const lying = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.9, 18), mats.barrelRed);
+        const lying = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.9, 18), loaded.models.drum ? proxyMat : mats.barrelRed);
         lying.rotation.z = Math.PI / 2; lying.rotation.y = 0.4;
         lying.position.set(o.x, 0.3, o.z);
-        lying.castShadow = lying.receiveShadow = true;
+        lying.castShadow = lying.receiveShadow = !loaded.models.drum;
         scene.add(lying);
         shootables.push(lying);
         addBlocker(0.9, 0.6, 0.9, o.x, 0, o.z);
+        if (!loaded.models.drum) return;
+        // 模型原点在桶底中心：绕 z 放倒后桶身朝 -x，往 +x 挪半个桶长让桶身居中
+        const drum = loaded.models.drum.clone();
+        drum.rotation.z = Math.PI / 2;
+        drum.position.x = 0.45;
+        drum.traverse((m) => { if (m.isMesh) m.castShadow = m.receiveShadow = true; });
+        const obj = new THREE.Group();
+        obj.userData.prop = 'drum';
+        obj.add(drum);
+        obj.position.set(o.x, 0.3, o.z);
+        obj.rotation.y = 0.4;
+        scene.add(obj);
+      },
+      // 一堆弹药箱（Tripo 模型，#98）：三层台阶，底层 2 × 3、中层 2 × 2、顶上 1 个，占地约 1.24 × 1.02、高约 1 米。
+      // alongZ 时整堆转 90°。碰撞是每层一个看不见的方块（挡人挡子弹），没加载上模型就把这些方块用木头材质画出来
+      ammoCrates(o) {
+        const L = 0.6, D = 0.33, H = 0.34, gap = 0.02;
+        const layers = [
+          { cols: 2, rows: 3 },
+          { cols: 2, rows: 2 },
+          { cols: 1, rows: 1 },
+        ];
+        const rot = o.alongZ ? Math.PI / 2 : 0;
+        const toWorld = (lx, lz) => (o.alongZ ? [o.x + lz, o.z - lx] : [o.x + lx, o.z + lz]);
+        let n = 0;
+        layers.forEach(({ cols, rows }, k) => {
+          const w = cols * L + (cols - 1) * gap, d = rows * D + (rows - 1) * gap, y = k * H;
+          const [bw, bd] = o.alongZ ? [d, w] : [w, d];
+          if (!loaded.models.ammoCrate) return addBox(bw, H, bd, o.x, y, o.z, mats.wood);
+          addProxy(bw, H, bd, o.x, y, o.z);
+          for (let c = 0; c < cols; c++) {
+            for (let r = 0; r < rows; r++) {
+              const lx = (c - (cols - 1) / 2) * (L + gap), lz = (r - (rows - 1) / 2) * (D + gap);
+              const [x, z] = toWorld(lx, lz);
+              // 每个箱子掉头、偏一点点，看着是人码的不是复制的
+              const jit = ((n * 7919) % 13 - 6) * 0.006;
+              placeModel('ammoCrate', x, y, z, rot + ((n * 5) % 3 === 0 ? Math.PI : 0) + jit);
+              n++;
+            }
+          }
+        });
       },
       // 灯柱：灯臂朝地图中心伸
       lampPost(o) {

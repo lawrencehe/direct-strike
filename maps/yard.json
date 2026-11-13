@@ -7,7 +7,7 @@
 
   "surfaces": { "asphalt": 2.2, "concreteFloor": 5, "concrete": 4, "dirt": 2 },
   "environment": "env.hdr",
-  "models": { "centralPlatform": "props/central-platform.glb", "container": "props/container.glb", "jersey": "props/jersey.glb", "sandbags": "props/sandbag.glb" },
+  "models": { "centralPlatform": "props/central-platform.glb", "container": "props/container.glb", "jersey": "props/jersey.glb", "sandbags": "props/sandbag.glb", "ammoCrate": "props/ammo-crate.glb", "drum": "props/steel-drum.glb" },
 
   "pads": [
     { "x": 0, "z": 14, "w": 14, "d": 7 },
@@ -85,7 +85,7 @@
     { "type": "barrelLying", "x": -14.2, "z": 7.6 },
 
     { "type": "tires", "x": -16, "z": 16 },
-    { "type": "cableReel", "x": -15, "z": -17 },
+    { "type": "ammoCrates", "x": -15, "z": -17, "note": "西北角，原来的电缆盘" },
     { "type": "palletStack", "x": 15, "z": 13 },
     { "type": "truck", "x": 15.5, "z": -4.3, "color": "#2f5d8c" }
   ],
