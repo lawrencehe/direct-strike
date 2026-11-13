@@ -1,0 +1,29 @@
+{
+ "type": "image_to_model",
+ "status": "success",
+ "progress": 100,
+ "input": {
+  "pbr": true,
+  "file": {
+   "type": "jpeg",
+   "object": {
+    "key": "tcli_9e1705fec7ae4bc68453090c446cd3b5/20261113/a2bc464d-578a-463e-bbec-b8e52e916f09/image.jpeg",
+    "bucket": "tripo-data"
+   }
+  },
+  "texture": true,
+  "export_uv": true,
+  "face_limit": 20000,
+  "model_version": "v3.1-20260211",
+  "geometry_quality": "standard",
+  "enable_image_autofix": false
+ },
+ "output": {
+  "model_url": "https://openapi-dl.data.tripo3d.com/tcli_9e1705fec7ae4bc68453090c446cd3b5/20261113/a2bc464d-578a-463e-bbec-b8e52e916f09/tripo_pbr_model_a2bc464d-578a-463e-bbec-b8e52e916f09.glb",
+  "rendered_image_url": "https://openapi-dl.data.tripo3d.com/tcli_9e1705fec7ae4bc68453090c446cd3b5/20261113/a2bc464d-578a-463e-bbec-b8e52e916f09/legacy_mesh.webp"
+ },
+ "task_id": "a2bc464d-578a-463e-bbec-b8e52e916f09",
+ "created_at": "2026-11-13T03:27:57.769379Z",
+ "completed_at": "2026-11-13T03:29:36.756628Z",
+ "credits_consumed": 30
+}

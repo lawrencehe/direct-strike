@@ -1,5 +1,5 @@
-// 地图道具模型的针对性测试（#50 第 2 步）：
-// - 集装箱、隔离墩、沙袋墙、中央战术平台都用上了模型（不是退回的方块），数量和地图文件一致
+// 地图道具模型的针对性测试（#50 第 2 步、#98）：
+// - 集装箱、隔离墩、沙袋墙、中央战术平台、油桶、弹药箱都用上了模型（不是退回的方块），数量和地图文件一致
 // - 模型摆的位置和大小跟碰撞盒对得上（模型的包围盒和地图里的尺寸差不超过几厘米）；
 //   沙袋墙压缩后靠节点变换还原坐标，摆错会陷进高台里，这里一并检查
 // - 每种颜色的集装箱用自己的颜色贴图
@@ -62,6 +62,29 @@ for (const o of map.objects.filter((q) => ['container', 'jersey', 'sandbags'].in
   check(ok, `${o.type} (${o.x}, ${e.y}, ${o.z}) 位置和大小对得上`, size || '没找到');
 }
 
+// 油桶（#98）：每个桶一个模型，立着的落地、高 0.9、直径约 0.6（转了角度的包围盒最大 0.62 × √2），和碰撞圆柱对得上；倒着的那个躺在地上
+const drums = props.filter((q) => q.type === 'drum');
+check(drums.length === count('barrel') + count('barrelLying'), '油桶全部用模型显示', [drums.length, count('barrel') + count('barrelLying')]);
+for (const o of map.objects.filter((q) => q.type === 'barrel')) {
+  const m = drums.find((q) => near((q.min[0] + q.max[0]) / 2, o.x, 0.1) && near((q.min[2] + q.max[2]) / 2, o.z, 0.1));
+  const size = m && [m.max[0] - m.min[0], m.max[1] - m.min[1], m.max[2] - m.min[2]].map((v) => +v.toFixed(2));
+  check(m && near(m.min[1], 0, 0.03) && near(size[1], 0.9, 0.03) && size[0] < 0.9 && size[2] < 0.9, `油桶 (${o.x}, ${o.z}) 位置和大小对得上`, size || '没找到');
+}
+for (const o of map.objects.filter((q) => q.type === 'barrelLying')) {
+  const m = drums.find((q) => near((q.min[0] + q.max[0]) / 2, o.x, 0.15) && near((q.min[2] + q.max[2]) / 2, o.z, 0.15));
+  check(m && near(m.min[1], 0, 0.04) && near(m.max[1], 0.62, 0.05), `倒着的油桶 (${o.x}, ${o.z}) 躺在地上`, m ? [m.min, m.max] : '没找到');
+}
+// 弹药箱堆（#98）：每堆 6 + 4 + 1 个箱子，落地，最高约 1 米，不超出占地 1.24 × 1.02
+const crates = props.filter((q) => q.type === 'ammoCrate');
+check(crates.length === count('ammoCrates') * 11, '弹药箱堆全部用模型显示', [crates.length, count('ammoCrates') * 11]);
+for (const o of map.objects.filter((q) => q.type === 'ammoCrates')) {
+  const mine = crates.filter((q) => Math.abs((q.min[0] + q.max[0]) / 2 - o.x) < 1 && Math.abs((q.min[2] + q.max[2]) / 2 - o.z) < 1);
+  const lo = [0, 1, 2].map((i) => Math.min(...mine.map((q) => q.min[i]))), hi = [0, 1, 2].map((i) => Math.max(...mine.map((q) => q.max[i])));
+  const [w, d] = o.alongZ ? [1.02, 1.24] : [1.24, 1.02];
+  check(mine.length === 11 && near(lo[1], 0, 0.03) && near(hi[1], 1.02, 0.05) && hi[0] - lo[0] < w + 0.06 && hi[2] - lo[2] < d + 0.06,
+    `弹药箱堆 (${o.x}, ${o.z}) 位置和大小对得上`, [mine.length, lo.map((v) => +v.toFixed(2)), hi.map((v) => +v.toFixed(2))]);
+}
+
 // 每种颜色的集装箱用不同的颜色贴图
 const cmaps = new Set(props.filter((q) => q.type === 'container').map((q) => q.maps.join()));
 const colors = new Set(map.objects.filter((o) => o.type === 'container').map((o) => o.color));
@@ -85,6 +108,9 @@ const shots = [
   ['container-door', 14, 1.5, 2.2, -0.05],
   ['platform', 1, 11, 0, 0.05],
   ['jersey', 2, 9.6, 0.3, -0.45],
+  ['sandbag', 0, 10.5, Math.PI, -0.2],
+  ['drums', -12, 3.8, 0.95, -0.3],
+  ['crates', -12.5, -14.5, 0.75, -0.25],
 ];
 for (const [name, x, z, yaw, pitch] of shots) {
   await p.evaluate(([x, z, yaw, pitch]) => {

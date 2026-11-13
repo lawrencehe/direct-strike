@@ -1,4 +1,4 @@
-# Direct-Strike v0.44
+# Direct-Strike v0.45
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -102,8 +102,8 @@ NPC 死亡是实时物理（布娃娃）：爆头会被打飞，打身体有踉�
 
 一座废弃的集装箱堆场，36 × 48 米。南北两头是出生点，中间一座战术平台（楼梯朝东，台上有沙袋和弹药箱），
 两侧各有一排集装箱和一条侧道。所有掩体、出生点、NPC 巡逻点、靶子位置都在 `maps/yard.json` 里，
-格式说明见 `docs/maps.md`。地面、水泥用真实的 PBR 材质（Poly Haven，CC0），环境光用 HDRI；集装箱、隔离墩、沙袋墙是 Blender 建的模型，中央战术平台是 Tripo 生成再修整的（`assets/maps/yard/props/`）。文件在 `assets/maps/yard/`；
-油桶、轮胎、电缆盘、木托盘、货车和远景还是 `js/textures.js` 用 Canvas 画的贴图，正在逐个换成模型（#50）。
+格式说明见 `docs/maps.md`。地面、水泥用真实的 PBR 材质（Poly Haven，CC0），环境光用 HDRI；集装箱、隔离墩是 Blender 建的模型，中央战术平台、沙袋墙、油桶、弹药箱是 Tripo 生成再修整的（`assets/maps/yard/props/`）。文件在 `assets/maps/yard/`；
+轮胎、木托盘、货车和远景还是 `js/textures.js` 用 Canvas 画的贴图，正在逐个换成模型（#50）。
 
 首页地图下面可以选**天气 / 时段**：晴天，或者阴雨傍晚（厚云、冷蓝灰、刚下过雨的湿地面和水洼，比晴天暗但看得清对手）。
 点了立刻换，记在浏览器里。每种天气的天空、雾、灯光、曝光、地面湿度在 `config.js` 的 `weather.presets`（#77）。
@@ -140,7 +140,7 @@ direct-strike/
 │   ├── manifest.json        资源清单（部署时 tools/build-manifest.mjs 生成，不进仓库）
 │   ├── maps/yard/             yard 地图的材质（textures/*.webp：颜色、法线、粗糙度）和环境光 env.hdr，
 │   │                          由 assets-src/maps/yard/fetch_textures.py 从 Poly Haven 下载转换
-│   │                          props/：集装箱、隔离墩、沙袋墙、中央平台模型，由 assets-src/maps/yard/props/build.sh 生成
+│   │                          props/：集装箱、隔离墩、沙袋墙、油桶、弹药箱、中央平台模型，由 assets-src/maps/yard/props/build.sh 生成
 │   ├── weather/rain-dusk/sky.webp  阴雨傍晚的天空（Poly Haven CC0 HDRI 调色），由 assets-src/weather/fetch_weather.py 生成
 │   ├── models/human/ukrainian-soldier.glb  NPC 模型（Mixamo 骨骼，带待机/走/跑动画）
 │   ├── models/human/init_soldier.glb  可选的 NPC 形象"特种兵"，也是动画来源

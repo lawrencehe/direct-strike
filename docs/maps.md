@@ -49,12 +49,13 @@
 | `proxy` | `size`、`pos`，可选 `model`、`material`、`shoot` | 配合 `model` 的碰撞：看不见、挡人挡子弹的方块；`shoot: false` 只挡人（栏杆）。写了 `model` 的，那个模型没加载上就用 `material` 把方块画出来 |
 | `container` | `x`、`z`，可选 `y`，`alongZ`、`color`、`label` | 集装箱（6 × 2.6 × 2.44 米），叠放时 `y` 填 `2.6` |
 | `jersey` | `x`、`z`、`alongX` | 水泥隔离墩（2.4 × 0.85 × 0.5 米） |
-| `sandbags` | `x`、`z`、`len`（3 或 4），可选 `y`、`alongZ` | 沙袋墙（高 0.9、厚 0.6 米），`alongZ` 时长边沿 z |
-| `barrel` | `x`、`z`、`material` | 油桶，材质用 `barrelRed`、`barrelBlue`、`barrelGrey` |
+| `sandbags` | `x`、`z`、`len`（2、3 或 4），可选 `y`、`alongZ` | 沙袋墙（高 0.9、厚 0.6 米），`alongZ` 时长边沿 z |
+| `barrel` | `x`、`z`、`material` | 油桶（高 0.9、半径 0.3）。有模型时显示模型，`material`（`barrelRed`、`barrelBlue`、`barrelGrey`）只在模型没加载上时用 |
 | `barrelLying` | `x`、`z` | 倒着的油桶 |
 | `lampPost` | `x`、`z` | 灯柱，灯臂朝地图中心 |
 | `tires` | `x`、`z` | 轮胎堆 |
-| `cableReel` | `x`、`z` | 电缆盘 |
+| `ammoCrates` | `x`、`z`，可选 `alongZ` | 一堆弹药箱：三层台阶（6 + 4 + 1 个），占地约 1.24 × 1.02、高约 1 米，每层一个碰撞方块 |
+| `cableReel` | `x`、`z` | 电缆盘（yard 已换成弹药箱，#98） |
 | `palletStack` | `x`、`z` | 木托盘堆加木箱 |
 | `truck` | `x`、`z`、`color` | 货车，车头朝北 |
 
@@ -76,7 +77,7 @@
 
 ## 道具模型（#50）
 
-集装箱、隔离墩、沙袋墙用 Blender 建的模型显示，中央战术平台用 Tripo 生成的底模修整而成（地图第 2 步，#50），其他物体还是方块拼的，后面逐个换。
+集装箱、隔离墩用 Blender 建的模型显示；中央战术平台、沙袋墙、油桶、弹药箱用 Tripo 生成的底模修整而成（#50、#98）。轮胎、木托盘、货车还是方块拼的，后面逐个换。
 
 **中央战术平台**（`centralPlatform`）：负责人用 AI 画的概念图在 Tripo 生成（#72），带伪装网棚、沙袋、弹药箱、栏杆、两根灯柱。
 - 它换掉了原来的方块高台和两侧台阶，**布局跟着模型变了**（负责人同意，#50）：台面高 1.4 米（原来 1.2），占地约 5.7 × 7.3；楼梯只有一道、朝东（南北两边的出生点到楼梯一样远）；
@@ -92,12 +93,19 @@
 - 模型原点在底面中心，长边沿 x。集装箱门在 +x 端，按位置决定转不转 180°，同一排的门不会全朝一边；隔离墩、沙袋墙也一样随机掉头。
 - 集装箱几何、法线、粗糙度所有颜色共用，颜色贴图每种颜色一张（`container_<颜色>_diff.webp`，箱号画在上面），按地图里用到的颜色烘焙。
   地图里加了新颜色要重新跑 `build.sh container`，否则这种颜色显示 glb 自带的第一种颜色。
-- 沙袋墙的 glb 里有两段墙（节点 `len_3`、`len_4`），`len` 只能是 3 或 4；要别的长度在 `sandbag.py` 的 `LENGTHS` 里加。
+- **沙袋墙**（#98）：Tripo 只生成一个袋子（`assets-src/models/map/sandbag/tripo/`），`sandbag/build.py` 把它减面、换成麻布材质（从高模烘到低模），再一个个码成墙：
+  两排袋子、5 层，上下层错开半个袋子，墙头横放一个封口，每个袋子随机掉头、大小差一点，新旧深浅、底下的沙土和缝里的 AO 烘进顶点色。
+  glb 里有三段直墙（节点 `len_2`、`len_3`、`len_4`），`len` 只能是 2、3、4。脚本里还有 L 形转角 `corner` 和 U 形 `u`（`MODULES`，一条折线一个模块），
+  目前只出预览（`tools/out/props/sandbag-tripo-preview.glb`）不进游戏；地图要用时加进 `GAME_MODULES` 并在 `world.js` 加造型。
+- **油桶**（#98）：Tripo 文字生成的锈绿色 55 加仑桶，`steel-drum/build.py` 只缩放到高 0.9、减面到 2000。每个桶按位置转一个角度；
+  碰撞和子弹仍是原来的圆柱（立着的）或圆柱 + 方块（倒着的），只是看不见。地图里的 `material` 颜色在有模型时不起作用。
+- **弹药箱**（#98）：`ammo-crate.glb` 一个箱子 0.6 × 0.33 × 0.34 米，`ammoCrates` 把 11 个码成三层台阶，每个箱子按序号掉头、偏一点点；
+  每层一个看不见的碰撞方块，能一层层踩上去。
 - 模型下载失败时退回原来的方块，游戏照常能玩。
 - **压缩过的 glb 不能直接改节点的 `position`**：meshopt 量化把顶点坐标的还原放在节点自己的位移和缩放里，克隆子节点后要套一层 `Group` 再摆（沙袋墙就是这样）。
 
-**改模型：** 脚本在 `assets-src/maps/yard/props/`（`container.py`、`jersey.py`、`sandbag.py`，共用 `lib.py`），
-`assets-src/maps/yard/props/build.sh [container jersey sandbag platform]` 一次完成建模、烘焙、压缩，产物在 `assets/maps/yard/props/`。
+**改模型：** 纯 Blender 建的在 `assets-src/maps/yard/props/`（`container.py`、`jersey.py`，共用 `lib.py`），Tripo 底模的修整脚本在 `assets-src/models/map/<名字>/build.py`，
+`assets-src/maps/yard/props/build.sh [container jersey sandbag platform crate drum]` 一次完成建模、烘焙、压缩，产物在 `assets/maps/yard/props/`。
 流程：bmesh 建几何 → 自动展 UV → 节点材质（Poly Haven 的 CC0 贴图 + 程序生成的锈、污渍、磕碰）→ Cycles 烘焙成颜色、粗糙度、法线 → 导出 glb → `tools/glb.mjs optimize`。
 锈多锈少、褪色、脏污的程度都是材质节点里的数字，脚本里有注释。
 
