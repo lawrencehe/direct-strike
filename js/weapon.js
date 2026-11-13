@@ -5,6 +5,7 @@
 // 射线第一个碰到的物体就是被打中的物体。CS 的步枪就是这么做的。
 //
 // 五个槽位：rifle 主武器、pistol 手枪、frag / flash / smoke 三种投掷物。
+// 出生只有手枪，主武器在购买区买（economy.js 调 giveGun），死了主武器跟人一起没了（#90）。
 // 枪的参数在 config.js 的 weapons 里，投掷物丢出去之后的事归 grenades.js 管。
 // 切枪分两段：先收（当前武器往下沉），再掏（新武器抬起来），掏好之前不能开火。
 //
@@ -51,7 +52,8 @@ Game.Weapon = class Weapon {
 
     this.buildModels();
 
-    this.current = 'rifle';
+    this.hasRifle = false;        // 有没有主武器：出生没有，买了才有（#90）
+    this.current = 'pistol';
     this.lastGun = 'pistol';      // 投掷完 / 按"上一把武器"时切回去
     this.previous = 'pistol';
     this.pending = null;          // 正在切向哪把
@@ -65,7 +67,7 @@ Game.Weapon = class Weapon {
     this.unlimitedAmmo = false;   // 训练场：备弹无限（main.js 按模式设）
     this.counts = {};
     this.restock();
-    this.show('rifle');
+    this.show('pistol');
 
     // 开枪瞬间照亮周围环境的光
     this.worldFlash = new THREE.PointLight(0xffc070, 0, 10);
@@ -110,9 +112,9 @@ Game.Weapon = class Weapon {
     it.arms.solve();
   }
 
-  // 按 config 里当前选的枪造 slot（'rifle' | 'pistol'）这一格：枪模、手臂、枪口火焰。
-  // 首页换了枪就再调一次，旧的模型拆掉（网格、贴图是共用的缓存，不释放）
-  buildGun(slot) {
+  // 按 config 里当前选的枪（上次买的那把）造 slot（'rifle' | 'pistol'）这一格：枪模、手臂、枪口火焰。
+  // 买了枪就再调一次（fresh = true：新枪，枪里一个满弹匣、没有备弹），旧的模型拆掉（网格、贴图是共用的缓存，不释放）
+  buildGun(slot, fresh = false) {
     const old = this.guns[slot];
     if (old) old.model.removeFromParent();
 
@@ -138,8 +140,8 @@ Game.Weapon = class Weapon {
 
     const it = this.guns[slot] = {
       key, cfg,
-      ammo: old && old.key === key ? old.ammo : cfg.magSize,                     // 枪里的
-      reserve: old && old.key === key ? old.reserve : this.startReserve(cfg),   // 备弹（训练场不看它）
+      ammo: old && !fresh && old.key === key ? old.ammo : cfg.magSize,                     // 枪里的
+      reserve: old && !fresh && old.key === key ? old.reserve : this.startReserve(cfg),   // 备弹（训练场不看它）
       model: gun.group, scale: view.scale, arms, flash,
       basePos: view.basePos.clone(), baseRot: view.baseRot.clone(),
       bolt: gun.bolt, boltHome: gun.boltHome, boltKick: view.boltKick,
@@ -180,7 +182,18 @@ Game.Weapon = class Weapon {
 
   // 投掷物还有没有
   hasThrowable(kind) { return this.unlimitedThrowables || this.counts[kind] > 0; }
-  canEquip(key) { return this.isGun(key) || this.hasThrowable(key); }
+  canEquip(key) { return key === 'rifle' ? this.hasRifle : this.isGun(key) || this.hasThrowable(key); }
+
+  // 买到一把枪（economy.js，Game.Settings 里已经记成了这把）：换上新枪，枪里一个满弹匣、没有备弹，马上掏出来（和 CS 一样）
+  giveGun(slot) {
+    if (this.current === slot) this.cancelReload();
+    this.buildGun(slot, true);
+    if (slot === 'rifle') this.hasRifle = true;
+    if (this.throwState) { this.refreshHud(); return; }   // 正攥着手雷：丢完再说
+    if (this.current === slot && !this.pending) { this.switchPhase = 'in'; this.switchT = 0; this.audio.swap(); }   // 手上就是这一格：新枪从下面抬上来
+    else this.select(slot);
+    this.refreshHud();
+  }
 
   // ---- 切枪 ----
   select(key) {
@@ -371,18 +384,20 @@ Game.Weapon = class Weapon {
     this.cancelReload();
   }
 
-  // 新一局：换弹匣、补投掷物、清空弹孔
+  // 新一局：只有手枪（主武器要买，#90），换弹匣、补投掷物、清空弹孔
   reset() {
-    this.equipNow('rifle');
+    this.hasRifle = false;
+    this.equipNow('pistol');
     this.refill();
     this.bloom = 0;
     this.decals.forEach((d) => d.removeFromParent());
     this.decals = [];
   }
 
-  // 重生：拿回主武器，子弹和投掷物补满
+  // 重生：主武器跟上一条命一起没了，又只有手枪（#90）；子弹和投掷物回到开局的样子
   respawn() {
-    this.equipNow('rifle');
+    this.hasRifle = false;
+    this.equipNow('pistol');
     this.refill();
   }
 
@@ -394,7 +409,7 @@ Game.Weapon = class Weapon {
     this.throwState = null;
     this.thrown = false;
     this.cancelReload();
-    this.lastGun = key === 'rifle' ? 'pistol' : 'rifle';
+    this.lastGun = key === 'rifle' || !this.hasRifle ? 'pistol' : 'rifle';
     this.previous = this.lastGun;
     this.show(key);
   }
@@ -465,7 +480,10 @@ Game.Weapon = class Weapon {
     this.hud.setSlots(Game.Weapon.ORDER.map((key) => {
       const it = this.item(key);
       const out = { action: Game.Weapon.ACTIONS[key], name: it.cfg.name, on: key === shown };
-      if (!this.isGun(key)) {
+      if (key === 'rifle' && !this.hasRifle) {   // 还没买主武器：这一格空着
+        out.name = '主武器';
+        out.none = true;
+      } else if (!this.isGun(key)) {
         out.count = this.unlimitedThrowables ? '∞' : this.counts[key];
         out.empty = !this.hasThrowable(key);
       } else {

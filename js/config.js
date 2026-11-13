@@ -235,8 +235,8 @@ Game.Config = {
   },
 
   // NPC 敌人（对战模式）
-  // NPC 的装备和玩家一样：AK + 手枪（枪里各一个弹匣，weapons.spareMags 个备用弹匣）+ 三种雷各 grenades.*.count 个。
-  // NPC 没有经济买不了东西：两把枪都打空了就背离玩家跑开，不再交战。
+  // NPC 的装备：一定有主武器（只有手枪太弱，#90）——每次出生随机一把主武器 + 一把手枪（枪里各一个弹匣，weapons.spareMags 个备用弹匣）
+  // + 三种雷各 grenades.*.count 个。NPC 没有经济买不了东西：两把枪都打空了就背离玩家跑开，不再交战。
   // 枪的射速、弹匣、换弹时间、各部位伤害都直接用上面 weapons 里的数值，这里只管 NPC 怎么用
   bots: {
     health: 100,
@@ -289,31 +289,39 @@ Game.Config = {
     wavePause: 4,          // 两波之间休息几秒
   },
 
-  // 经济（对决和波次，训练场没有）：打死敌人拿赏金，回到自己这条命的出生点买子弹和投掷物。逻辑在 economy.js。数值是负责人定的（#7）
+  // 经济（对决和波次）：打死敌人拿赏金，回到自己这条命的出生点买枪、子弹和投掷物。逻辑在 economy.js。
+  // 出生只有手枪（枪里一个弹匣），主武器要在购买区买，死了主武器跟人一起没了（#90）。
+  // 负责人定的原则：出生后一定买得起主武器，所以 startMoney 必须 ≥ 最贵的主武器（economy.js 开局会检查，不够会在控制台报错）。
+  // 训练场也走同一套购买（B / F），但一切免费，钱不显示；训练场子弹和投掷物本来就不限量，所以只有买枪有意义。
   economy: {
-    startMoney: 600,       // 开局有多少钱；每次重生不足这个数补到这个数，多的保留（连着被杀的人不会一直没钱买东西）
-    maxMoney: 2000,        // 存款上限：到了上限再打死人也不涨
+    startMoney: 2000,      // 开局有多少钱；每次重生不足这个数补到这个数，多的保留。要够买主武器（#90）
+    maxMoney: 4000,        // 存款上限：到了上限再打死人也不涨
     // 赏金只看最后一击（之前打掉的血不给钱）：爆头打死 / 其他打死（枪打身体或腿）/ 手雷炸死（算普通击杀）
     reward: { head: 500, body: 300, frag: 300 },
+    // 枪的价格（#90）：key 和 loadout.rifle / loadout.pistol 一致。买到的枪枪里一个满弹匣、没有备弹，备弹另买。
+    // 主武器买了另一把会换掉手上那把；手枪出生就有，换一把要花钱（现在换枪只换外观，#20）
+    gunPrices: { ak: 1500, m4: 1500, beretta: 200, sg: 200 },
     prices: { frag: 300, flash: 200, smoke: 300 },   // 投掷物价格
     maxCarry: { frag: 2, flash: 2, smoke: 1 },       // 投掷物每种最多带几个
     bulletPrice: 2,        // 子弹一发多少钱。一次买一个弹匣（AK 30 发 $60、手枪 10 发 $20），离上限（weapons.maxMags）不到一个弹匣就只补到上限
     buyRadius: 3,          // 购买区：出生点周围几米（地上有一圈环）
     boughtPulse: 0.7,      // 买成功后武器栏里那一格闪亮、放大回弹几秒（同时钱数闪一下、旁边飘 "-$价格"）
-    cursorSpeed: 1,        // 购买菜单开着时屏幕上的光标：鼠标移动 1 像素，光标走几像素（#81）
+    cursorSpeed: 1,        // B 菜单开着时屏幕上的光标：鼠标移动 1 像素，光标走几像素（#81）。F 菜单没有光标
     // B 经典菜单的分类，一类一列，顺序就是数字键：先按分类的号、再按商品的号（#81）。
-    // 商品：rifle / pistol 是主武器 / 手枪一个弹匣的子弹，frag / flash / smoke 是一个投掷物
+    // 商品：ak / m4 / beretta / sg 是枪（loadout 里的 key），rifle / pistol 是主武器 / 手枪一个弹匣的子弹，frag / flash / smoke 是一个投掷物
     categories: [
+      { name: '主武器', items: ['ak', 'm4'] },
+      { name: '手枪', items: ['beretta', 'sg'] },
       { name: '弹药', items: ['rifle', 'pistol'] },
       { name: '投掷物', items: ['frag', 'flash', 'smoke'] },
     ],
-    // F 快捷菜单的套餐（后面还有一张"自定义"，是上一次在 B 菜单里买完的装备）。按数字键或点一下就 Smart Buy（#81）：
+    // F 快捷菜单的套餐（后面还有一张"上次"，是上一次在 B 菜单里买完的装备）。按数字键就 Smart Buy，买完关面板（#81、#90）：
     // items 的顺序就是优先级，数字是"买到多少"——子弹按弹匣算（含枪里那个），投掷物按个，超过上限按上限（99 = 买满）。
-    // 已经够了的跳过；钱不够买下一件就跳过这一样，接着买后面的。
+    // primary = 主武器：手上有主武器就不换，没有才买，买的是上一次买的那把（没买过就是 loadout.rifle 的第一把）。
+    // 已经够了的跳过；钱不够买下一件就跳过这一样，接着买后面的；没有主武器时主武器的子弹也跳过。
     packages: [
-      { name: '补满', items: [['rifle', 99], ['frag', 99], ['flash', 99], ['smoke', 99], ['pistol', 99]] },
-      { name: '突击', items: [['rifle', 3], ['frag', 2], ['flash', 1]] },
-      { name: '经济', items: [['rifle', 2], ['flash', 1]] },
+      { name: '全套', items: [['primary', 1], ['rifle', 3], ['frag', 1], ['flash', 1], ['pistol', 2]] },
+      { name: '经济', items: [['rifle', 2], ['pistol', 2], ['flash', 1]] },
     ],
   },
 
@@ -325,7 +333,8 @@ Game.Config = {
     botSkill: 0.5,         // 对手强度 0 ~ 1（影响反应、准度、转身）
   },
 
-  // 可选装备：首页"装备"里点击切换，选择存在浏览器里（settings.js 写回 weapons.rifle / weapons.pistol / character.model）。
+  // 装备的物料：枪在局内的购买区买（#90），上一次买的那把记在浏览器里，下次出生的手枪、F 套餐里的主武器都用它
+  // （settings.js 写回 weapons.rifle / weapons.pistol）；NPC 每次出生随机挑一把主武器、一把手枪和一个形象。
   // 每一项的 key 是存档用的名字，不要随便改；第一项是默认值。
   // 枪：name 显示名，model 枪模（null = 代码拼的），sound 枪声录音的前缀（assets/sound/<sound>-1 / -2 / -far.mp3，见 audio.samples）。数值默认和上面 weapons.rifle / weapons.pistol 一样，
   //     想让某把枪不同，在这一项里写同名参数覆盖，例如 m4: { ..., fireInterval: 0.08, damage: { head: 100, body: 30, leg: 22 } }。
@@ -350,7 +359,7 @@ Game.Config = {
 
   // NPC 外观
   character: {
-    model: 'assets/models/human/ukrainian-soldier.glb',  // 由首页选的 loadout.npc 决定；加载失败时自动退回方块小人
+    // NPC 形象从 loadout.npc 里每次出生随机挑（#90），只挑已经下载好的；都加载失败时退回方块小人
     walkAnimSpeed: 1.7,    // 走路动画本来的前进速度（m/s）。加载模型时会自动量，这里只是量不出来时的备用值
     runAnimSpeed: 4.4,
     walkRunBlend: [2.2, 3.6],  // 速度在这个区间内从走路动画过渡到跑步动画

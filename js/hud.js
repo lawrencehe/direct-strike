@@ -40,9 +40,9 @@ Game.Hud = class Hud {
     this.el.health.style.display = battle ? 'block' : 'none';
     this.el.wave.style.display = battle ? 'flex' : 'none';
     const key = (a) => this.input ? Game.Input.bindingName(this.input.bindings[a]) : '?';
-    const common = `${key('reload')} 换弹 · ${key('lastWeapon')} / 滚轮 切枪`;
+    const common = `${key('reload')} 换弹 · ${key('lastWeapon')} / 滚轮 切枪 · ${key('buy')} / ${key('quickBuy')} 出生点购买`;   // 训练场也能买（免费，#90）
     this.el.hint.textContent = battle
-      ? `${common} · ${key('buy')} / ${key('quickBuy')} 出生点购买 · Esc 暂停`
+      ? `${common} · Esc 暂停`
       : `${common} · ${key('resetStats')} 重置统计 · Esc 暂停`;
     this.mode = mode;
     this.damageTimer = this.bannerTimer = 0;
@@ -131,35 +131,39 @@ Game.Hud = class Hud {
     if (state) el.classList.remove('denied');
   }
 
-  // 购买菜单（#81），view 由 economy.refreshMenu 给，null 表示关掉：
-  //   { type: 'classic', money, cat, cats: [{ name, items: [{ id, name, price, count, max, ok }] }], buyKey, quickKey }
-  //   { type: 'quick', money, packs: [{ id, name, custom, cost, ok, lines: [{ kind, name, want, state }] }], buyKey, quickKey }
-  // 每张卡都带 data-buy（商品或套餐的 id），鼠标点哪张由 buyCursor 判断
+  // 购买菜单（#81、#90），view 由 economy.refreshMenu 给，null 表示关掉：
+  //   { type: 'classic', money, free, cat, cats: [{ name, items: [{ id, icon, name, price, note, ok }] }], buyKey, quickKey }
+  //   { type: 'quick', money, free, packs: [{ id, name, custom, cost, ok, lines: [{ kind, icon, name, want, state }] }], buyKey, quickKey }
+  // B 经典菜单在屏幕中间，有光标；F 快捷菜单是左侧一列窄条，没有光标（纯键盘，不挡视线）。
+  // 每张卡都带 data-buy（商品或套餐的 id），B 菜单里鼠标点哪张由 buyCursor 判断
   setBuyMenu(view) {
     const el = this.el.buy;
     el.style.display = view ? 'block' : 'none';
-    this.el.buyCursor.style.display = view ? 'block' : 'none';
+    this.el.buyCursor.style.display = view && view.type === 'classic' ? 'block' : 'none';
     this.buyCards = null;
     this.buyHover = null;
     if (!view) return;
-    const icon = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${Hud.BUY_ICONS[k]}</svg>`;
-    const head = (title) => `<header><h4>${title}</h4><b>$${view.money}</b></header>`;
+    const icon = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${Hud.BUY_ICONS[k] || ''}</svg>`;
+    const cost = (n) => view.free ? '免费' : `$${n}`;
+    const head = (title) => `<header><h4>${title}</h4><b>${view.free ? '训练场免费' : `$${view.money}`}</b></header>`;
     let html;
     if (view.type === 'classic') {
       html = head('购买') + '<div class="buy-cols">' + view.cats.map((c, ci) =>
         `<section class="${view.cat === ci ? 'sel' : view.cat >= 0 ? 'dim' : ''}"><h5><kbd>${ci + 1}</kbd>${c.name}</h5>` +
         c.items.map((it, ii) =>
-          `<div class="buy-card${it.ok ? '' : ' off'}" data-buy="${it.id}"><kbd>${ii + 1}</kbd>${icon(it.id)}` +
-          `<span>${it.name}</span><i>${it.count} / ${it.max}</i><b>$${it.price}</b></div>`).join('') +
+          `<div class="buy-card${it.ok ? '' : ' off'}" data-buy="${it.id}"><kbd>${ii + 1}</kbd>${icon(it.icon)}` +
+          `<span>${it.name}</span><i>${it.note}</i><b>${cost(it.price)}</b></div>`).join('') +
         '</section>').join('') + '</div>' +
         `<p>${view.cat < 0 ? '数字键选分类' : '数字键选商品 · 退格返回'} · 点击购买 · ${view.quickKey} 快捷套餐 · ${view.buyKey} 关闭</p>`;
     } else {
-      const lineHtml = (l) => `<li class="${l.state}">${icon(l.kind)}<span>${l.name}</span><i>×${l.want}</i></li>`;
-      html = head('快捷购买') + '<div class="buy-packs">' + view.packs.map((p, i) =>
-        `<div class="buy-card pack${p.ok ? '' : ' off'}" data-buy="${p.id}"><h5><kbd>${i + 1}</kbd>${p.name}</h5>` +
-        (p.lines.length ? `<ul>${p.lines.map(lineHtml).join('')}</ul>` : '<ul class="empty"><li>在 B 菜单里买过一次后，自动记住那套</li></ul>') +
-        `<b>${p.ok ? `$${p.cost}` : p.lines.length && p.lines.every((l) => l.state === 'have') ? '已齐' : '—'}</b></div>`).join('') + '</div>' +
-        `<p>已有的跳过，钱不够的跳过 · 点击或数字键购买 · ${view.buyKey} 经典菜单 · ${view.quickKey} 关闭</p>`;
+      // 一行一个套餐：键位、名字、花多少；下面一排小图标是这套要买的东西（亮 = 要买，暗 = 已经有了，红 = 钱不够会跳过）
+      const lineHtml = (l) => `<li class="${l.state}" title="${l.name}">${icon(l.icon)}${l.want > 1 ? `<i>${l.want}</i>` : ''}</li>`;
+      const total = (p) => p.ok ? cost(p.cost) : p.lines.length && p.lines.every((l) => l.state === 'have') ? '已齐' : '—';
+      html = head('快捷') + '<div class="buy-packs">' + view.packs.map((p, i) =>
+        `<div class="buy-card pack${p.ok ? '' : ' off'}" data-buy="${p.id}"><h5><kbd>${i + 1}</kbd>${p.name}<b>${total(p)}</b></h5>` +
+        (p.lines.length ? `<ul>${p.lines.map(lineHtml).join('')}</ul>` : `<ul class="empty"><li>用 ${view.buyKey} 买过一次后记住</li></ul>`) +
+        '</div>').join('') + '</div>' +
+        `<p>${view.quickKey} 关闭 · ${view.buyKey} 完整菜单</p>`;
     }
     el.className = view.type;
     el.innerHTML = html;
@@ -183,7 +187,7 @@ Game.Hud = class Hud {
     return id;
   }
 
-  // 武器栏。slots: [{ action, name, count?, on, empty }]
+  // 武器栏。slots: [{ action, name, count?, on, empty, none }]，none = 这一格还没有武器（没买主武器，#90）
   setSlots(slots) {
     this.slots = slots;
     this.renderSlots();
@@ -197,7 +201,7 @@ Game.Hud = class Hud {
     if (age >= dur) this.slotPulse = null;
     this.el.weapons.innerHTML = this.slots.map((s) => {
       const bought = age < dur && s.action === p.action;
-      const cls = `slot${s.on ? ' on' : ''}${s.empty ? ' empty' : ''}${bought ? ' bought' : ''}`;
+      const cls = `slot${s.on ? ' on' : ''}${s.empty ? ' empty' : ''}${s.none ? ' none' : ''}${bought ? ' bought' : ''}`;
       const style = bought ? ` style="animation-duration:${dur}s;animation-delay:-${age.toFixed(3)}s"` : '';
       const count = s.count === undefined ? '' : `<b>${s.count}</b>`;
       return `<div class="${cls}"${style}><kbd>${name(s.action)}</kbd>${s.name}${count}</div>`;
@@ -348,6 +352,8 @@ Game.Hud = class Hud {
 
 // 购买菜单里的小图标（内嵌 SVG 路径，线条用 currentColor）
 Game.Hud.BUY_ICONS = {
+  rifleGun: '<path d="M1 10h14l1-1h7v3h-5l-2 1h-3l-1 2h-2l-1 4H6l1-4H4l-1 2H1z"/>',                // 主武器
+  pistolGun: '<path d="M3 7h17v4h-9l-1 2H8l-1 5H3l1-6H3z"/>',                                         // 手枪
   rifle: '<path d="M8 3h7l-1 18H9z"/><path d="M9 8h6M9 13h5"/>',                                     // 步枪弹匣
   pistol: '<path d="M9 4h6v16H9z"/><path d="M9 9h6"/>',                                                // 手枪弹匣
   frag: '<circle cx="12" cy="14" r="6"/><path d="M10 8V5h4v3M14 5l4-2"/>',                            // 手雷

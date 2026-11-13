@@ -1,6 +1,7 @@
 // v0.22 的针对性测试：第一人称手臂的手腕不弯折过度、不扭转（gunmodel.js 的 buildArms().solve）。
 // 每把枪 / 手雷、换弹中左手去抓弹匣时，量手腕骨骼相对蒙皮绑定姿势转了多少，拆成"弯折"和"绕小臂的扭转"。
 // v0.29（#11）：步枪左手托护木时，小臂从画面下方伸出去、手肘不在画面里（以前小臂水平往左，手肘折在画面中间）。
+// #90：出生只有手枪，测试里直接给上主武器；首页没有选枪了，换枪用 Game.Settings + weapon.buildGun。
 // 用法（在仓库根目录）：node tools/tests/arm-wrist.mjs
 import { openGame } from '../lib/game-page.mjs';
 const g = await openGame({ width: 1280, height: 720 });
@@ -67,8 +68,17 @@ const judge = (name, r) => {
 };
 
 for (const [rifle, pistol] of [['m4', 'sg'], ['ak', 'beretta']]) {
-  await p.evaluate(([r, s]) => { game.ui.pickLoadout('rifle', r); game.ui.pickLoadout('pistol', s); }, [rifle, pistol]);
-  await p.waitForFunction(([r, s]) => game.weapon.guns.rifle.key === r && game.weapon.guns.pistol.key === s, [rifle, pistol], { timeout: 60000 });
+  // 换成这一套枪（枪模在开局后后台下载，先等下载完），再给上主武器
+  await p.evaluate(async ([r, s]) => {
+    const L = Game.Config.loadout;
+    await Promise.all([Game.GunModel.loadGun(L.rifle[r].model), L.pistol[s].model && Game.GunModel.loadGun(L.pistol[s].model)]);
+    Game.Settings.set('rifle', r); Game.Settings.set('pistol', s);
+    const w = game.weapon;
+    w.buildGun('rifle'); w.buildGun('pistol');
+    w.hasRifle = true; w.equipNow('pistol'); w.refreshHud();
+  }, [rifle, pistol]);
+  const keys = await p.evaluate(() => [game.weapon.guns.rifle.key, game.weapon.guns.pistol.key, game.weapon.hasRifle]);
+  check(keys.join() === `${rifle},${pistol},true`, `换成 ${rifle} + ${pistol}`, keys);
   for (const [key, slot, name] of [['Digit1', 'rifle', rifle], ['Digit2', 'pistol', pistol]]) {
     judge(name, await p.evaluate(([k, slot]) => { press(k); tick(1.2); return measure(game.weapon.guns[slot].model); }, [key, slot]));
     if (slot === 'rifle') {

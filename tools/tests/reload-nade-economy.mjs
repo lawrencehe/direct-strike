@@ -1,4 +1,5 @@
 // v0.20 的针对性测试：自动换弹、换弹中切枪、手雷两道保险、经济（赏金、上限、购买、补给）。数值按 #7 更新过；子弹相关见 economy-ammo.mjs
+// #90：出生只有手枪，测试里直接给上主武器；钱数读 config 的 economy；训练场也有经济，但免费、不显示钱
 // 用法（在仓库根目录）：node tools/tests/reload-nade-economy.mjs
 // 截图在 tools/out/tests/：reload-a ~ e 是空枪换弹的几个阶段，buy-menu 是购买面板。说明见 docs/testing.md
 import { mkdirSync } from 'node:fs';
@@ -27,7 +28,11 @@ await p.evaluate(() => {
       game.input.endFrame();
     }
   };
+  // 投掷物分类的数字键（#90 起是 4）
+  window.T = `Digit${Game.Config.economy.categories.findIndex((c) => c.items.includes('frag')) + 1}`;
+  game.weapon.hasRifle = true; game.weapon.equipNow('rifle'); game.weapon.refreshHud();   // 出生只有手枪（#90），给上主武器
 });
+const E = await p.evaluate(() => Game.Config.economy);
 
 // ---- 1. 打空自动换弹 ----
 let r = await p.evaluate(() => {
@@ -93,8 +98,12 @@ r = await p.evaluate(() => {
   out.capped = e.money;
   return out;
 });
-check(r.start === 600 && r.head === 1100 && r.leg === 1400 && r.frag === 1700 && r.selfKill === 1700, '赏金：开局 600，爆头 500 / 普通 300 / 手雷 300，NPC 自己炸死不算（#7）', r);
-check(r.capped === 2000, '钱封顶 2000', r.capped);
+{
+  const R = E.reward, s0 = E.startMoney, head = s0 + R.head, leg = head + R.body, frag = leg + R.frag;
+  check(r.start === s0 && r.head === head && r.leg === leg && r.frag === frag && r.selfKill === frag,
+    `赏金：开局 ${s0}，爆头 ${R.head} / 普通 ${R.body} / 手雷 ${R.frag}，NPC 自己炸死不算（#7）`, r);
+  check(frag < E.maxMoney && r.capped === E.maxMoney, `钱封顶 ${E.maxMoney}`, r.capped);
+}
 
 r = await p.evaluate(() => {
   const e = game.economy, w = game.weapon, pl = game.player;
@@ -104,17 +113,18 @@ r = await p.evaluate(() => {
   press('KeyB'); tick(1 / 60);
   const open = e.open;
   const before = { ...w.counts };
-  // 先按分类（2 投掷物）再按商品（1 手雷 / 2 闪光）；买到了回到选分类，面板不关（#81）
+  const money0 = e.money;
+  // 先按分类（T 投掷物）再按商品（1 手雷 / 2 闪光）；买到了回到选分类，面板不关（#81）
   // 前面扔掉了开局的手雷，这时 0 个：买两次到上限 2，第三次买不了（还停在投掷物分类），接着按 2 就是闪光
-  press('Digit2'); tick(1 / 60); press('Digit1'); tick(1 / 60);
-  press('Digit2'); tick(1 / 60); press('Digit1'); tick(1 / 60);
-  press('Digit2'); tick(1 / 60); press('Digit1'); tick(1 / 60);
+  press(T); tick(1 / 60); press('Digit1'); tick(1 / 60);
+  press(T); tick(1 / 60); press('Digit1'); tick(1 / 60);
+  press(T); tick(1 / 60); press('Digit1'); tick(1 / 60);
   press('Digit2'); tick(1 / 60);       // 闪光；面板开着截图用
-  return { zone, tip, open, before, after: { ...w.counts }, money: e.money, current: w.current, pending: w.pending };
+  return { zone, tip, open, before, after: { ...w.counts }, money0, money: e.money, current: w.current, pending: w.pending };
 });
 check(r.zone && r.open && r.tip, '出生点里按 B 打开面板', r);
-check(r.after.frag === 2 && r.after.flash === 1 && r.money === 2000 - (2 - r.before.frag) * 300 - 200, '买到手雷和闪光，扣钱正确，手雷上限 2', r);
-check(r.current === 'rifle' && !r.pending, '面板开着时按 3/4 是买东西，不切武器', { current: r.current, pending: r.pending });
+check(r.after.frag === 2 && r.after.flash === 1 && r.money === r.money0 - (2 - r.before.frag) * E.prices.frag - E.prices.flash, '买到手雷和闪光，扣钱正确，手雷上限 2', r);
+check(r.current === 'rifle' && !r.pending, '面板开着时按数字键是买东西，不切武器', { current: r.current, pending: r.pending });
 await p.waitForTimeout(700);
 await p.screenshot({ path: `${OUT}buy-menu.jpg`, type: 'jpeg', quality: 85 });
 
@@ -126,16 +136,20 @@ r = await p.evaluate(() => {
 check(!r.open && r.menu === 'none', '走出购买区面板自动关掉', r);
 
 // 重生回到开局数量，钱保留
-r = await p.evaluate(() => { game.weapon.respawn(); return { counts: { ...game.weapon.counts }, money: game.economy.money }; });
-check(r.counts.frag === 1 && r.counts.flash === 0 && r.money === 1200, '重生：投掷物回到开局数量，钱保留', r);
+r = await p.evaluate(() => {
+  const before = game.economy.money;
+  game.weapon.respawn(); game.economy.onRespawn();
+  return { counts: { ...game.weapon.counts }, before, money: game.economy.money };
+});
+check(r.before > E.startMoney && r.counts.frag === 1 && r.counts.flash === 0 && r.money === r.before, '重生：投掷物回到开局数量，钱（多于开局的）保留', r);
 
 // 波次之间补给不收走多买的
 r = await p.evaluate(() => { game.weapon.counts.frag = 2; game.weapon.refill(true); return game.weapon.counts.frag; });
 check(r === 2, '波次补给不收走多买的', r);
 
-// 训练场没有经济
-r = await p.evaluate(() => { game.startMode('range'); return { enabled: game.economy.enabled, money: document.getElementById('money').style.display }; });
-check(!r.enabled && r.money === 'none', '训练场不显示钱', r);
+// 训练场：能买（枪），但一切免费，不显示钱（#90）
+r = await p.evaluate(() => { game.startMode('range'); return { enabled: game.economy.enabled, free: game.economy.free, money: getComputedStyle(document.getElementById('money')).display }; });
+check(r.enabled && r.free && r.money === 'none', '训练场免费、不显示钱', r);
 
 check(g.problems.length === 0, '控制台无报错', g.problems);
 await g.close();

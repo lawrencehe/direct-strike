@@ -4,6 +4,8 @@
 //   3. 巡逻时视线会离开前进方向左右扫（最大偏离超过 30 度），不是一直盯着脚下
 //   4. 刚听到枪声（确定玩家在哪）：直奔过去，视线和前进方向一致
 //   5. 搜索：先去推算的位置；到了没人就去附近从当前位置看不到的点，去过的点不重复
+// 玩家要"看不见、听不见"时放到地图外面（park）。这时不推玩家的 update：不然掉出地图会被拉回出生点，
+// NPC 看见了就进 combat、把玩家打死，后面几项全乱（#90 起 NPC 形象随机，出没出事看运气）。
 // 用法（在仓库根目录）：node tools/tests/npc-loadout-scan.mjs
 // 截图在 tools/out/tests/：npc-m4（NPC 拿 M4）、npc-sg（NPC 拿 SG 手枪），看手是不是握在枪上
 import { mkdirSync } from 'node:fs';
@@ -26,9 +28,17 @@ await p.evaluate(() => {
   game.ui.show(null);
   game.input.locked = false;
   game.startMode('duel');
+  window.parked = false;
+  window.park = () => {
+    window.parked = true;
+    game.player.alive = true;
+    game.player.position.set(400, 0, 400);
+    game.camera.position.set(400, 1.6, 400); game.camera.updateMatrixWorld();
+  };
   window.tick = (sec, step = 1 / 60) => {
     for (let t = 0; t < sec - 1e-9; t += step) {
-      game.player.update(step, game.input); game.camera.updateMatrixWorld();
+      if (!parked) game.player.update(step, game.input);
+      game.camera.updateMatrixWorld();
       game.bots.update(step); game.grenades.update(step);
       game.input.endFrame();
     }
@@ -44,7 +54,33 @@ await p.evaluate(() => {
     b.pos.set(x, 0, z); b.updateBox();
     return b;
   };
+  // 第 4、5 项用的一对巡逻点：起点 s、"听到 / 推算的位置" t，相距 8 ~ 20 米，中间一路通畅
+  // （膝盖和胸口高度、左右各偏 0.4 米都看得通）。以前从 (0,0) 出发：那里在掩体里，NPC 被随机推到某一边，
+  // 有时一头撞在墙上跑不动，测试时好时坏
+  window.clearPair = (() => {
+    const nav = game.world.navPoints, M = game.bots;
+    const clear = (s, t) => {
+      const dx = t.x - s.x, dz = t.z - s.z, len = Math.hypot(dx, dz), nx = -dz / len * 0.4, nz = dx / len * 0.4;
+      return [0.4, 1.2].every((h) => [-1, 0, 1].every((k) =>
+        M.hasLineOfSight(new THREE.Vector3(s.x + nx * k, h, s.z + nz * k), new THREE.Vector3(t.x + nx * k, h, t.z + nz * k))));
+    };
+    for (const s of nav) for (const t of nav) {
+      const d = Math.hypot(t.x - s.x, t.z - s.z);
+      if (d > 8 && d < 20 && clear(s, t)) return { s, t };
+    }
+    return null;
+  })();
+  // 在 clearPair 的起点放一个 NPC，玩家放到看不见、听不见的地方
+  window.atStart = () => {
+    const { s } = clearPair;
+    const b = respawnWith({ rifle: 'ak', pistol: 'beretta' }, s.x, s.z);
+    park();
+    tick(0.3);   // 落地、进入巡逻
+    b.pos.set(s.x, 0, s.z); b.vel.set(0, 0, 0); b.updateBox();
+    return b;
+  };
 });
+check(await p.evaluate(() => !!clearPair), '地图上找到一对中间通畅的巡逻点（第 4、5 项用）', await p.evaluate(() => clearPair));
 
 // ---- 1. 随机挑枪 ----
 let r = await p.evaluate(() => {
@@ -93,7 +129,7 @@ await p.evaluate(() => { game.player.alive = true; });
 // ---- 3. 巡逻张望 ----
 r = await p.evaluate(() => {
   const b = respawnWith({ rifle: 'ak', pistol: 'beretta' }, 0, 0);
-  game.player.position.set(400, 0, 400);   // 看不见、听不见
+  park();   // 看不见、听不见
   const offs = [];
   for (let i = 0; i < 60 * 12; i++) {
     tick(1 / 60);
@@ -112,11 +148,10 @@ check(r.frames > 120 && r.over30 > 0.15 && r.p50 < 75, '巡逻时边走边往左
 
 // ---- 4. 听到枪声：直奔过去 ----
 r = await p.evaluate(() => {
-  const b = respawnWith({ rifle: 'ak', pistol: 'beretta' }, 0, 0);
-  game.player.position.set(400, 0, 400);
-  tick(0.3);
-  // 选一个从 NPC 那看得到方向的巡逻点当"听到的位置"
-  const pt = Game.Config.bots && game.world.navPoints.find((n) => Math.hypot(n.x, n.z) > 8 && Math.hypot(n.x, n.z) < 20);
+  const b = atStart();
+  const pt = clearPair.t;   // "听到的位置"：从 NPC 那一路通畅
+  // 先让 NPC 面朝那边：巡逻的朝向是随机的，背对着时 20 帧还没转过来，量到的是转身的滞后、不是张望
+  b.yaw = Math.atan2(-(pt.x - b.pos.x), -(pt.z - b.pos.z));
   b.hear(new THREE.Vector3(pt.x, 0, pt.z));
   let maxOff = 0;
   for (let i = 0; i < 60; i++) {   // 1 秒，在 sureTime 内
@@ -131,10 +166,8 @@ check(r.state === 'search' && r.maxOffDeg < 25 && r.speed > r.run * 0.8, '刚听
 
 // ---- 5. 搜索 ----
 r = await p.evaluate(() => {
-  const b = respawnWith({ rifle: 'ak', pistol: 'beretta' }, 0, 0);
-  game.player.position.set(400, 0, 400);
-  tick(0.3);
-  const pt = game.world.navPoints.find((n) => Math.hypot(n.x, n.z) > 8 && Math.hypot(n.x, n.z) < 20);
+  const b = atStart();
+  const pt = clearPair.t;
   b.lastSeen.set(pt.x, 0, pt.z); b.sinceSeen = 0;
   b.startSearch(b.lastSeen);
   const spots = [];

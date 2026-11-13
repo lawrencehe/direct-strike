@@ -114,8 +114,8 @@ Game.GunModel = (function () {
   // 由 assets-src/models/gun/*.py 生成，坐标约定和上面一样。零件拆成几个网格：
   // body 枪身、mag 弹匣（原点在弹匣顶部，换弹时绕这里转）、bolt 拉机柄 / 枪机或 slide 套筒（开枪时往后跳），
   // 另有空节点 muzzle 标出枪口。
-  // 用哪个文件看 config.js 的 weapons.rifle.model / weapons.pistol.model（首页选的枪），同一个文件只下载一次。
-  // main.js 开局前等选中的枪加载完；首页换枪时 ui.js 再加载新的。加载失败的错误显示在加载页或首页上。
+  // 用哪个文件看 config.js 的 weapons.rifle.model / weapons.pistol.model（上次买的枪，#90），同一个文件只下载一次。
+  // main.js 开局前等这两把加载完，别的枪进了游戏在后台下载。加载失败的错误显示在加载页或首页上。
   const gunAssets = {};   // 文件路径 → Promise<gltf.scene>
   function loadGun(path) {
     if (!path) return Promise.resolve(null);   // 代码拼的枪，不用下载

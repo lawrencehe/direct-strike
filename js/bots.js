@@ -91,7 +91,7 @@ Game.Bots = (function () {
       this.stun = 0;                   // 中弹硬直的剩余时间：站住、不开枪、不丢雷（#60）
       this.stunCool = 0;               // 这段时间内再中弹不会再硬直
 
-      // 装备：和玩家同一套枪（loadout 里随机挑的主 / 副武器，#54）+ 三种雷。
+      // 装备：和玩家同一套枪，每次出生随机挑一把主武器、一把手枪，一定有主武器（#54、#90）+ 三种雷。
       // 子弹也和玩家开局一样：枪里一个弹匣 + spareMags 个备用弹匣，NPC 买不了（#7）
       const G = Game.Config.grenades;
       this.gunKeys = guns;
@@ -834,7 +834,7 @@ Game.Bots = (function () {
     }
 
     // NPC 的枪：loadout 里每格随机挑一把（#54）。只从已经下载好的里挑（玩家没选的枪在后台下载，见 main.js），
-    // 都还没好就用玩家选的那把
+    // 都还没好就用玩家上次买的那把（开局前一定下好了）
     pickGuns() {
       const L = Game.Config.loadout, out = {};
       for (const slot of ['rifle', 'pistol']) {

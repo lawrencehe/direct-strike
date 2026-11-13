@@ -36,10 +36,8 @@ Game.Main = (function () {
     hud.input = input;            // 武器栏和底部提示要显示当前绑定的按键
     const ui = new Game.UI({ input, hud, audio, world: { mapName: mapData.name || Game.Config.map } });
     shell = { input, audio, hud, ui };
-    // 首页阶段换装备只记下选择，模型进入战斗时一起下载
     ui.npcReady = true;
     ui.npcNote = '';
-    ui.onLoadout = () => Promise.resolve();
     ui.onDeploy = (m) => {
       enterFullscreen();   // 要在点击里同步发起，不能等下载完
       load(m).then((g) => g.deploy(m), () => {});
@@ -74,18 +72,19 @@ Game.Main = (function () {
     ui.show('boot');
     const npc = Game.UI.MODES[mode].npc;
     loading = (async () => {
-      // 1. 下载：地图目录、开局天气、选中的枪、手臂、音效，对战模式再加 NPC。本地缓存里有的不算
+      // 1. 下载：地图目录、开局天气、上次买的枪（出生的手枪、F 套餐的主武器，#90）、手臂、音效，对战模式再加一个随机的 NPC 形象。
+      //    本地缓存里有的不算。别的枪和形象进了游戏再在后台下载（startGame 末尾）
+      const npcModel = npc ? Game.Character.paths()[Math.floor(Math.random() * Game.Character.paths().length)] : null;
       const files = [
         `maps/${C.map}.json`, ...A.under(`assets/maps/${C.map}/`), ...Game.World.weatherDirs().flatMap(A.under),
-        C.weapons.rifle.model, C.weapons.pistol.model, C.weapons.arms.model, ...A.under(C.audio.samples.dir),
-        npc ? C.character.model : null,
+        C.weapons.rifle.model, C.weapons.pistol.model, C.weapons.arms.model, ...A.under(C.audio.samples.dir), npcModel,
       ].filter(Boolean);
       const total = await A.prefetch(files, (got, all) => bar(0.85 * got / all, `下载资源 ${MB(got)} / ${MB(all)} MB`));
       // 2. 解码、创建场景（没有清单时下载也在这一步，进度按件数算）
       const head = total ? 0.85 : 0;
       const loads = [Game.World.loadMap(C.map), Game.GunModel.loadGun(C.weapons.rifle.model),
         Game.GunModel.loadGun(C.weapons.pistol.model), Game.GunModel.loadArms()];
-      if (npc) loads.push(Game.Character.load());
+      if (npc) loads.push(Game.Character.load(npcModel));
       let done = 0;
       const text = A.version ? '准备场景…' : '加载中…';
       bar(head, text);
@@ -227,6 +226,7 @@ function startGame(mapData, { input, audio, hud, ui }) {
     hud.setHealth(player.health, Game.Config.player.maxHealth);
     hud.showDamage(fromPos, amount);
     weapon.onHurt(amount);
+    economy.onHurt();   // F 快捷菜单开着就关掉，数字键还给切枪（#90）
     audio.hurt();
   };
 
@@ -397,26 +397,17 @@ function startGame(mapData, { input, audio, hud, ui }) {
   grenades.precompile(renderer, camera);
   frame();
 
-  // NPC 模型是异步加载的，加载完才允许进入对战模式（对战模式进来的已经加载好了，这里马上就回来）
+  // NPC 形象每次出生随机挑（#90）：所有形象在后台下载，一个都没好之前不让进对战模式（对战模式进来的已经有一个了，这里马上就回来）；
+  // 没下载完的不会被挑到（character.js 的 create）
   ui.npcReady = false;
   ui.npcNote = 'NPC 模型加载中…';
-  Game.Character.load().then((ok) => ui.setNpcReady(ok));
+  Promise.all(Game.Character.paths().map((p) => Game.Character.load(p))).then((oks) => ui.setNpcReady(oks.some(Boolean)));
 
-  // NPC 每次出生随机拿 loadout 里的一把主武器、一把副武器（#54）。玩家没选的枪等首页出来后在后台下载，
-  // 不拖慢首次加载；没下载完之前 NPC 只从已经加载好的枪里挑（bots.js 的 pickGuns）
+  // 枪在局内买（#90），NPC 每次出生随机拿一把主武器、一把手枪（#54）。上次买的那两把开局前已经下好了，别的在后台下载，
+  // 不拖慢首次加载；没下载完的枪买不了（购买菜单里是灰的），NPC 也只从已经加载好的里挑（bots.js 的 pickGuns）
   for (const slot of ['rifle', 'pistol']) {
     for (const g of Object.values(Game.Config.loadout[slot])) Game.GunModel.loadGun(g.model).catch(() => {});
   }
-
-  // 首页换了装备（settings 已经把选择写回 Game.Config）：下载新模型，好了再换上。
-  // 下载期间 ui 不让进入战斗；返回的 Promise 结束时 ui 刷新首页
-  ui.onLoadout = (slot) => {
-    if (slot === 'npc') return Game.Character.load().then((ok) => { ui.setNpcReady(ok); return ok; });
-    const key = Game.Settings.get(slot);
-    return Game.GunModel.loadGun(Game.Config.weapons[slot].model).then(() => {
-      if (Game.Settings.get(slot) === key) weapon.buildGun(slot);   // 下载期间又换了别的就不管
-    });
-  };
 
   // 方便在浏览器控制台（F12）里调试，例如输入 game.player.position 查看位置
   window.game = { scene, camera, renderer, world, targets, input, audio, hud, ui, player, weapon, grenades, effects, bots, economy, startMode, deploy };
