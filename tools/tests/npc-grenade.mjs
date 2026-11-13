@@ -17,6 +17,7 @@ const check = (ok, name, info = '') => {
 };
 
 await p.evaluate(() => {
+  Game.Config.spawnProtect.time = 0;   // 这里测的是伤害本身，关掉出生保护（#97，单独测在 spawn-protect.mjs）
   game.ui.show(null);
   game.input.locked = false;
   game.startMode('duel');

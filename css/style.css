@@ -683,6 +683,18 @@ b.enemy { color: var(--enemy) !important; }
   background: radial-gradient(ellipse at center, transparent 45%, rgba(200, 0, 0, .75) 100%);
 }
 
+/* 出生保护（#97）：屏幕边缘一圈淡蓝光，上方一行字；hud.js 按剩余时间淡出 */
+#spawn-protect {
+  position: absolute; inset: 0; opacity: 0; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(90, 180, 255, .35) 100%);
+  box-shadow: inset 0 0 0 3px rgba(120, 200, 255, .55);
+}
+#spawn-protect span {
+  position: absolute; left: 0; right: 0; top: 34%; text-align: center;
+  font-family: var(--font-d); font-size: 20px; font-weight: 700; letter-spacing: .3em;
+  color: #bfe4ff; text-shadow: 0 0 10px rgba(0, 0, 0, .9);
+}
+
 /* 中弹溅血（#60）：画面四角几团暗红的血迹，中弹时按伤害显出来再慢慢淡掉；每次随机翻转，看着不一样 */
 #damage-blood {
   position: absolute; inset: 0; opacity: 0; pointer-events: none;

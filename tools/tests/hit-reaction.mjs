@@ -16,6 +16,7 @@ let fails = 0;
 const check = (ok, name, v) => { if (!ok) fails++; console.log(ok ? 'PASS' : 'FAIL', name, v === undefined ? '' : JSON.stringify(v)); };
 
 await p.evaluate(() => {
+  Game.Config.spawnProtect.time = 0;   // 这里测的是伤害本身，关掉出生保护（#97，单独测在 spawn-protect.mjs）
   game.ui.show(null);
   game.input.locked = false;
   game.startMode('duel');
@@ -122,7 +123,9 @@ check(r.end.trail === r.end.bar && r.end.blood === 0, '过一会儿那一截缩�
 
 // ---- 5. NPC ----
 r = await p.evaluate(() => {
-  game.player.reset(); tick(0.1);
+  game.player.reset();
+  game.player.position.set(-6, 0, 12);   // 出生点前有沙袋墙（#97），换到开阔处，NPC 在正北 10 米
+  tick(0.1);
   const pl = game.player;
   bot.update = bot.realUpdate;
   bot.pos.set(pl.position.x, 0, pl.position.z - 10); bot.updateBox(); bot.vel.set(0, 0, 0);

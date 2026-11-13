@@ -26,6 +26,7 @@ Game.Player = class Player {
 
     this.health = Game.Config.player.maxHealth;
     this.alive = true;
+    this.protect = 0;
     this.deathTimer = 0;
     this.onDamage = null;                   // (伤害, 攻击者位置, hit) => void
     // 中弹反应（#60，参数在 config.hitReaction）
@@ -48,8 +49,9 @@ Game.Player = class Player {
   get stunned() { return this.stun > 0; }
 
   // hit.explosion：被手雷炸到（硬直按伤害算、不受免疫限制）
+  // 出生保护期间（protect > 0，#97）不掉血、不硬直
   takeDamage(amount, fromPos, hit = {}) {
-    if (!this.alive) return;
+    if (!this.alive || this.protect > 0) return;
     this.health = Math.max(0, this.health - amount);
     this.hitReaction(amount, fromPos, hit);
     if (this.onDamage) this.onDamage(amount, fromPos, hit);
@@ -84,6 +86,7 @@ Game.Player = class Player {
 
   update(dt, input) {
     const cfg = Game.Config.player;
+    if (this.protect > 0) this.protect = Math.max(0, this.protect - dt);
 
     // ---- 1. 鼠标转视角 ----
     const look = input.consumeMouse();
@@ -227,6 +230,7 @@ Game.Player = class Player {
     this.respawn();
     this.health = Game.Config.player.maxHealth;
     this.alive = true;
+    this.protect = Game.Config.spawnProtect.time;   // 出生保护的剩余秒数（#97），开枪清零（main.js 的 weapon.onShot）
     this.deathTimer = 0;
     this.camera.rotation.z = 0;
   }
