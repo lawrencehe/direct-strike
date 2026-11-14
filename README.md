@@ -131,7 +131,8 @@ direct-strike/
 ├── tools/            开发工具（验证、模型、图片、骨骼、地图、资源清单 build-manifest.mjs），不发布；tools/tests/ 是留在仓库里的针对性测试，
 │                     tools/devlog/analyze.mjs 分析开发者模式上传的数据
 ├── assets-src/       未压缩的模型母版和 Blender 加工脚本（音效的剪辑脚本 assets-src/sound/build.py），不发布
-├── CLAUDE.md         给 AI 助手看的项目约定
+├── CLAUDE.md         给 AI 助手看的项目约定（AGENTS.md 是指向它的链接，给 Codex 等其他 AI 用）
+├── .claude/skills/   AI 助手的技能（/verify、/glb、/ship 等）；.agents 是指向 .claude 的链接
 ├── css/style.css     界面和 HUD 样式（颜色、字体是开头的 CSS 变量）
 ├── assets/
 │   ├── brand/               logo（logo-dark.png 用在深色界面上）、网站图标、分享预览图

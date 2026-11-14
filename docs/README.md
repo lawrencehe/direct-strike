@@ -1,7 +1,7 @@
 # 文档索引
 
 新加入的开发者按这个顺序读：先 `README.md` 了解游戏和目录，再看本页列出的文档。
-AI 助手（Claude Code）的约定在根目录的 `CLAUDE.md`，它也指向这里。
+AI 助手（Claude Code）的约定在根目录的 `CLAUDE.md`，它也指向这里。其他 AI（Codex 等）读的 `AGENTS.md` 是指向 `CLAUDE.md` 的链接，`.agents` 是指向 `.claude`（技能）的链接，改原文件即可，两边同步。
 
 ## 先读
 
