@@ -74,6 +74,7 @@ yard 用 6 个：南北两头各三个（中间和两角），东西两侧离中
 
 - 文件在 `assets/maps/<地图>/textures/<名字>_diff.webp`、`_nor.webp`、`_rough.webp`，由 `assets-src/maps/<地图>/fetch_textures.py` 下载转换；
   换材质就改脚本里的 `TEXTURES`（游戏里的名字 → Poly Haven 的 id）再跑一次，新素材登记到 `assets/LICENSES.md`。
+  下载 2k，颜色贴图保留 2k，法线和粗糙度缩到 1k（脚本里的 `RESIZE`）：地面大面积重复铺，截图对比看不出差别，yard 的材质从 11.8 MB 降到 5.8 MB（#105）。
 - `surfaces` 里的名字对应这些用途：`asphalt` 场地沥青，`concreteFloor` 水泥地块（`pads`），`concrete` 水泥墩、高台、台阶、隔离墩、围栏墩和地上碎块
   （材质 `concrete` 和 `concreteDark` 共用，后者压暗），`dirt` 围栏外的地面。没列的、或者下载失败的，退回 `js/textures.js` 画的贴图。
 - 数字是一张贴图在现实中覆盖多少米。`world.js` 按物体每个面的真实尺寸铺（不是一个面拉伸一张），所以大小不同的墩子纹理一样粗细；
@@ -91,14 +92,14 @@ yard 用 6 个：南北两头各三个（中间和两角），东西两侧离中
   量法：Blender 里从上往下打射线，得到每 0.25 米一格的顶面高度图（模型的大平面只有角上有顶点，看顶点量不准）。
   模型坐标换到游戏里：平台转 90°（`rot: 1.5708`），游戏 x = −模型 y + 0.75，游戏 z = −模型 x + 0.25。
 - 栏杆、灯柱、棚柱都很细：栏杆用只挡人的空气墙，灯柱和棚柱没做碰撞。
-- 修整脚本 `assets-src/models/map/central-platform/build.py`：Tripo 出的是 1100 多块互不相连的碎片共用一张贴图，按位置归成 base / canopy / cover / lamp_l / lamp_r 五个节点，删掉参考图前景里一起被生成的枪。
+- 修整脚本 `assets-src/maps/yard/props/central-platform/build.py`：Tripo 出的是 1100 多块互不相连的碎片共用一张贴图，按位置归成 base / canopy / cover / lamp_l / lamp_r 五个节点，删掉参考图前景里一起被生成的枪。
 
 - **模型只管显示，碰撞和子弹仍按原来的方块**：`world.js` 放模型的同时放一个看不见的同尺寸方块（`addProxy`），
   所以换模型不改走位、NPC 的视线和 `map-check` 的结果；模型上的小缝也不会漏子弹。弹孔贴在方块表面，离瓦楞的凹槽最多差几厘米。
 - 模型原点在底面中心，长边沿 x。集装箱门在 +x 端，按位置决定转不转 180°，同一排的门不会全朝一边；隔离墩、沙袋墙也一样随机掉头。
 - 集装箱几何、法线、粗糙度所有颜色共用，颜色贴图每种颜色一张（`container_<颜色>_diff.webp`，箱号画在上面），按地图里用到的颜色烘焙。
   地图里加了新颜色要重新跑 `build.sh container`，否则这种颜色显示 glb 自带的第一种颜色。
-- **沙袋墙**（#98）：Tripo 只生成一个袋子（`assets-src/models/map/sandbag/tripo/`），`sandbag/build.py` 把它减面、换成麻布材质（从高模烘到低模），再一个个码成墙：
+- **沙袋墙**（#98）：Tripo 只生成一个袋子（`assets-src/maps/yard/props/sandbag/tripo/`），`sandbag/build.py` 把它减面、换成麻布材质（从高模烘到低模），再一个个码成墙：
   两排袋子、5 层，上下层错开半个袋子，墙头横放一个封口，每个袋子随机掉头、大小差一点，新旧深浅、底下的沙土和缝里的 AO 烘进顶点色。
   glb 里有三段直墙（节点 `len_2`、`len_3`、`len_4`），`len` 只能是 2、3、4。脚本里还有 L 形转角 `corner` 和 U 形 `u`（`MODULES`，一条折线一个模块），
   目前只出预览（`tools/out/props/sandbag-tripo-preview.glb`）不进游戏；地图要用时加进 `GAME_MODULES` 并在 `world.js` 加造型。
@@ -111,7 +112,7 @@ yard 用 6 个：南北两头各三个（中间和两角），东西两侧离中
 - 模型下载失败时退回原来的方块，游戏照常能玩。
 - **压缩过的 glb 不能直接改节点的 `position`**：meshopt 量化把顶点坐标的还原放在节点自己的位移和缩放里，克隆子节点后要套一层 `Group` 再摆（沙袋墙就是这样）。
 
-**改模型：** 纯 Blender 建的在 `assets-src/maps/yard/props/`（`container.py`、`jersey.py`，共用 `lib.py`），Tripo 底模的修整脚本在 `assets-src/models/map/<名字>/build.py`，
+**改模型：** 纯 Blender 建的在 `assets-src/maps/yard/props/`（`container.py`、`jersey.py`，共用 `lib.py`），Tripo 底模的修整脚本在 `assets-src/maps/yard/props/<名字>/build.py`，
 `assets-src/maps/yard/props/build.sh [container jersey sandbag platform crate drum]` 一次完成建模、烘焙、压缩，产物在 `assets/maps/yard/props/`。
 流程：bmesh 建几何 → 自动展 UV → 节点材质（Poly Haven 的 CC0 贴图 + 程序生成的锈、污渍、磕碰）→ Cycles 烘焙成颜色、粗糙度、法线 → 导出 glb → `tools/glb.mjs optimize`。
 锈多锈少、褪色、脏污的程度都是材质节点里的数字，脚本里有注释。

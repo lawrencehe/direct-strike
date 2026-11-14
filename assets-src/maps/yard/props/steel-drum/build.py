@@ -1,5 +1,5 @@
 # 油桶：把 Tripo 底模（tripo/model.glb，任务号 be421d3f，文字生成）修整成游戏用的母版（#98）。
-#   blender -b --factory-startup --python assets-src/models/map/steel-drum/build.py
+#   blender -b --factory-startup --python assets-src/maps/yard/props/steel-drum/build.py
 # 然后由 assets-src/maps/yard/props/build.sh drum 压缩到 assets/maps/yard/props/steel-drum.glb。
 # 游戏里的碰撞仍是半径 0.3、高 0.9 的圆柱 / 方块（js/world.js 的 barrel、barrelLying），模型只管显示。
 #

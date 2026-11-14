@@ -11,35 +11,22 @@
 | `sound/ak-1.mp3` `ak-2.mp3` `ak-far.mp3`、`m4-*.mp3`、`pistol-*.mp3` | [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) 的 Prepared 版（负责人提供，#45）：AK-47 `C_28P` / `C_31P`，AR-15 `D_32P` / `D_24P`，Walther PPQ `X_39P` / `X_31P` | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：切出单发、淡出、峰值归一化，转单声道 96 kbps mp3 |
 | `sound/mag-out.mp3` `mag-in.mp3` `rack-back.mp3` `rack-forward.mp3` | [Gun reload sounds](https://opengameart.org/content/gun-reload-sounds)，来自 OpenGameArt：`assaultriflereload1.wav`、`gunreload1.wav` | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：切成四个动作、淡出、归一化，转 mp3 |
 | `sound/frag.mp3` `flash.mp3` | [25 CC0 bang / firework SFX](https://opengameart.org/content/25-cc0-bang-firework-sfx)（OpenGameArt）的两段礼炮爆响；手雷再叠一层 Kenney [Sci-fi Sounds](https://kenney.nl/assets/sci-fi-sounds) 的 `low_frequency_explosion_000`（经 [Combat Sound Effects Pack](https://opengameart.org/node/195932) 下载） | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：叠层、剪长度、淡出、归一化，转 mp3 |
-| `maps/yard/textures/asphalt_*.webp` | [Tarred Gravel](https://polyhaven.com/a/tarred_gravel)，作者 Dimitrios Savva，来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：2k jpg 转 WebP |
-| `maps/yard/textures/concreteFloor_*.webp` | [Concrete Floor Damaged 01](https://polyhaven.com/a/concrete_floor_damaged_01)，作者 Rob Tuytel，来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：2k jpg 转 WebP |
-| `maps/yard/textures/concrete_*.webp` | [Dirty Concrete](https://polyhaven.com/a/dirty_concrete)，作者 Rob Tuytel，来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：2k jpg 转 WebP |
-| `maps/yard/textures/dirt_*.webp` | [Dirt](https://polyhaven.com/a/dirt)，作者 Charlotte Baglioni，来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：2k jpg 转 WebP |
+| `maps/yard/textures/asphalt_*.webp` | [Tarred Gravel](https://polyhaven.com/a/tarred_gravel)，作者 Dimitrios Savva，来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：2k jpg 转 WebP，法线和粗糙度缩到 1k（#105） |
+| `maps/yard/textures/concreteFloor_*.webp` | [Concrete Floor Damaged 01](https://polyhaven.com/a/concrete_floor_damaged_01)，作者 Rob Tuytel，来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：2k jpg 转 WebP，法线和粗糙度缩到 1k（#105） |
+| `maps/yard/textures/concrete_*.webp` | [Dirty Concrete](https://polyhaven.com/a/dirty_concrete)，作者 Rob Tuytel，来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：2k jpg 转 WebP，法线和粗糙度缩到 1k（#105） |
+| `maps/yard/textures/dirt_*.webp` | [Dirt](https://polyhaven.com/a/dirt)，作者 Charlotte Baglioni，来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：2k jpg 转 WebP，法线和粗糙度缩到 1k（#105） |
 | `maps/yard/props/container*.{glb,webp}` | 自己用 Blender 脚本建模（`assets-src/maps/yard/props/container.py`），材质烘焙时用了 Poly Haven 的 [Rust Coarse 01](https://polyhaven.com/a/rust_coarse_01) 和 [Rusty Painted Metal](https://polyhaven.com/a/rusty_painted_metal) | 模型是本项目自制；贴图素材 [CC0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | `maps/yard/props/jersey.glb` | 自己用 Blender 脚本建模（`jersey.py`），材质烘焙时用了 Poly Haven 的 [Dirty Concrete](https://polyhaven.com/a/dirty_concrete) | 同上 |
-| `maps/yard/props/sandbag.glb` | 袋子：Tripo 生成（H3.1，`v3.1-20260211`），任务号 `a2bc464d-578a-463e-bbec-b8e52e916f09`，参考图：负责人用 AI 画的沙袋墙里裁出的一个袋子；麻布材质用了 Poly Haven 的 [Hessian 230](https://polyhaven.com/a/hessian_230)（CC0） | Tripo 付费账号生成，可商用（见 #72）。**有改动**：删碎片、减面到 260 三角形，换成麻布材质从高模烘到低模，用脚本码成 2 / 3 / 4 米的沙袋墙（#98）；脚本 `assets-src/models/map/sandbag/build.py`，原始输出和参考图在 `tripo/` |
-| `maps/yard/props/central-platform.glb` | Tripo 生成（H3.1，`v3.1-20260211`），任务号 `b5b32867-c004-4a8b-b86a-af5b1e765a0e`，参考图：负责人用 AI 生成的场景概念图，裁出中央平台部分 | Tripo 付费账号生成，可商用（见 #72）。**有改动**：删掉参考图前景里被一起生成的枪，按区域拆成 base / canopy / cover / lamp_l / lamp_r 五个节点，缩放到真实尺寸（台面高 1.4 米），原点放在底面中心，贴图转 WebP；脚本 `assets-src/models/map/central-platform/build.py`，原始输出在 `tripo/` |
-| `maps/yard/props/ammo-crate.glb` | Tripo 生成（H3.1，`v3.1-20260211`），任务号 `22fd052d-3c70-44fe-9f81-e4ce53d18bbf`，参考图：负责人提供（`refer/box.png`） | Tripo 付费账号生成，可商用（见 #72）。**有改动**：删掉悬浮碎粒、合成单网格，缩放到真实尺寸（长 0.6 米），原点放在底面中心，Decimate 减面到 3000，贴图转 WebP；脚本 `assets-src/models/map/ammo-crate/build.py`，原始输出和参考图在 `tripo/` |
-| `maps/yard/props/steel-drum.glb` | Tripo 生成（H3.1，`v3.1-20260211`），任务号 `be421d3f-9f9e-49ac-9dfd-937adedc5d16`，文字描述（锈绿色 55 加仑油桶） | Tripo 付费账号生成，可商用（见 #72）。**有改动**：等比缩放到高 0.9 米，原点放在底面中心，Decimate 减面到 2000，贴图缩到 1024 转 WebP（#98）；脚本 `assets-src/models/map/steel-drum/build.py`，原始输出在 `tripo/` |
+| `maps/yard/props/sandbag.glb` | 袋子：Tripo 生成（H3.1，`v3.1-20260211`），任务号 `a2bc464d-578a-463e-bbec-b8e52e916f09`，参考图：负责人用 AI 画的沙袋墙里裁出的一个袋子；麻布材质用了 Poly Haven 的 [Hessian 230](https://polyhaven.com/a/hessian_230)（CC0） | Tripo 付费账号生成，可商用（见 #72）。**有改动**：删碎片、减面到 260 三角形，换成麻布材质从高模烘到低模，用脚本码成 2 / 3 / 4 米的沙袋墙（#98）；脚本 `assets-src/maps/yard/props/sandbag/build.py`，原始输出和参考图在 `tripo/` |
+| `maps/yard/props/central-platform.glb` | Tripo 生成（H3.1，`v3.1-20260211`），任务号 `b5b32867-c004-4a8b-b86a-af5b1e765a0e`，参考图：负责人用 AI 生成的场景概念图，裁出中央平台部分 | Tripo 付费账号生成，可商用（见 #72）。**有改动**：删掉参考图前景里被一起生成的枪，按区域拆成 base / canopy / cover / lamp_l / lamp_r 五个节点，缩放到真实尺寸（台面高 1.4 米），原点放在底面中心，贴图转 WebP；脚本 `assets-src/maps/yard/props/central-platform/build.py`，原始输出在 `tripo/` |
+| `maps/yard/props/ammo-crate.glb` | Tripo 生成（H3.1，`v3.1-20260211`），任务号 `22fd052d-3c70-44fe-9f81-e4ce53d18bbf`，参考图：负责人提供（`refer/box.png`） | Tripo 付费账号生成，可商用（见 #72）。**有改动**：删掉悬浮碎粒、合成单网格，缩放到真实尺寸（长 0.6 米），原点放在底面中心，Decimate 减面到 3000，贴图转 WebP；脚本 `assets-src/maps/yard/props/ammo-crate/build.py`，原始输出和参考图在 `tripo/` |
+| `maps/yard/props/steel-drum.glb` | Tripo 生成（H3.1，`v3.1-20260211`），任务号 `be421d3f-9f9e-49ac-9dfd-937adedc5d16`，文字描述（锈绿色 55 加仑油桶） | Tripo 付费账号生成，可商用（见 #72）。**有改动**：等比缩放到高 0.9 米，原点放在底面中心，Decimate 减面到 2000，贴图缩到 1024 转 WebP（#98）；脚本 `assets-src/maps/yard/props/steel-drum/build.py`，原始输出在 `tripo/` |
 | `maps/yard/env.hdr` | [Abandoned Parking](https://polyhaven.com/a/abandoned_parking)（1k HDRI），作者 Sergej Majboroda，来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。未改动 |
 | `weather/rain-dusk/sky.webp` | [Kloppenheim 07 (Pure Sky)](https://polyhaven.com/a/kloppenheim_07_puresky)（4k HDRI），作者 Greg Zaal（天空修饰 Jarod Guest），来自 Poly Haven | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：转成普通图片，降饱和、加对比、压暗偏蓝，转 WebP（#77） |
 | `../vendor/RGBELoader.js` | three.js r147 `examples/js/loaders/RGBELoader.js` | MIT |
 | `../vendor/GLTFLoader.js` | three.js r147 `examples/js/loaders/GLTFLoader.js` | MIT |
 | `../vendor/SkeletonUtils.js` | three.js r147 `examples/js/utils/SkeletonUtils.js` | MIT |
 | `../vendor/meshopt_decoder.js` | meshoptimizer 1.3.0 `meshopt_decoder.cjs` | MIT |
-
-`assets/models/human/init_soldier.glb` 是压缩版（删除了 TPose 动画，网格用 meshopt、贴图用 WebP），未压缩的原始文件在 `assets-src/models/human/init_soldier.glb`。
-
-`assets/models/human/ukrainian-soldier.glb` 由 `assets-src/models/human/ukrainian-soldier/build.sh` 从原始下载 `assets-src/models/human/ukrainian-soldier-download.glb` 生成（原始 FBX 和贴图在 `ukrainian-soldier/` 下）。原始文件体积大，不入仓库，只保留在开发机上。
-
-`assets/models/arm/arm.glb` 由原始文件 `assets-src/models/human/arm-sketchfab.glb` 用 `tools/glb.mjs optimize --texture-size 1024` 压缩而成。
-
-`assets/models/gun/m4.glb` 由 `assets-src/models/gun/m4.py` 从原始文件 `assets-src/models/gun/m4-download.glb` 加工、再用 `tools/glb.mjs optimize --texture-size 2048` 压缩而成；
-`assets/models/gun/sg.glb` 由 `assets-src/models/gun/sg.py` 从 `assets-src/models/gun/sg-handgun-download.glb` 加工、再用 `--texture-size 1024` 压缩而成。原始文件体积大，不入仓库，只保留在开发机上。
-
-`assets/sound/*.mp3` 由 `assets-src/sound/build.py`（`blender -b --python`）从原始录音剪出来：除枪声库以外的原始文件在 `assets-src/sound/source/`；枪声库原始 wav 共 329 MB，不入仓库，只保留在开发机上的 `assets-src/sound/Prepared SFX Library/`。
-
-`assets/models/gun/ak47.glb` 由 `assets-src/models/gun/ak47.py` 从下载的原始文件 `assets-src/models/gun/ak47-sketchfab.glb` 加工、再用 `tools/glb.mjs optimize` 压缩而成。
 
 ## 朋友做的、委托制作的、同事提供的模型
 
@@ -57,21 +44,33 @@
 - 改动：在 Blender 里做了什么（减面到多少、换了什么材质、缩放和朝向），加工脚本的路径；
 - 用了 Poly Haven / ambientCG 材质的，材质另外写上名字（CC0）。
 
-"协议"一栏写"Tripo 付费账号生成，可商用（见 #72）"。原始输出放在 `assets-src/models/<类>/<名字>/tripo/`（进 git）。
+"协议"一栏写"Tripo 付费账号生成，可商用（见 #72）"。原始输出放在加工脚本旁边的 `tripo/` 子目录（进 git），目录规则见 `docs/art-sources.md` 的"目录"。
 
 ## 署名
 
 CC BY 授权要求署名：作者、原作链接、授权名称、是否修改过。上面的表格就是署名清单，
 游戏首页底部的"素材来源与署名"链接指向本文件（线上可访问）。新增 CC BY 素材时在表格里补一行，格式照抄。
 
-`brand/` 下是项目自己的 logo（由用户提供，原图不入仓库），不是第三方资源；`logo-dark.png` 由同一张原图去白底、黑色改骨白生成。
-`ui/maps/` 下的地图预览图是游戏自己的截图。
+## 自制和加工流程
 
-`assets/maps/yard/props/` 下的道具模型由 `assets-src/maps/yard/props/build.sh` 生成（#50）。
-`assets/weather/` 下的天空贴图由 `assets-src/weather/fetch_weather.py` 从 Poly Haven 下载、调色而成（#77），原始下载在 `assets-src/weather/download/`，不入仓库。
-`assets/maps/yard/` 下的材质和 HDRI 由 `assets-src/maps/yard/fetch_textures.py` 从 Poly Haven 下载、转换而成；原始下载在 `assets-src/maps/yard/download/`，不入仓库，随时可重新下载。
+`assets-src/` 和 `assets/` 的目录一一对应：`assets/X/` 下的成品，母版和加工脚本在 `assets-src/X/`（总览见 `docs/art-sources.md` 的"现有资源"）。
 
-其余贴图（集装箱、沙袋、远景楼房等）、音效由代码实时生成（`js/textures.js`、`js/audio.js`），没有外部文件。
+| 成品（`assets/` 下） | 怎么来的 |
+|---|---|
+| `brand/` | 项目自己的 logo（负责人提供，原图不入仓库），不是第三方资源；`logo-dark.png` 由同一张原图去白底、黑色改骨白生成 |
+| `ui/home-bg.webp`、`ui/maps/` | 游戏自己的截图 |
+| `models/human/init_soldier.glb` | 原始文件 `assets-src/models/human/init_soldier.glb` 删掉 TPose 动画、meshopt + WebP 压缩 |
+| `models/human/ukrainian-soldier.glb` | `assets-src/models/human/ukrainian-soldier/build.sh` 从原始下载 `ukrainian-soldier-download.glb` 生成（原始 FBX 和贴图在 `ukrainian-soldier/` 下，只在开发机上） |
+| `models/arm/arm.glb` | 原始文件 `assets-src/models/arm/arm-sketchfab.glb` 用 `tools/glb.mjs optimize --texture-size 1024` 压缩 |
+| `models/gun/ak47.glb` | `assets-src/models/gun/ak47.py` 从 `ak47-sketchfab.glb` 加工，再 `tools/glb.mjs optimize` |
+| `models/gun/m4.glb`、`sg.glb` | `assets-src/models/gun/m4.py`、`sg.py` 从 `m4-download.glb`、`sg-handgun-download.glb`（只在开发机上）加工，再分别压到 2048、1024 贴图 |
+| `maps/yard/props/` | `assets-src/maps/yard/props/build.sh`（#50）：集装箱、隔离墩是纯脚本建模（`container.py`、`jersey.py`），Tripo 道具的修整脚本在 `<名字>/build.py` |
+| `maps/yard/textures/`、`env.hdr` | `assets-src/maps/yard/fetch_textures.py` 从 Poly Haven 下载、转换（原始下载在 `download/`，不入仓库，随时可重新下载） |
+| `weather/` | `assets-src/weather/fetch_weather.py` 从 Poly Haven 下载、调色（#77） |
+| `sound/*.mp3` | `assets-src/sound/build.py`（`blender -b --python`）从原始录音剪出来；小素材在 `assets-src/sound/source/`，329 MB 的枪声库只在开发机上的 `assets-src/sound/Prepared SFX Library/` |
+
+货车、轮胎、木托盘、灯柱、远景楼房和远山、默认手枪、投掷物还是代码拼的几何体 + Canvas 贴图（`js/textures.js`、`js/truck.js`、`js/gunmodel.js`），
+正在换成模型（#50、#106、#107）；提示音由 `js/audio.js` 实时合成。这些都没有外部文件。
 
 ## 换模型
 

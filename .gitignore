@@ -15,12 +15,12 @@ assets-src/models/human/ukrainian-soldier/textures/
 assets-src/models/gun/m4-download.glb
 assets-src/models/gun/sg-handgun-download.glb
 assets-src/models/gun/sg-handgun/
-# 可由 build.py 重新生成的地图模型母版和拆分检查图
-assets-src/models/map/*/central-platform.glb
-assets-src/models/map/*/steel-drum.glb
-assets-src/models/map/*/debug.glb
+# 可由 build.py 重新生成的地图道具母版和拆分检查图（Tripo 原始输出 tripo/ 要进 git）
+assets-src/maps/*/props/*/*.glb
 # 还没接进游戏的原始下载（锯短霰弹枪 + 手臂动画、另一套第一人称手臂）
-assets-src/models/arm/
+assets-src/models/arm/sawnoff-download.glb
+assets-src/models/arm/sawnoff/
+assets-src/models/arm/fps-arms/
 
 # 音效原始素材库（329 MB 的 96kHz wav），只在本机保留；剪好的成品在 assets/sound/，由 assets-src/sound/build.py 生成
 assets-src/sound/Prepared SFX Library/
