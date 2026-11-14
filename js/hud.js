@@ -14,7 +14,7 @@ Game.Hud = class Hud {
       flashWhite: $('flash-white'),
       money: $('money'), moneyVal: $('money-val'), moneyGain: $('money-gain'), buyCue: $('buy-cue'), buyCueKey: $('buy-cue-key'), buyCueKey2: $('buy-cue-key2'), buy: $('buy'), buyCursor: $('buy-cursor'),
       health: $('health'), healthVal: $('health-val'), healthBar: $('health-bar'), healthTrail: $('health-trail'),
-      damageFlash: $('damage-flash'), damageBlood: $('damage-blood'), damageDir: $('damage-dir'),
+      spawnProtect: $('spawn-protect'), damageFlash: $('damage-flash'), damageBlood: $('damage-blood'), damageDir: $('damage-dir'),
       wave: $('wave-info'), banner: $('banner'), hint: $('hint'),
     };
     this.input = null;   // main.js 设置，用来显示当前绑定的按键名
@@ -321,6 +321,10 @@ Game.Hud = class Hud {
       this.flashTimer = Math.max(0, this.flashTimer - dt);
       this.el.flashWhite.style.opacity = this.flashPeak * Math.min(1, this.flashTimer / this.flashFade);
     }
+
+    // 出生保护（#97）：只在对决和波次里显示，最后 0.3 秒淡出
+    const prot = this.mode !== 'range' && player.alive ? player.protect || 0 : 0;
+    this.el.spawnProtect.style.opacity = Math.min(1, prot / 0.3);
 
     this.bannerTimer -= dt;
     this.el.banner.style.opacity = Math.max(0, Math.min(1, this.bannerTimer * 2));

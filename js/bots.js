@@ -52,6 +52,7 @@ Game.Bots = (function () {
       this.yaw = yaw;
       this.health = Game.Config.bots.health;
       this.alive = true;
+      this.protect = Game.Config.spawnProtect.time;   // 出生保护的剩余秒数（#97）：不掉血、模型闪烁，自己开枪就结束
       this.state = 'patrol';
 
       this.waypoint = null;
@@ -131,8 +132,9 @@ Game.Bots = (function () {
 
     // 被玩家打中。返回 null 表示已经死了（打尸体不算）
     // hit: { part, point, dir, force, explosion } 决定死法和血往哪喷，见 ragdoll.js
+    // 出生保护期间（#97）也返回 null：不掉血，也没有命中提示
     takeDamage(amount, hit = {}) {
-      if (!this.alive) return null;
+      if (!this.alive || this.protect > 0) return null;
       this.health -= amount;
       this.model.hitFlash();
       if (this.health > 0) this.hitReaction(amount, hit);
@@ -187,6 +189,7 @@ Game.Bots = (function () {
       }
 
       const cfg = Game.Config.bots;
+      if (this.protect > 0) this.protect = Math.max(0, this.protect - dt);
       const player = this.mgr.player;
       const dx = player.position.x - this.pos.x;
       const dz = player.position.z - this.pos.z;
@@ -728,6 +731,8 @@ Game.Bots = (function () {
 
     syncModel(dt) {
       this.model.root.position.copy(this.pos);
+      // 出生保护：模型一闪一闪（#97）。只是不画，射线照样打得到（打到也不掉血）
+      this.model.root.visible = !(this.protect > 0 && Math.floor(this.protect * Game.Config.spawnProtect.blinkRate * 2) % 2 === 1);
       // 朝向和速度一起交给模型：它自己决定腿朝哪、上半身扭多少、动画播到哪
       this.model.setMotion(this.vel.x, this.vel.z, this.yaw, dt);
 
@@ -815,14 +820,16 @@ Game.Bots = (function () {
 
     // ---- 出生点、巡逻点 ----
 
-    // 离 avoid 最远的几个出生点里随机挑一个（对决时：在对手看不到的另一头重生）
+    // 出生点：离 avoid（对方现在的位置）最远的那个（#97）。距离一样时随机，没有 avoid 就随便挑一个。
+    // used：这一批已经占了的点（波次一次出好几个），离它们 2 米内的不要；都被占了就从全部里挑
     pickSpawn(avoid, used = []) {
-      const list = this.world.spawns
-        .filter((s) => this.isFree(s) && used.every((u) => Math.hypot(u.x - s.x, u.z - s.z) > 2))
-        .map((s) => ({ s, d: avoid ? Math.hypot(s.x - avoid.x, s.z - avoid.z) : Math.random() }))
-        .sort((a, b) => b.d - a.d);
+      const free = this.world.spawns.filter((s) => this.isFree(s));
+      let list = free.filter((s) => used.every((u) => Math.hypot(u.x - s.x, u.z - s.z) > 2));
+      if (!list.length) list = free;
       if (!list.length) return this.world.spawns[3];
-      return list[randInt(0, Math.min(2, list.length - 1))].s;
+      if (!avoid) return list[randInt(0, list.length - 1)];
+      const d = (s) => Math.hypot(s.x - avoid.x, s.z - avoid.z) + Math.random() * 0.01;
+      return list.map((s) => ({ s, d: d(s) })).sort((a, b) => b.d - a.d)[0].s;
     }
 
     spawnBot(skill, avoid, used) {
@@ -870,13 +877,18 @@ Game.Bots = (function () {
       this.total = Math.min(cfg.maxAlive, cfg.firstWave + cfg.perWave * (this.wave - 1));
       const skill = Math.min(1, (this.wave - 1) * 0.15);
 
+      // 波次：从离玩家最远的出生点开始依次排，一个点站满了（人数比出生点多）再轮一遍，位置错开一点（#97）
       const used = [];
       for (let i = 0; i < this.total; i++) {
-        // 波次模式只从北侧出生点出来
-        const north = this.world.spawns.filter((s) => s.z < 0 && used.every((u) => Math.hypot(u.x - s.x, u.z - s.z) > 2));
-        const s = north[randInt(0, north.length - 1)] || this.world.spawns[3];
+        if (used.length >= this.world.spawns.length / 2) used.length = 0;   // 只用离玩家远的那一半
+        const s = this.pickSpawn(this.player.position, used);
         used.push(s);
-        this.bots.push(new Bot(this, s.x + rand(-1, 1), s.z + rand(-1, 1), s.yaw, skill, this.pickGuns()));
+        let x = s.x, z = s.z;
+        for (let k = 0; k < 6; k++) {
+          const p = { x: s.x + rand(-1, 1), z: s.z + rand(-1, 1) };
+          if (this.isFree(p)) { x = p.x; z = p.z; break; }
+        }
+        this.bots.push(new Bot(this, x, z, s.yaw, skill, this.pickGuns()));
       }
       this.phase = 'fighting';
       this.hud.banner(`第 ${this.wave} 波`);
@@ -896,6 +908,7 @@ Game.Bots = (function () {
 
     // NPC 开枪：先看射线有没有被墙挡住，再看有没有穿过玩家的碰撞盒
     fireRay(origin, dir, bot) {
+      bot.protect = 0;   // 开枪就结束出生保护（#97）
       const maxDist = 120;
       this.raycaster.set(origin, dir);
       this.raycaster.far = maxDist;

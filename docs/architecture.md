@@ -110,6 +110,13 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
   出手瞬间握片弹开（"叮"一声），`grenades.throw` 带**满的** `fuse` 飞出去，飞出去的雷隐藏拉环和握片（`gunmodel.js` 里握片叫 `spoon`）。
   手上不会炸；人被打死时手一松，雷掉在脚下，从这时开始算满的引信。攥着雷不能切武器，只能丢出去，没有"把环插回去"。
   没有"捏雷"（先松握片再丢让它空爆，#22）。闪光、烟雾同样两道保险。
+- **出生点和出生保护**（#97）：出生点选离对方**现在位置**最远的那个（`bots.Manager.pickSpawn(avoid, used)`，距离一样随机）：
+  对决开局玩家在 `spawns[0]`、NPC 离玩家最远；玩家重生 `playerSpawn()` 避开活着的 NPC（NPC 也死了就随便挑），NPC 重生避开玩家；
+  波次一波从离玩家最远的点依次排，只用远的那一半，人比点多就再轮一遍、位置随机错开 1 米内（`isFree` 检查不卡进掩体）。
+  出生保护：`player.protect` / `bot.protect` 是剩余秒数（`config.spawnProtect.time`），`reset()` / 构造时设，各自 `update` 里扣。
+  期间 `takeDamage` 直接返回（NPC 返回 `null`，和"打尸体"一样没有命中提示）；自己开枪清零（玩家在 `main.js` 的 `weapon.onShot`，NPC 在 `fireRay`），
+  投掷物不算（落地时保护早就过了）。NPC 闪烁是 `syncModel` 里切 `model.root.visible`：只是不画，射线照样打得到；
+  玩家看到的是 HUD 的 `#spawn-protect`（屏幕边缘泛蓝、上方"出生保护"），训练场不显示。游戏循环只在锁住鼠标时走，所以简报界面不扣保护时间。
 - **经济**（`economy.js`，#1）：对决和波次花钱；训练场 `economy.free`，一切免费、不显示钱、不给赏金（#90）。`bots.onPlayerKill(hit)` 报告玩家的击杀，`main.js` 按最后一击换算成赏金类型交给 `economy.award`：
   `hit.explosion` → 手雷，`hit.part === 'head'` → 爆头，其余 → 普通（手枪、步枪不区分）；NPC 被自己的雷炸死（`hit.byBot`）不给钱。
   钱有上限 `economy.maxMoney`（存款上限，#7），满了再杀不涨。钱跟着整局走，死了不清零；开新一局回到 `startMoney`，
