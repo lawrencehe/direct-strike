@@ -29,6 +29,9 @@ TEXTURES = {
 }
 # 每种贴图要的通道：Poly Haven 的名字 → 输出文件后缀
 MAPS = {'Diffuse': 'diff', 'nor_gl': 'nor', 'Rough': 'rough'}
+# 输出时缩小到多少像素（边长）。地面贴图大面积重复铺，法线和粗糙度 1k 看不出差别，
+# 单张从 1.2–1.7 MB 降到几百 KB；颜色贴图离近了看得出，保留 2k（#105）
+RESIZE = {'nor': 1024, 'rough': 1024}
 
 HDRI = 'abandoned_parking'   # 环境光：中午、半阴的城市废墟，只用来给材质照明和反射，不当天空显示
 HDRI_RES = '1k'
@@ -58,7 +61,8 @@ def main():
             src = os.path.join(DL, f'{pid}_{suffix}_{RES}.jpg')
             download(files[ph][RES]['jpg']['url'], src)
             dst = os.path.join(OUT, 'textures', f'{name}_{suffix}.webp')
-            subprocess.run(['magick', src, '-quality', str(QUALITY), dst], check=True)
+            size = ['-resize', f'{RESIZE[suffix]}x{RESIZE[suffix]}'] if suffix in RESIZE else []
+            subprocess.run(['magick', src, *size, '-quality', str(QUALITY), dst], check=True)
             print('  →', os.path.relpath(dst, ROOT), os.path.getsize(dst) // 1024, 'KB')
 
     files = api(f'files/{HDRI}')

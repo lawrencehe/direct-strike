@@ -1,6 +1,6 @@
 # ============================================================
 # 模块化沙袋墙：用 Tripo 生成的单个沙袋拼出直段、转角、U 形（#50、#72）
-#   blender -b --factory-startup --python assets-src/models/map/sandbag/build.py
+#   blender -b --factory-startup --python assets-src/maps/yard/props/sandbag/build.py
 #   调试时 TEX=512 跑得快
 #
 # 底模：tripo/model.glb，参考图 tripo/reference-bag.png（从负责人用 AI 画的沙袋墙 reference-full.jpg 里裁出的一个袋子）。
@@ -24,7 +24,7 @@
 import bpy, bmesh, sys, os, math, random
 from mathutils import Vector, Matrix
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, '../../../maps/yard/props'))
+sys.path.insert(0, os.path.join(HERE, '..'))   # lib.py 在上一级
 import lib
 
 SRC = os.path.join(HERE, 'tripo/model.glb')

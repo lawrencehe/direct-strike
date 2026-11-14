@@ -1,6 +1,6 @@
 # 中央战斗平台：把 Tripo 底模（tripo/model.glb）修整成游戏用的母版。
-#   blender -b --python assets-src/models/map/central-platform/build.py            # 输出 central-platform.glb（母版）
-#   blender -b --python assets-src/models/map/central-platform/build.py -- debug   # 每个部件涂一种纯色，输出 debug.glb 检查拆分
+#   blender -b --python assets-src/maps/yard/props/central-platform/build.py            # 输出 central-platform.glb（母版）
+#   blender -b --python assets-src/maps/yard/props/central-platform/build.py -- debug   # 每个部件涂一种纯色，输出 debug.glb 检查拆分
 # 然后由 assets-src/maps/yard/props/build.sh platform 压缩到 assets/maps/yard/props/central-platform.glb（#50）。
 # 游戏里的碰撞（台面、台阶、掩体、栏杆）写在 maps/yard.json 里那个 model 对象下面的 proxy，见 docs/maps.md 的"道具模型"。
 #

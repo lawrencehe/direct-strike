@@ -1,4 +1,4 @@
-# Direct-Strike v0.47
+# Direct-Strike v0.48
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -126,11 +126,12 @@ direct-strike/
 │   ├── tools.md          本地工具链的安装和用法
 │   ├── ui.md             界面流程、全屏规则、玩家设置、视觉规范
 │   ├── maps.md           地图文件格式、怎么改地图、怎么加新地图
+│   ├── art-sources.md    现有美术资源一览、目录规则、素材来源和授权
 │   └── deploy.md         部署架构、首次接入、回滚
 ├── maps/yard.json    ★ 地图数据：掩体、出生点、巡逻点、靶子
 ├── tools/            开发工具（验证、模型、图片、骨骼、地图、资源清单 build-manifest.mjs），不发布；tools/tests/ 是留在仓库里的针对性测试，
 │                     tools/devlog/analyze.mjs 分析开发者模式上传的数据
-├── assets-src/       未压缩的模型母版和 Blender 加工脚本（音效的剪辑脚本 assets-src/sound/build.py），不发布
+├── assets-src/       母版和加工脚本，目录和 assets/ 一一对应（例如 assets-src/maps/yard/props/ → assets/maps/yard/props/），不发布
 ├── CLAUDE.md         给 AI 助手看的项目约定
 ├── css/style.css     界面和 HUD 样式（颜色、字体是开头的 CSS 变量）
 ├── assets/
@@ -145,7 +146,7 @@ direct-strike/
 │   ├── models/human/ukrainian-soldier.glb  NPC 模型（Mixamo 骨骼，带待机/走/跑动画）
 │   ├── models/human/init_soldier.glb  可选的 NPC 形象"特种兵"，也是动画来源
 │   ├── models/arm/arm.glb           第一人称手臂（蒙皮模型，CC0）
-│   ├── models/gun/ak47.glb            AK 枪模（Blender 加工，CC BY 4.0，署名见 LICENSES.md）
+│   ├── models/gun/ak47.glb            AK 枪模（Blender 加工，CC0，assets-src/models/gun/ak47.py）
 │   ├── models/gun/m4.glb              M4 枪模（Blender 加工，assets-src/models/gun/m4.py）
 │   ├── models/gun/sg.glb              SG 手枪枪模（Blender 加工，assets-src/models/gun/sg.py）
 │   ├── sound/                 真实录音的枪声、换弹、爆炸（mp3，CC0，由 assets-src/sound/build.py 剪出来）

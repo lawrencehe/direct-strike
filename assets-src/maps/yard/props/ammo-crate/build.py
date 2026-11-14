@@ -1,5 +1,5 @@
 # 弹药箱：把 Tripo 底模（tripo/model.glb，任务号 22fd052d，参考图 refer/box.png）修整成游戏用的母版。
-#   blender -b --factory-startup --python assets-src/models/map/ammo-crate/build.py
+#   blender -b --factory-startup --python assets-src/maps/yard/props/ammo-crate/build.py
 # 然后由 assets-src/maps/yard/props/build.sh crate 压缩到 assets/maps/yard/props/ammo-crate.glb。
 # 游戏里的碰撞写在 maps/yard.json 里（方块即可），模型只管显示。
 #

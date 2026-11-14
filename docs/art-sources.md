@@ -1,6 +1,49 @@
 # 美术素材和参考资源
 
-枪械、人物、地图都用 Blender 建模（见 `decisions.md`）。本页列出去哪里找参考图和现成素材、哪些能用、挑好后交什么。
+枪械、人物、地图都用 Blender 建模（见 `decisions.md`）。本页列出现在有哪些资源、放在哪，去哪里找参考图和现成素材、哪些能用、挑好后交什么。
+
+## 现有资源（#105）
+
+游戏加载的都在 `assets/`（整个目录发布到线上，共约 21 MB），每个文件的来源和授权在 `assets/LICENSES.md`，怎么加工出来的在它的"自制和加工流程"。
+进入战斗才下载，只下这一局用到的。
+
+| 类别 | 成品 | 来源 |
+|---|---|---|
+| 人物 | `models/human/ukrainian-soldier.glb`（默认 NPC）、`init_soldier.glb`（"特种兵"，也是动画来源） | H.John CC0 / three.js 示例（Mixamo） |
+| 第一人称手臂 | `models/arm/arm.glb` | H.John CC0（问题见 #35） |
+| 枪 | `models/gun/ak47.glb`、`m4.glb`、`sg.glb` | Sketchfab / H.John，CC0 |
+| 地图 yard 道具 | `maps/yard/props/`：集装箱（5 种颜色贴图）、隔离墩是 Blender 脚本建的；中央平台、沙袋墙、弹药箱、油桶是 Tripo 底模修整的 | 自制 / Tripo（#72） |
+| 地图 yard 材质 | `maps/yard/textures/`：沥青、水泥地、脏水泥、泥土，各有颜色 2k + 法线 1k + 粗糙度 1k；环境光 `env.hdr` | Poly Haven CC0 |
+| 天气 | `weather/rain-dusk/sky.webp` | Poly Haven CC0 |
+| 音效 | `sound/`：枪声（近 / 远）、换弹、手雷 / 闪光爆炸 | OpenGameArt、Kenney，CC0 |
+| 界面 | `brand/`（logo、图标、分享图）、`ui/`（首页背景、地图预览图） | 负责人提供 / 游戏截图 |
+
+**还是代码拼的**（JS 几何体 + Canvas 贴图，要按约定换成 glb）：默认手枪 beretta（#106）、手雷 / 闪光弹 / 烟雾弹（#107）、
+货车、轮胎堆、木托盘、灯柱、远景楼房、铁丝网、远山（#50）。各个 glb 加载失败时退回的几何体是保底，不算。
+
+**备选、还没接进游戏的**：`assets-src/models/human/russian_soldier.glb`（H.John CC0，没有骨骼，#19），只在开发机上的锯短霰弹枪和另一套手臂（`assets-src/models/arm/`）。
+
+## 目录
+
+`assets-src/` 和 `assets/` 一一对应：`assets/X/` 的成品，原始文件和加工脚本就在 `assets-src/X/`。
+
+```
+assets-src/
+├── models/{human,arm,gun}/   人物、手臂、枪：原始下载 + 加工脚本（ak47.py、m4.py、sg.py、ukrainian-soldier/build.sh）
+├── maps/<地图>/
+│   ├── fetch_textures.py     下载转换地面材质和 HDRI
+│   └── props/
+│       ├── build.sh          这张地图所有道具的总入口：建模 / 修整 → 压缩进 assets/maps/<地图>/props/
+│       ├── lib.py、container.py、jersey.py   纯脚本建模的道具
+│       └── <名字>/build.py + tripo/          Tripo 底模的道具：修整脚本 + 原始输出
+├── weather/fetch_weather.py
+└── sound/build.py + source/
+```
+
+- 一个物体一个目录（`<名字>/`），Tripo 的原始输出放它的 `tripo/` 子目录。地图道具放 `maps/<地图>/props/<名字>/`，枪、人物放 `models/<类>/<名字>/`。
+- **进不进 git**：加工脚本、Tripo 原始输出（花钱生成的）、小的原始下载进 git；体积大的原始下载（几十上百 MB 的 FBX、贴图、音效库）和能由脚本重新生成的中间母版
+  只在开发机上，列在 `.gitignore` 里。**只在开发机上的文件没有备份**，丢了要重新下载（链接在 `LICENSES.md`）。
+- **还没接进游戏的模型放 `assets-src/`，不放 `assets/`**：`assets/` 整个目录都会发布到线上。
 
 ## 授权规则（先看）
 
@@ -83,7 +126,7 @@ PBR 材质一般包含 5 张贴图：颜色（Color / Albedo）、法线（Norma
    - 渲染预览图给负责人确认，再 `/glb` 压缩进 `assets/`，登记 `assets/LICENSES.md`。
 4. 碰撞盒仍然按地图 json 的尺寸，不用生成的网格做碰撞。
 
-**文件放哪**：`assets-src/models/<类>/<名字>/` 下放加工脚本（如 `build.py`），Tripo 的输出原样放在它的 `tripo/` 子目录里（`model.glb`、`preview.png`、`task.json`，再放一份用到的参考图）。
+**文件放哪**：按上面"目录"的规则建 `<名字>/` 目录，放加工脚本（如 `build.py`），Tripo 的输出原样放在它的 `tripo/` 子目录里（`model.glb`、`preview.png`、`task.json`，再放一份用到的参考图）。
 生成要花钱，丢了不能免费重来，所以这几个文件进 git；`task.json` 里有任务号，可以查到当时的模型和参数。
 
 **积分**：国际站按积分计费，生成失败自动退。默认模型 P2 每次 100–130 积分，H3.1 每次 20–50 积分（看贴图档位）；

@@ -25,7 +25,7 @@ tripo whoami                            # 确认登录和余额
 
 # 1. 报价（不花积分）。底模一般用 H3.1：便宜（20–50 积分），反正要在 Blender 里减面换材质
 NAME=container-40ft
-OUT=assets-src/models/map/$NAME/tripo
+OUT=assets-src/maps/yard/props/$NAME/tripo   # 地图道具；枪、人物放 assets-src/models/<类>/$NAME/tripo（规则见 art-sources.md 的"目录"）
 tripo make refer/<图>.jpg --model H3.1 -p pbr=true -p face_limit=20000 \
   -o "$OUT" --name "$NAME" --dry-run --json
 #   多视角：tripo make 正面.jpg 侧面.jpg 背面.jpg ...（2–4 张，同一物体）
@@ -44,7 +44,7 @@ node tools/glb-view.mjs preview "$OUT"/model.glb --out tools/out/tripo-$NAME.jpg
 
 ## 修整（Blender，见 `/rig` 和 `assets-src/models/gun/ak47.py` 的写法）
 
-在 `assets-src/models/<类>/<名字>/build.py` 里写加工脚本，`blender -b --python` 跑，可重复生成：
+在 `tripo/` 的上一级（`<名字>/build.py`）写加工脚本，`blender -b --python` 跑，可重复生成：
 1. 导入 `tripo/model.glb`，按真实尺寸缩放（米），转到和同类模型一致的朝向，原点放底面中心（落地物体）。
 2. 删掉悬空碎片、补洞，Decimate 减面（近处道具几千面，远景几百面）。
 3. 材质：生成的贴图能用就留（转 WebP），烘进去的光影太重、太糊就换 Poly Haven / ambientCG 的 PBR 材质。
