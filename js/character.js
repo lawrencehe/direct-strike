@@ -53,6 +53,25 @@ Game.Character = (function () {
 
   // 所有形象的文件路径
   function paths() { return Object.values(Game.Config.loadout.npc).map((n) => n.model); }
+
+  // 爆头打飞的头盔是不带蒙皮的普通网格（detachHelmet），着色器和人身上的不一样，第一次爆头会现编译卡一下。
+  // 形象下载好后先编译一遍（#116）
+  function precompileHelmets(renderer, scene, camera) {
+    const names = Game.Config.hitFx.helmetMeshes, tmp = [];
+    for (const { gltf } of Object.values(ready)) {
+      gltf.scene.traverse((o) => {
+        if (!o.isSkinnedMesh || !names.includes(o.name)) return;
+        const m = new THREE.Mesh(o.geometry, o.material);
+        m.position.set(camera.position.x, -50, camera.position.z);
+        m.castShadow = true;
+        tmp.push(m);
+        scene.add(m);
+      });
+    }
+    if (!tmp.length) return;
+    renderer.compile(scene, camera);
+    for (const m of tmp) scene.remove(m);
+  }
   // 已经下载好的有几个、随机挑一个（没有就 null）
   function pick() {
     const list = Object.values(ready);
@@ -245,6 +264,13 @@ Game.Character = (function () {
     if (twist) _q.multiply(new THREE.Quaternion().setFromAxisAngle(_Y, twist));
     bone.quaternion.copy(_pq.invert()).multiply(_q);
     bone.updateMatrixWorld(true);
+  }
+
+  // 中弹闪红：flash 从 1 往下褪，材质的自发光跟着变（强度在 config.hitFx，#116）
+  function applyFlash(model, dt) {
+    const fx = Game.Config.hitFx;
+    model.flash = Math.max(0, model.flash - dt * fx.flashDecay);
+    for (const m of model.flashMats) m.emissive.setRGB(model.flash * fx.flash, 0, 0);
   }
 
   const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _v4 = new THREE.Vector3();
@@ -440,6 +466,40 @@ Game.Character = (function () {
       if (!this.ragdoll.ok) this.ragdoll = null;
     }
 
+    // 爆头打飞头盔（#116）：把头盔网格按此刻的姿势烘成一个普通网格（世界坐标，中心在原点），
+    // 原来的蒙皮网格藏起来。返回 { mesh, center }，没有头盔（或已经打飞了）返回 null。
+    // 烘出来的网格和材质归调用方（effects.flyingProp）管，NPC 释放时不会动它
+    detachHelmet() {
+      const names = Game.Config.hitFx.helmetMeshes;
+      let src = null;
+      this.armature.traverse((o) => { if (!src && o.isSkinnedMesh && o.visible && names.includes(o.name)) src = o; });
+      if (!src) return null;
+      this.root.updateMatrixWorld(true);
+      const g = src.geometry, n = g.attributes.position.count;
+      const pos = new Float32Array(n * 3), v = new THREE.Vector3();
+      for (let i = 0; i < n; i++) {
+        v.fromBufferAttribute(g.attributes.position, i);
+        src.boneTransform(i, v);           // 蒙皮变形后的局部坐标
+        v.applyMatrix4(src.matrixWorld);
+        pos[i * 3] = v.x; pos[i * 3 + 1] = v.y; pos[i * 3 + 2] = v.z;
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      if (g.attributes.uv) geo.setAttribute('uv', g.attributes.uv.clone());
+      if (g.index) geo.setIndex(g.index.clone());
+      geo.computeBoundingBox();
+      const center = geo.boundingBox.getCenter(new THREE.Vector3());
+      geo.translate(-center.x, -center.y, -center.z);
+      geo.computeVertexNormals();
+      geo.computeBoundingSphere();
+      const mat = src.material.clone();
+      if (mat.emissive) mat.emissive.setRGB(0, 0, 0);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = true;
+      src.visible = false;
+      return { mesh, center };
+    }
+
     // 血从哪流出来（世界坐标）
     woundPos(out) {
       if (this.ragdoll) return this.ragdoll.woundPos(out);
@@ -450,8 +510,7 @@ Game.Character = (function () {
     update(dt) {
       if (this.dead) {
         this.deathTime += dt;
-        this.flash = Math.max(0, this.flash - dt * 6);
-        for (const m of this.flashMats) m.emissive.setRGB(this.flash * 0.9, 0, 0);
+        applyFlash(this, dt);
         const sinkAt = Game.Config.ragdoll.corpseTime - 1.2;
         if (this.deathTime > sinkAt) {
           if (this.ragdoll) this.ragdoll.sleeping = true;   // 骨骼不再动，整个模型慢慢沉进地里后移除
@@ -469,8 +528,7 @@ Game.Character = (function () {
       this.applyFlinch(dt);
       this.poseArms();
 
-      this.flash = Math.max(0, this.flash - dt * 6);
-      for (const m of this.flashMats) m.emissive.setRGB(this.flash * 0.9, 0, 0);
+      applyFlash(this, dt);
     }
 
     // 把两条手臂掰到枪上：右手握把，左手托护木
@@ -613,8 +671,7 @@ Game.Character = (function () {
       const swing = Math.sin(this.walkPhase) * 0.6 * Math.min(1, this.speed / 2);
       this.legs[0].rotation.x = swing;
       this.legs[1].rotation.x = -swing;
-      this.flash = Math.max(0, this.flash - dt * 6);
-      for (const m of this.flashMats) m.emissive.setRGB(this.flash * 0.8, 0, 0);
+      applyFlash(this, dt);
     }
 
     dispose() {
@@ -633,5 +690,5 @@ Game.Character = (function () {
     return asset ? new SoldierModel(guns, asset) : new BlockModel(guns);
   }
 
-  return { load, create, paths };
+  return { load, create, paths, precompileHelmets };
 })();

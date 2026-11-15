@@ -7,6 +7,8 @@
 //   血滴   飞出去受重力下落的小点，落地时留下血迹（一个 Points 共用，不产生额外绘制调用）
 //   血泊   尸体下面慢慢渗开的一滩（平铺在地面的贴图，半径随时间变大）
 // ============================================================
+const _exit = new THREE.Vector3();
+
 Game.Effects = class Effects {
   constructor(scene, colliders = []) {
     this.scene = scene;
@@ -18,6 +20,8 @@ Game.Effects = class Effects {
     });
     this.buildDroplets();
     this.stains = [];
+    this.props = [];       // 打飞的头盔（#116）
+    this.camera = null;    // main.js 设置：血雾按距离放大用
     this.stainGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
   }
 
@@ -118,21 +122,39 @@ Game.Effects = class Effects {
     return sprite;
   }
 
-  // 打中 NPC 时冒出的一小团血雾
-  bloodPuff(pos, size = 0.25 + Math.random() * 0.15, life = 0.25) {
-    this.puff(pos, Game.Effects.bloodTexture(), { size, grow: size * 1.2, life });
+  // 血雾远了按距离放大，保证在屏幕上至少占 hitFx.mistMinAngle 的视角（#116）。没有相机时不放大
+  mistScale(pos, size) {
+    if (!this.camera) return 1;
+    const min = this.camera.position.distanceTo(pos) * Game.Config.hitFx.mistMinAngle;
+    return Math.max(1, min / size);
   }
 
-  // 中弹没死：血雾 + 少量血滴
+  // 打中 NPC 时冒出的一小团血雾
+  bloodPuff(pos, size = 0.25 + Math.random() * 0.15, life = 0.25, { rise = 0, opacity = 1 } = {}) {
+    const k = this.mistScale(pos, size);
+    this.puff(pos, Game.Effects.bloodTexture(), { size: size * k, grow: size * k * 1.2, life, rise, opacity });
+  }
+
+  // 中弹没死：入口一小团血雾，子弹穿出去的背后再冒一小股，加少量血滴
   bloodHit(point, dir) {
     this.bloodPuff(point);
+    const s = Game.Config.hitFx.exitMist;
+    this.bloodPuff(_exit.copy(point).addScaledVector(dir, 0.22), s * (0.8 + Math.random() * 0.4), 0.35, { opacity: 0.8 });
     this.spray(point, dir, 7, 2.2);
   }
 
-  // 打死：更大的一团，血滴也多。爆头时喷得最猛
+  // 打死：更大的一团，血滴也多。
+  // 爆头时头后面再叠几团血雾，停留更久、慢慢往下沉，一眼认得出是爆头（#116）
   bloodBurst(point, dir, head) {
-    this.bloodPuff(point, head ? 0.7 : 0.42, head ? 0.5 : 0.35);
+    this.bloodPuff(point, head ? 0.6 : 0.42, head ? 0.45 : 0.35);
     this.spray(point, dir, head ? 46 : 22, head ? 4.6 : 3);
+    if (!head) return;
+    const fx = Game.Config.hitFx, [a, b] = fx.headMist;
+    for (let i = 0; i < 3; i++) {
+      _exit.copy(point).addScaledVector(dir, 0.15 + i * 0.18);
+      _exit.x += (Math.random() - 0.5) * 0.12; _exit.y += (Math.random() - 0.5) * 0.12; _exit.z += (Math.random() - 0.5) * 0.12;
+      this.bloodPuff(_exit, a + Math.random() * (b - a), fx.headMistLife * (0.7 + i * 0.15), { rise: -0.12, opacity: 0.85 - i * 0.15 });
+    }
   }
 
   // 尸体伤口往外流：按时间连续冒血滴
@@ -154,6 +176,68 @@ Game.Effects = class Effects {
         dir.y * s + (Math.random() - 0.2) * speed * 0.6,
         dir.z * s + (Math.random() - 0.5) * speed * 0.7);
     }
+  }
+
+  // ---------- 打飞的头盔（#116） ----------
+  // mesh 已经在世界坐标（中心在 pos）；简单刚体：重力、翻滚，碰到平面弹几下停住，
+  // 撞到集装箱侧面就弹回来。和尸体一样留 ragdoll.corpseTime 秒，最后沉进地里移除
+  flyingProp(mesh, pos, dir, baseVel) {
+    const fx = Game.Config.hitFx, r = (a) => a[0] + Math.random() * (a[1] - a[0]);
+    const h = new THREE.Vector3(dir.x, 0, dir.z);
+    if (h.lengthSq() < 1e-6) h.set(0, 0, 1);
+    h.normalize().multiplyScalar(r(fx.helmetPush));
+    const vel = h.setY(r(fx.helmetLift));
+    if (baseVel) vel.add(baseVel);
+    const spin = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(r(fx.helmetSpin));
+    mesh.position.copy(pos);
+    mesh.geometry.computeBoundingSphere();
+    this.scene.add(mesh);
+    this.props.push({ mesh, vel, spin, radius: mesh.geometry.boundingSphere.radius * 0.6, age: 0, resting: false });
+    while (this.props.length > 12) this.removeProp(this.props.shift());
+  }
+
+  updateProps(dt) {
+    if (!this.props.length) return;
+    const g = Game.Config.ragdoll.gravity, fx = Game.Config.hitFx;
+    const life = Game.Config.ragdoll.corpseTime, sinkAt = life - 1.2;
+    for (const p of this.props) {
+      p.age += dt;
+      const m = p.mesh;
+      if (p.age > sinkAt) { m.position.y -= 0.5 * dt; continue; }
+      if (p.resting) continue;
+      p.vel.y -= g * dt;
+      const ox = m.position.x, oz = m.position.z;
+      m.position.addScaledVector(p.vel, dt);
+      // 撞到箱子侧面：退回去，水平速度反向衰减
+      const c = this.boxAt(m.position.x, m.position.y, m.position.z);
+      if (c && m.position.y < c.max.y - 0.15) {
+        m.position.x = ox; m.position.z = oz;
+        p.vel.x *= -0.3; p.vel.z *= -0.3;
+      }
+      const ground = this.groundAt(m.position.x, m.position.z, m.position.y + 0.3) + p.radius;
+      if (m.position.y < ground) {
+        m.position.y = ground;
+        if (p.vel.y < -1.2) {
+          p.vel.y *= -fx.helmetBounce;
+          p.vel.x *= 0.5; p.vel.z *= 0.5;
+          p.spin.multiplyScalar(0.5);
+        } else {
+          p.vel.set(0, 0, 0);
+          p.resting = true;
+        }
+      }
+      const w = p.spin.length();
+      if (w > 1e-3 && !p.resting) m.rotateOnWorldAxis(_exit.copy(p.spin).divideScalar(w), w * dt);
+    }
+    for (let i = this.props.length - 1; i >= 0; i--) {
+      if (this.props[i].age >= life) this.removeProp(this.props.splice(i, 1)[0]);
+    }
+  }
+
+  removeProp(p) {
+    this.scene.remove(p.mesh);
+    p.mesh.geometry.dispose();
+    p.mesh.material.dispose();
   }
 
   // ---------- 血滴 ----------
@@ -315,6 +399,7 @@ Game.Effects = class Effects {
     this.items = this.items.filter((it) => it.life > 0);
     this.updateDroplets(dt);
     this.updateStains(dt);
+    this.updateProps(dt);
   }
 
   clear() {
@@ -322,6 +407,8 @@ Game.Effects = class Effects {
     this.items = [];
     this.stains.forEach((s) => this.removeStain(s));
     this.stains = [];
+    this.props.forEach((p) => this.removeProp(p));
+    this.props = [];
     this.dropLife.fill(0);
     this.dropPos.fill(-999);
     this.dropAlive = 0;

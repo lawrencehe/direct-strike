@@ -7,7 +7,7 @@ Game.Hud = class Hud {
   constructor() {
     const $ = (id) => document.getElementById(id);
     this.el = {
-      crosshair: $('crosshair'), scope: $('scope'), hitmarker: $('hitmarker'), reloadBar: $('ammo-reload'),
+      crosshair: $('crosshair'), scope: $('scope'), reloadBar: $('ammo-reload'),
       stats: $('stats'), shots: $('stat-shots'), hits: $('stat-hits'), heads: $('stat-heads'),
       acc: $('stat-acc'), kills: $('stat-kills'),
       ammo: $('ammo'), ammoCur: $('ammo-cur'), ammoMax: $('ammo-max'), weapons: $('weapons'),
@@ -18,7 +18,6 @@ Game.Hud = class Hud {
       wave: $('wave-info'), banner: $('banner'), hint: $('hint'),
     };
     this.input = null;   // main.js 设置，用来显示当前绑定的按键名
-    this.hitTimer = 0;
     this.bannerTimer = 0;
     this.damageTimer = 0;
     this.damageFrom = null;
@@ -217,12 +216,9 @@ Game.Hud = class Hud {
     this.flashFade = Math.max(0.4, seconds * 0.55);
   }
 
-  // 不计入命中率的命中提示（手雷炸到人）
+  // 不计入命中率的命中（手雷炸到人）：只记击杀数。准星上不画命中标记，命中反馈靠 NPC 变红（#116）
   showHit(killed) {
     if (killed) { this.stats.kills++; this.renderStats(); }
-    this.el.hitmarker.classList.remove('head');
-    this.el.hitmarker.classList.toggle('kill', killed);
-    this.hitTimer = killed ? 0.35 : 0.15;
   }
 
   setHealth(hp, max) {
@@ -297,9 +293,6 @@ Game.Hud = class Hud {
     if (head) this.stats.heads++;
     if (killed) this.stats.kills++;
     this.renderStats();
-    this.el.hitmarker.classList.toggle('head', head);
-    this.el.hitmarker.classList.toggle('kill', killed);
-    this.hitTimer = killed ? 0.35 : 0.15;
   }
 
   resetStats() {
@@ -323,8 +316,6 @@ Game.Hud = class Hud {
   }
 
   update(dt, player) {
-    this.hitTimer -= dt;
-    this.el.hitmarker.style.opacity = this.hitTimer > 0 ? 1 : 0;
 
     if (this.flashTimer > 0) {
       this.flashTimer = Math.max(0, this.flashTimer - dt);

@@ -168,6 +168,7 @@ function startGame(mapData, { input, audio, hud, ui }) {
   const targets = Game.Targets.create(scene, world.targetLayout);
   ui.world = world;
   const effects = new Game.Effects(scene, world.colliders);
+  effects.camera = camera;   // 血雾按距离放大（#116）
   const player = new Game.Player(camera, world.colliders, world.spawn);
 
   // 武器射线能打到的所有物体。内容随模式和 NPC 生死变化，所以用同一个数组原地更新
@@ -404,7 +405,10 @@ function startGame(mapData, { input, audio, hud, ui }) {
   // 没下载完的不会被挑到（character.js 的 create）
   ui.npcReady = false;
   ui.npcNote = 'NPC 模型加载中…';
-  Promise.all(Game.Character.paths().map((p) => Game.Character.load(p))).then((oks) => ui.setNpcReady(oks.some(Boolean)));
+  Promise.all(Game.Character.paths().map((p) => Game.Character.load(p))).then((oks) => {
+    ui.setNpcReady(oks.some(Boolean));
+    Game.Character.precompileHelmets(renderer, scene, camera);
+  });
 
   // 枪在局内买（#90），NPC 每次出生随机拿一把主武器、一把手枪（#54）。上次买的那两把开局前已经下好了，别的在后台下载，
   // 不拖慢首次加载；没下载完的枪买不了（购买菜单里是灰的），NPC 也只从已经加载好的里挑（bots.js 的 pickGuns）

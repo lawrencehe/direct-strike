@@ -155,6 +155,9 @@ Game.Bots = (function () {
         this.model.setWeapon(this.weapon, true);   // 丢雷时死了，枪也要掉出来
         const head = hit.part === 'head';
         this.model.flash = 0;   // 闪红是"打中了但没死"的反馈，死的时候看血和动作
+        // 爆头打飞头盔（#116）：在建布娃娃之前取，头盔才在头上的位置
+        const helmet = head && hit.dir && this.model.detachHelmet ? this.model.detachHelmet() : null;
+        if (helmet) this.mgr.effects.flyingProp(helmet.mesh, helmet.center, hit.dir, this.vel);
         this.model.die({ ...hit, vel: this.vel, colliders: this.mgr.colliders });
         if (hit.point && hit.dir) this.mgr.effects.bloodBurst(hit.point, hit.dir, head);
         this.bleedTime = head ? 2.2 : 1.4;
