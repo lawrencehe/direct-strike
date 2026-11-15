@@ -312,17 +312,17 @@ Game.Config = {
     reward: { head: 500, body: 300, frag: 300 },
     // 枪的价格（#90）：key 和 loadout.rifle / loadout.pistol 一致。买到的枪枪里一个满弹匣、没有备弹，备弹另买。
     // 主武器买了另一把会换掉手上那把；手枪出生就有，换一把要花钱（现在换枪只换外观，#20）
-    gunPrices: { ak: 1500, m4: 1500, beretta: 200, sg: 200 },
+    gunPrices: { ak: 1500, m4: 1500, sniper: 1800, beretta: 200, sg: 200 },
     prices: { frag: 300, flash: 200, smoke: 300 },   // 投掷物价格
     maxCarry: { frag: 2, flash: 2, smoke: 1 },       // 投掷物每种最多带几个
-    bulletPrice: 2,        // 子弹一发多少钱。一次买一个弹匣（AK 30 发 $60、手枪 10 发 $20），离上限（weapons.maxMags）不到一个弹匣就只补到上限
+    bulletPrice: 2,        // 子弹一发多少钱（枪自己写了 bulletPrice 就按它，例如狙击枪）。一次买一个弹匣（AK 30 发 $60、手枪 10 发 $20），离上限（weapons.maxMags）不到一个弹匣就只补到上限
     buyRadius: 3,          // 购买区：出生点周围几米（地上有一圈环）
     boughtPulse: 0.7,      // 买成功后武器栏里那一格闪亮、放大回弹几秒（同时钱数闪一下、旁边飘 "-$价格"）
     cursorSpeed: 1,        // B 菜单开着时屏幕上的光标：鼠标移动 1 像素，光标走几像素（#81）。F 菜单没有光标
     // B 经典菜单的分类，一类一列，顺序就是数字键：先按分类的号、再按商品的号（#81）。
     // 商品：ak / m4 / beretta / sg 是枪（loadout 里的 key），rifle / pistol 是主武器 / 手枪一个弹匣的子弹，frag / flash / smoke 是一个投掷物
     categories: [
-      { name: '主武器', items: ['ak', 'm4'] },
+      { name: '主武器', items: ['ak', 'm4', 'sniper'] },
       { name: '手枪', items: ['beretta', 'sg'] },
       { name: '弹药', items: ['rifle', 'pistol'] },
       { name: '投掷物', items: ['frag', 'flash', 'smoke'] },
@@ -365,6 +365,36 @@ Game.Config = {
     rifle: {
       ak: { name: 'AK', model: 'assets/models/gun/ak47.glb', sound: 'ak' },   // assets-src/models/gun/ak47.py 加工
       m4: { name: 'M4', model: 'assets/models/gun/m4.glb', sound: 'm4' },     // assets-src/models/gun/m4.py 加工
+      // 狙击枪（#110）：栓动，右键开镜。模型是负责人用 Tripo 生成的，assets-src/models/gun/sniper/build.py 加工。
+      // 还没有狙击枪的录音，先用 AK 的录音放慢（soundRate）顶着
+      sniper: {
+        name: '狙击枪', model: 'assets/models/gun/sniper.glb', sound: 'ak', soundRate: 0.72,
+        npc: false,            // NPC 不拿（NPC 没有开镜的逻辑，栓动枪在它手里没法用）
+        auto: false,
+        fireInterval: 1.3,     // 两发之间：拉栓上膛的时间（拉栓动作和声音按这个时长走）
+        magSize: 5,
+        reloadTime: 3.0,
+        bulletPrice: 10,       // 子弹一发多少钱（覆盖 economy.bulletPrice）：一个弹匣 5 发 $50
+        baseSpread: 0.04,      // 不开镜的散布：盲狙基本打不准
+        moveSpread: 0.09,      // 移动时额外增加（开镜也算），跑着开镜打不中
+        airSpread: 0.15,
+        bloomPerShot: 0, bloomMax: 0, bloomRecover: 1,   // 一枪一拉栓，没有连射累积
+        crouchSpreadMul: 0.7,
+        recoilPitch: 0.035,
+        recoilYaw: 0.01,
+        damage: { head: 100, body: 100, leg: 70 },   // 打头、打身体一枪死，打腿 70
+        knockback: 1.8,
+        crosshair: false,      // 不开镜时不显示准星（开镜看镜里的十字线）
+        // 瞄准镜：右键（keys.aim）开 / 关。开枪后拉栓时自动退出，拉完自动回到镜里；换弹、切枪、死了就关掉
+        scope: {
+          zoom: 4,             // 放大倍数（视野角度按这个缩小）
+          spread: 0.0006,      // 开镜后的基础散布（还会加上移动、空中的散布）
+          sensitivity: 1,      // 开镜时鼠标灵敏度再乘这个（已经按放大倍数自动降低了）
+          time: 0.12,          // 开镜过渡用时（秒）；过渡完才是开镜的散布
+          moveSlow: 0.55,      // 开镜时移动速度乘这个
+        },
+        boltRack: [0.15, 0.35, 0.55, 0.75],   // 拉栓动作在 fireInterval 里的进度：开始拉 / 拉到底 / 开始推回 / 推到位
+      },
     },
     pistol: {
       beretta: { name: '手枪', model: null, sound: 'pistol' },
@@ -448,6 +478,7 @@ Game.Config = {
     crouch:     ['ShiftLeft', 'ShiftRight'],
     sprint:     ['CapsLock'],   // 浏览器里 Ctrl+W 会关标签页、Alt 会弹菜单，所以不用它们
     fire:       ['Mouse0'],
+    aim:        ['Mouse2'],     // 开镜（只有带瞄准镜的枪：狙击枪）
     reload:     ['KeyR'],
     slotRifle:  ['Digit1'],
     slotPistol: ['Digit2'],

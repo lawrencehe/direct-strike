@@ -2,6 +2,7 @@
 
 | 文件 | 来源 | 协议 |
 |---|---|---|
+| `models/gun/sniper.glb` | 负责人用 Tripo 生成（H3.1，`v3.1-20260211`），任务号 `ac402a4d-efb4-4d08-b073-6da5e4ffb46c`，参考图为本项目生成的狙击枪概念图（#109） | Tripo 付费账号生成，可商用（#72）。**有改动**：拆成枪身、弹匣、拉机柄三个部件，删除两脚架和游离顶点，放大到全长 1.15 米并调整朝向，贴图转 WebP；脚本 `assets-src/models/gun/sniper/build.py`（#110） |
 | `models/gun/ak47.glb` | "[Ak47](https://sketchfab.com/3d-models/ak47-831519a097d84e079fd8bc4b15e5b57d)"，来自 Sketchfab | [CC0]。**有改动**：拆成枪身、弹匣、拉机柄三个部件，删除备用弹匣、子弹、骨骼和动画，调整尺寸和朝向，贴图转 WebP |
 | `models/arm/arm.glb` | 第一人称手臂（袖子 + 半指手套），作者 H.John，来自 Sketchfab（模型文件内标注作者和 CC0） | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：材质由 SpecularGlossiness 转为 metal/rough，贴图缩到 1024 并转 WebP |
 | `models/gun/m4.glb` | M4 步枪，作者 H.John（模型文件内标注作者和 CC0）。同事提供、不登记原作链接（负责人确认，#42） | [CC0](https://creativecommons.org/publicdomain/zero/1.0/)。有改动：删除枪背带，拆成枪身、弹匣、枪机框三个部件，放大到真枪尺寸（全长 0.84 米）并调整朝向，材质改不透明，贴图缩到 2048 并转 WebP |

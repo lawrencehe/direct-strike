@@ -13,6 +13,9 @@
 // 动作按进度分段（见 animate 和 Weapon.RELOAD）：抓弹匣 → 抽出 → 手下去拿新弹匣 → 插入拍实 →（空枪才有）拉机柄上膛 → 回位。
 // 音效跟着动作的时间点响，被打断就不会再响。
 //
+// 瞄准镜（狙击枪，#110）：右键开 / 关，开着时镜头视野缩小（放大）、鼠标变慢、走得慢、枪模藏起来、HUD 画镜框。
+// 栓动枪开一枪要拉栓（fireInterval），拉栓时自动退出镜子，拉完自动回到镜里；换弹、切枪、死了就关掉。
+//
 // 投掷物按真实手雷的两道保险：拉环是第一道，保险握片（被手握住）是第二道。
 // 按住左键 = 拔掉拉环（hold），只要还攥着握片就不会开始计时，攥多久都不会炸；
 // 松开 = 挥臂（swing），出手的瞬间握片弹开，引信才开始倒计时。
@@ -40,6 +43,9 @@ Game.Weapon = class Weapon {
     this.hurtSide = 1;
     this.flashTimer = 0;
     this.sway = new THREE.Vector2();
+    this.scopeWant = false;   // 玩家想开镜（右键切换）；拉栓、换弹时暂时退出，拉完回来
+    this.scopeT = 0;          // 开镜过渡 0 ~ 1
+    this.cycleCue = 2;        // 拉栓音效响到第几个（0 拉开、1 推回，2 = 没在拉栓）
 
     this.raycaster = new THREE.Raycaster();
     this.raycaster.far = Game.Config.weapons.maxRange;
@@ -186,7 +192,7 @@ Game.Weapon = class Weapon {
 
   // 买到一把枪（economy.js，Game.Settings 里已经记成了这把）：换上新枪，枪里一个满弹匣、没有备弹，马上掏出来（和 CS 一样）
   giveGun(slot) {
-    if (this.current === slot) this.cancelReload();
+    if (this.current === slot) { this.cancelReload(); this.unscope(); }
     this.buildGun(slot, true);
     if (slot === 'rifle') this.hasRifle = true;
     if (this.throwState) { this.refreshHud(); return; }   // 正攥着手雷：丢完再说
@@ -205,6 +211,8 @@ Game.Weapon = class Weapon {
     // 换弹被打断：子弹数不变，换回来要重新换
     this.cancelReload();
     this.flashTimer = 0;
+    this.scopeWant = false;
+    this.cycleCue = 2;
 
     this.pending = key;
     if (this.switchPhase !== 'out') {
@@ -265,7 +273,8 @@ Game.Weapon = class Weapon {
     const cfg = gun.cfg;
     const p = this.player;
     const moveRatio = Math.min(1, p.horizontalSpeed() / Game.Config.player.walkSpeed);
-    const spread = cfg.baseSpread + cfg.moveSpread * moveRatio + (p.onGround ? 0 : cfg.airSpread) + this.bloom;
+    const base = cfg.scope && this.scopeT >= 1 ? cfg.scope.spread : cfg.baseSpread;   // 狙击枪开镜才准
+    const spread = base + cfg.moveSpread * moveRatio + (p.onGround ? 0 : cfg.airSpread) + this.bloom;
     return spread * (1 - (1 - cfg.crouchSpreadMul) * p.crouchT);   // 蹲下更准
   }
 
@@ -289,6 +298,7 @@ Game.Weapon = class Weapon {
     const ready = !this.switchPhase;
     if (gun) this.updateGun(dt, input, gun, ready);
     else this.updateThrow(dt, input, ready);
+    this.updateScope(dt);
 
     this.animate(dt);
     this.hud.setSpread(this.currentSpread());
@@ -309,8 +319,10 @@ Game.Weapon = class Weapon {
       }
       this.hud.setReload(this.reloading ? this.reloadProgress(gun) : null);
     }
+    if (cfg.boltRack) this.playCycleCues(gun);
     if (!ready) return;
 
+    if (cfg.scope && input.wasAction('aim') && !this.reloading) this.scopeWant = !this.scopeWant;
     if (input.wasAction('reload')) this.startReload();
     // 打空了自动换弹：等最后一发的后坐做完就开始，不用再扣一次扳机。切回一把空枪、空枪买到子弹也一样
     if (gun.ammo === 0 && !this.reloading && this.cooldown <= 0) this.startReload();
@@ -382,6 +394,7 @@ Game.Weapon = class Weapon {
     }
     this.throwState = null;
     this.cancelReload();
+    this.unscope();
   }
 
   // 新一局：只有手枪（主武器要买，#90），换弹匣、补投掷物、清空弹孔
@@ -409,6 +422,7 @@ Game.Weapon = class Weapon {
     this.throwState = null;
     this.thrown = false;
     this.cancelReload();
+    this.unscope();
     this.lastGun = key === 'rifle' || !this.hasRifle ? 'pistol' : 'rifle';
     this.previous = this.lastGun;
     this.show(key);
@@ -446,6 +460,7 @@ Game.Weapon = class Weapon {
     const gun = this.guns[this.current];
     if (!gun || this.reloading || !this.canReload(gun)) return;
     this.reloading = true;
+    this.scopeWant = false;   // 换弹退出镜子，换完不自动回去（和 CS 一样）
     this.reloadTimer = gun.cfg.reloadTime;
     this.reloadEmpty = gun.ammo === 0;
     this.reloadCue = 0;
@@ -460,6 +475,57 @@ Game.Weapon = class Weapon {
   }
 
   reloadProgress(gun) { return 1 - this.reloadTimer / gun.cfg.reloadTime; }
+
+  // ---- 瞄准镜、拉栓（#110）----
+  // 拉栓进度 0 ~ 1（开枪后 fireInterval 内），没在拉栓是 null
+  cycleProgress(gun) {
+    if (!gun.cfg.boltRack || this.cycleCue >= 2 && this.cooldown <= 0) return null;
+    return Math.min(1, Math.max(0, 1 - this.cooldown / gun.cfg.fireInterval));
+  }
+  // 拉栓量 0 ~ 1：按 boltRack 的四个时间点拉开、停、推回
+  cycleRack(gun) {
+    const p = this.cycleProgress(gun);
+    return p === null ? 0 : Game.Weapon.trap(p, gun.cfg.boltRack);
+  }
+  playCycleCues(gun) {
+    const p = this.cycleProgress(gun);
+    if (p === null) return;
+    const [a, , c] = gun.cfg.boltRack;
+    if (this.cycleCue === 0 && p >= a) { this.audio.rackBack(); this.cycleCue = 1; }
+    if (this.cycleCue === 1 && p >= c) { this.audio.rackForward(); this.cycleCue = 2; }
+  }
+
+  // 开镜：想开（scopeWant）且手上是带镜的枪、没在换弹 / 切枪 / 拉栓，就过渡进去；条件不满足立刻退出
+  updateScope(dt) {
+    const gun = this.guns[this.current];
+    const sc = gun && gun.cfg.scope;
+    const on = !!sc && this.scopeWant && !this.reloading && !this.switchPhase && this.cooldown <= 0;
+    this.scopeT = on ? Math.min(1, this.scopeT + dt / sc.time) : 0;
+    this.applyScope(on ? sc : null);
+  }
+
+  // 立刻退出镜子（死了、重生、换枪）
+  unscope() {
+    this.scopeWant = false;
+    this.scopeT = 0;
+    this.applyScope(null);
+  }
+
+  // 按 scopeT 设镜头视野、灵敏度、移动速度、HUD 镜框
+  applyScope(sc) {
+    const t = sc ? this.scopeT * this.scopeT * (3 - 2 * this.scopeT) : 0;
+    const zoom = sc ? 1 + (sc.zoom - 1) * t : 1;
+    const base = THREE.MathUtils.degToRad(Game.Config.view.fov);
+    const fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(base / 2) / zoom));
+    if (Math.abs(this.camera.fov - fov) > 1e-4) {
+      this.camera.fov = fov;
+      this.camera.updateProjectionMatrix();
+    }
+    this.player.lookScale = sc ? (1 / zoom) * (1 + (sc.sensitivity - 1) * t) : 1;
+    this.player.speedScale = sc ? 1 + (sc.moveSlow - 1) * t : 1;
+    const gun = this.guns[this.current];
+    this.hud.setScope(this.scopeT >= 0.6, !gun || gun.cfg.crosshair !== false);
+  }
 
   // 换弹音效：到了动作的时间点才响（不提前排好），中途切枪就不会再响
   playReloadCues(gun) {
@@ -498,6 +564,7 @@ Game.Weapon = class Weapon {
     gun.ammo--;
     if (this.onShot) this.onShot();   // main.js 接到 NPC 的"听声音"
     this.cooldown = cfg.fireInterval;
+    this.cycleCue = 0;   // 栓动枪：开始拉栓（updateScope 看到 cooldown > 0 会退出镜子）
 
     // 1. 在准星周围的散布圆里随机取一个方向
     //    （先算散布再加累积，所以第一发总是最准的）
@@ -603,19 +670,24 @@ Game.Weapon = class Weapon {
       it.leftHand.position.y -= r.mag * it.magDrop + r.away * 0.22;
       it.leftHand.position.z -= r.mag * it.magBack - r.away * 0.08;
 
-      // 拉机柄 / 套筒：开枪时随后坐往后跳；空枪换弹最后拉到底再放开（上膛）
-      it.bolt.position.z = it.boltHome.z + Math.max(this.kick, r.rack * 1.4) * it.boltKick;
+      // 拉机柄 / 套筒：开枪时随后坐往后跳；空枪换弹最后拉到底再放开（上膛）；栓动枪开一枪拉一次栓
+      const cycle = this.cycleRack(it);
+      const boltKick = it.cfg.boltRack ? 0 : this.kick;   // 栓动枪开枪时枪栓不动，拉栓才动
+      it.bolt.position.z = it.boltHome.z + Math.max(boltKick, r.rack * 1.4, cycle * 1.4) * it.boltKick;
+      // 开镜：枪往画面中间、往上抬，过渡到一大半就藏起来（看镜框）
+      const ads = this.scopeT * this.scopeT;
+      m.visible = this.scopeT < 0.6;
 
       // jolt：新弹匣拍进去、机柄放开撞回去时，枪身被震一下
       m.position.set(
-        it.basePos.x + swayX - dip * 0.02,
-        it.basePos.y + swayY + dip * 0.035 + r.jolt * 0.012,
+        it.basePos.x * (1 - ads) + swayX - dip * 0.02 + cycle * 0.01,
+        it.basePos.y + swayY + dip * 0.035 + r.jolt * 0.012 + ads * 0.06 - cycle * 0.015,
         it.basePos.z + this.kick * it.kickBack + dip * 0.03 - r.jolt * 0.01
       );
       m.rotation.set(
         it.baseRot.x + this.kick * it.kickUp + dip * 0.2 + r.jolt * 0.06 - dipSwitch * 0.7,
-        it.baseRot.y + this.sway.x * 2 + dip * 0.12,
-        it.baseRot.z - dip * 0.55 - r.rack * 0.06   // 换弹时枪身朝内侧倾，弹匣和左手转到镜头这边；上膛时微微一歪
+        it.baseRot.y * (1 - ads) + this.sway.x * 2 + dip * 0.12,
+        it.baseRot.z - dip * 0.55 - r.rack * 0.06 - cycle * 0.12   // 换弹时枪身朝内侧倾，弹匣和左手转到镜头这边；上膛 / 拉栓时微微一歪
       );
 
       this.flashTimer -= dt;
@@ -682,6 +754,7 @@ Game.Weapon.REST_POSE = { tilt: 0, grab: 0, mag: 0, away: 0, jolt: 0, rack: 0 };
   const smooth = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
   // 梯形：a → b 升到 1，c → d 降回 0
   const trap = (p, [a, b, c, d]) => smooth((p - a) / (b - a)) * (1 - smooth((p - c) / (d - c)));
+  Game.Weapon.trap = trap;
   // 单个脉冲：从 t 开始，持续 w，先冲上去再衰减
   const pulse = (p, [t, w]) => (p < t || p > t + w ? 0 : Math.sin(((p - t) / w) * Math.PI) * (1 - (p - t) / w));
 
@@ -736,6 +809,16 @@ Game.Weapon.REST_POSE = { tilt: 0, grab: 0, mag: 0, away: 0, jolt: 0, rack: 0 };
       scale: 0.75, basePos: V(0.155, -0.15, -0.46), baseRot: new THREE.Euler(0.0, 0.07, 0.0),
       boltKick: 0.03, magDrop: 0.16, magBack: 0.02, magTilt: 0.3,
       kickBack: 0.055, kickUp: 0.045, flashSize: 0.24,
+    },
+    // 狙击枪（#110）：枪长 1.15 米，握把在 z = 0.12（build.py 的 GRIP_Z），左手托在护木中段；
+    // 瞄准镜很高，枪摆得比步枪低一点、靠右一点，镜子不挡准星
+    sniper: {
+      right: { R: 0.024, pos: V(0, -0.068, 0.14), quat: tilt(-0.35), armDir: V(0.35, -0.6, 0.72) },
+      left: { R: 0.036, pos: V(0, -0.004, -0.34), quat: cradle, armDir: V(-0.62, -0.58, 0.53) },
+      leftGrab: V(0, -0.12, -0.04),
+      scale: 0.62, basePos: V(0.15, -0.165, -0.47), baseRot: new THREE.Euler(0.0, 0.07, 0.0),
+      boltKick: 0.07, magDrop: 0.16, magBack: 0.03, magTilt: 0.3,
+      kickBack: 0.09, kickUp: 0.09, flashSize: 0.32,
     },
     beretta: {
       right: { R: 0.027, pos: V(0, -0.066, 0.075), quat: tilt(-0.18), armDir: V(0.35, -0.6, 0.72) },

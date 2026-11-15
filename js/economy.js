@@ -225,7 +225,8 @@ Game.Economy = class Economy {
     const cfg = Game.Config.economy;
     if (this.gunSlot(kind)) return cfg.gunPrices[kind] || 0;
     if (!this.isAmmo(kind)) return cfg.prices[kind];
-    return (this.rounds(kind) || this.weapon.guns[kind].cfg.magSize) * cfg.bulletPrice;
+    const gun = this.weapon.guns[kind].cfg;
+    return (this.rounds(kind) || gun.magSize) * Economy.bulletPrice(gun);
   }
 
   // 还有没有地方装（不看钱）
@@ -306,14 +307,15 @@ Game.Economy = class Economy {
       const ammo = this.isAmmo(kind);
       if (ammo ? w.unlimitedAmmo : w.unlimitedThrowables) continue;   // 训练场不限量，不用买、也不列出来
       // 这次计划里新买的主武器按它自己的弹匣算
-      const unit = !ammo ? 1 : kind === 'rifle' && !w.hasRifle ? Game.Settings.gunConfig('rifle', pref).magSize : w.guns[kind].cfg.magSize;
+      const gun = !ammo ? null : kind === 'rifle' && !w.hasRifle ? Game.Settings.gunConfig('rifle', pref) : w.guns[kind].cfg;
+      const unit = gun ? gun.magSize : 1;
       const cap = ammo ? Game.Config.weapons.maxMags * unit : cfg.maxCarry[kind];
       const goal = Math.min(cap, target * unit);
       const line = { kind, want: Math.ceil(goal / unit), need: Math.max(0, Math.ceil((goal - have[kind]) / unit)), got: 0 };
       // 没有主武器（这次也没买到）：主武器的子弹买不了
       while (have[kind] < goal && (kind !== 'rifle' || rifle)) {
         const n = ammo ? Math.min(unit, cap - have[kind]) : 1;
-        const price = this.free ? 0 : ammo ? n * cfg.bulletPrice : cfg.prices[kind];
+        const price = this.free ? 0 : ammo ? n * Economy.bulletPrice(gun) : cfg.prices[kind];
         if (price > money) break;
         money -= price;
         have[kind] += n;
@@ -426,6 +428,8 @@ Game.Economy = class Economy {
   }
 };
 
+// 一发子弹多少钱：枪自己写了 bulletPrice 就按它（狙击枪），否则按 economy.bulletPrice
+Game.Economy.bulletPrice = (gun) => gun.bulletPrice ?? Game.Config.economy.bulletPrice;
 Game.Economy.ITEMS = ['rifle', 'pistol', 'frag', 'flash', 'smoke'];   // 子弹和投掷物，和武器栏的顺序一致
 // 枪：loadout 里的 key → 哪一格（'rifle' | 'pistol'）
 Game.Economy.GUN_SLOT = {};

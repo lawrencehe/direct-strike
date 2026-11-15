@@ -14,6 +14,8 @@ Game.Player = class Player {
     this.yaw = 0;                           // 左右转（绕 Y 轴）
     this.pitch = 0;                         // 上下看（绕 X 轴）
     this.recoilPitch = 0;                   // 后坐力造成的额外上抬
+    this.lookScale = 1;                     // 鼠标灵敏度倍数、移动速度倍数：开镜时由 weapon.js 设（#110）
+    this.speedScale = 1;
     this.onGround = false;
     this.bobPhase = 0;
     this.lastLook = { x: 0, y: 0 };         // 本帧鼠标移动量，给枪模晃动用
@@ -91,7 +93,7 @@ Game.Player = class Player {
     // ---- 1. 鼠标转视角 ----
     const look = input.consumeMouse();
     this.lastLook = look;
-    const sens = Game.Config.view.mouseSensitivity;
+    const sens = Game.Config.view.mouseSensitivity * this.lookScale;   // lookScale：开镜时 weapon.js 调低（#110）
     this.yaw -= look.x * sens;
     this.pitch -= look.y * sens;
     const limit = Math.PI / 2 - 0.01;  // 不能抬头/低头超过 90 度
@@ -138,6 +140,7 @@ Game.Player = class Player {
     if (len > 0) { wx /= len; wz /= len; }  // 斜着走不能比直走快
 
     let speed = input.isAction('sprint') ? cfg.sprintSpeed : cfg.walkSpeed;
+    speed *= this.speedScale;   // 开镜时 weapon.js 调低（#110）
     if (this.crouchT > 0) speed = speed + (cfg.crouchSpeed - speed) * this.crouchT;
 
     // 当前速度以"加速度"为上限，逐渐逼近目标速度 → 有起步和刹车的惯性

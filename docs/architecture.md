@@ -42,6 +42,14 @@
   右手 / 左手 IK 的目标直接用第一人称的握持点 `Weapon.VIEW[key].right.pos` / `left.pos`（左手往下挪 `GUARD_SHIFT` 托在护木下），
   枪的位置按"握把落在方块枪握把的同一点"摆，所以加新枪只要 `Weapon.VIEW` 写好，NPC 不用另调。glb 没下载好时退回方块步枪 / 默认手枪。
 - 每把枪在画面里的摆法、手的握持位置在 `weapon.js` 末尾的 `Weapon.VIEW`，按 `loadout` 的 key 写。
+- `loadout` 里写 `npc: false` 的枪 NPC 不拿（狙击枪，#110：NPC 没有开镜逻辑）；子弹价格可以按枪写 `bulletPrice`（`Economy.bulletPrice(cfg)`）。
+- **狙击枪（#110）**：枪的配置里有 `scope`（开镜）和 `boltRack`（拉栓）就按栓动狙击枪处理，都在 `weapon.js`：
+  - 开镜：右键（`keys.aim`）切换 `scopeWant`；`updateScope` 每帧判断能不能开（没在换弹 / 切枪 / 拉栓，`cooldown <= 0`），`scopeT` 0 → 1 过渡，不能开就立刻归零。
+    `applyScope` 按 `scopeT` 改**世界镜头**的视野（`camera.fov`，枪模镜头不动）、`player.lookScale`（灵敏度 ÷ 放大倍数）、`player.speedScale`、HUD 的 `#scope` 镜框和准星。
+    `currentSpread` 只有 `scopeT` 到 1 才用 `scope.spread`。死了、重生、换枪（`onPlayerDeath` / `equipNow` / `giveGun`）调 `unscope()` 立刻恢复视野——
+    人死了 `weapon.update` 不再跑，不在这里恢复视野会一直停在放大的样子。设置里改视野照样生效（`applyScope` 每帧按 `view.fov` 算）。
+  - 拉栓：`fireInterval` 就是拉栓时间，`fire` 后 `cooldown > 0` 期间按 `boltRack` 的四个进度点拉开 / 推回枪栓（`cycleRack`）、响 `rackBack` / `rackForward`；
+    这期间 `updateScope` 认为不能开镜，于是开枪自动退镜、拉完自动回镜。栓动枪开枪时枪栓不随后坐跳。
 
 ## 对象关系
 
@@ -228,6 +236,8 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
   枪还侧倾着而左手已经回到护木，手臂 IK 会把第一人称的袖子拉得很长。改了时间段要按进度截图看（`tools/tests/reload-nade-economy.mjs`）。
 - **换弹、投掷的音效不要提前排。** `audio` 是 Web Audio，排好的声音没法取消；中途切枪尾音照样响。按动作进度到点再调（`Weapon.RELOAD.*.cues`）。
 - **测试脚本的 tick 要调 `economy.update`，而且在 `player.update` 和 `weapon.update` 之前**，和 `main.js` 的帧循环一致，否则购买菜单的按键会被武器当成切枪、鼠标会被拿去转视角。
+- **狙击枪模型是 Tripo 出的一整个网格**，`assets-src/models/gun/sniper/build.py` 按坐标框（`MAG_BOX` / `BOLT_BOX` / `BIPOD_BOX`）把面拆成 mag / bolt、删掉两脚架；
+  框是对着正交侧视渲染图读的数，模型重新生成要重新量。弹匣顶上沿枪身下沿切开，换弹时弹匣两侧会带出几片碎面（#110）。
 - **glb 枪模换了要重新对手的位置。** 手臂是 `arm.glb`（蒙皮模型），握把、护木的位置写在 `weapon.js` 末尾的 `Weapon.VIEW` 里（`right` / `left`）；
   换模型后用侧视截图（把枪转 90 度）检查手有没有握在握把和护木上。
 - **手臂每帧要 `solve()`。** `gunmodel.js` 的 `buildArms` 按握持坐标系摆手腕骨骼；小臂从"手腕不弯"的方向往 `armDir` 转，手腕最多弯 `wristMaxBend`，
