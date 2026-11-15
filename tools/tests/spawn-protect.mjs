@@ -1,5 +1,5 @@
 // #97 的针对性测试：出生点和出生保护
-//   1. 出生点 6 个，每个出生点从地图中央、对面三个出生点看过来，头都被掩体挡住
+//   1. 出生点 6 个，都不是开阔地：从地图中央、对面三个出生点看过来，至少挡住一半视线（#50，不要求完全挡死）
 //   2. 对决开局：NPC 出生在离玩家最远的点；玩家重生、NPC 重生都选离对方现在位置最远的点
 //   3. 波次：NPC 都出生在离玩家远的那一半，位置不卡在掩体里
 //   4. 玩家出生保护：不掉血、HUD 显示"出生保护"，到时间消失后正常掉血；开枪提前结束
@@ -30,20 +30,22 @@ await p.evaluate(() => {
 });
 
 // ---- 1. 出生点和掩体 ----
+// 规则（#50）：出生点不能是一片开阔空地，有障碍物挡住一部分视线就行，不要求完全挡死。
+// 从地图中央（地面、平台上）和对面三个出生点共 5 个位置看站着的人头，至少挡住一半（3 个）
 let r = await p.evaluate(() => {
   game.startMode('duel');
   const mgr = game.bots, S = game.world.spawns;
   const eye = (pt, y = 1.6) => new THREE.Vector3(pt.x, y, pt.z);
-  const open = [];
+  const res = [];
   for (const s of S) {
-    // 从地图中央（站在地上和站在平台上）、对面三个出生点看过来
     const from = [eye({ x: 0, z: 0 }), eye({ x: 0, z: 0 }, 3.0), ...S.filter((o) => Math.sign(o.z) !== Math.sign(s.z)).map((o) => eye(o))];
-    for (const f of from) if (mgr.hasLineOfSight(f, eye(s, 1.7))) open.push([s.x, s.z, f.x, f.y, f.z]);
+    const blocked = from.filter((f) => !mgr.hasLineOfSight(f, eye(s, 1.7))).length;
+    res.push({ at: [s.x, s.z], blocked, of: from.length });
   }
-  return { n: S.length, open };
+  return { n: S.length, res };
 });
 check(r.n >= 4 && r.n <= 6, '出生点 4 ~ 6 个', r.n);
-check(!r.open.length, '每个出生点：从中央和对面出生点都看不到站着的人头', r.open);
+check(r.res.every((o) => o.blocked >= 3), '每个出生点都不是开阔地：5 条视线至少挡住 3 条', r.res);
 
 // ---- 2. 对决：离对方最远 ----
 r = await p.evaluate(() => {
