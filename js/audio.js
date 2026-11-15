@@ -93,7 +93,7 @@ Game.Audio = class Audio {
     if (!ctx) return;
     const gun = Game.Config.weapons[kind] || {};
     const snd = gun.sound;
-    if (snd && this.sample(snd + '-' + (1 + Math.floor(Math.random() * 2)), { vol: this.gain('shot'), rate: this.jitter() * (gun.soundRate || 1) })) return;
+    if (snd && this.sample(snd + '-' + (1 + Math.floor(Math.random() * 2)), { vol: this.gain('shot'), rate: this.jitter() })) return;
     const t = ctx.currentTime;
     const pistol = kind === 'pistol';
 
