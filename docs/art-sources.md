@@ -12,6 +12,7 @@
 | 人物 | `models/human/ukrainian-soldier.glb`（默认 NPC）、`init_soldier.glb`（"特种兵"，也是动画来源） | H.John CC0 / three.js 示例（Mixamo） |
 | 第一人称手臂 | `models/arm/arm.glb` | H.John CC0（问题见 #35） |
 | 枪 | `models/gun/ak47.glb`、`m4.glb`、`sg.glb` | Sketchfab / H.John，CC0 |
+| 枪 | `models/gun/sniper.glb`（#110） | 负责人用 Tripo 生成（#109 的概念图），`assets-src/models/gun/sniper/build.py` 加工 |
 | 地图 yard 道具 | `maps/yard/props/`：集装箱（5 种颜色贴图）、隔离墩是 Blender 脚本建的；中央平台、沙袋墙、弹药箱、油桶是 Tripo 底模修整的 | 自制 / Tripo（#72） |
 | 地图 yard 材质 | `maps/yard/textures/`：沥青、水泥地、脏水泥、泥土，各有颜色 2k + 法线 1k + 粗糙度 1k；环境光 `env.hdr` | Poly Haven CC0 |
 | 天气 | `weather/rain-dusk/sky.webp` | Poly Haven CC0 |

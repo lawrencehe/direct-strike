@@ -292,7 +292,7 @@ Game.Input.STORAGE_KEY = 'fps.keys.v1';   // 项目改名前的键名，不要�
 Game.Input.ACTIONS = [
   ['forward', '前进'], ['back', '后退'], ['left', '左移'], ['right', '右移'],
   ['jump', '跳跃'], ['crouch', '下蹲（按住）'], ['sprint', '奔跑（按住）'],
-  ['fire', '射击 / 投掷'], ['reload', '换弹'],
+  ['fire', '射击 / 投掷'], ['aim', '开镜（狙击枪）'], ['reload', '换弹'],
   ['slotRifle', '主武器'], ['slotPistol', '手枪'], ['slotFrag', '手雷'], ['slotFlash', '闪光弹'], ['slotSmoke', '烟雾弹'],
   ['lastWeapon', '上一把武器'], ['buy', '购买（在出生点）'], ['quickBuy', '快捷购买（在出生点）'], ['resetStats', '重置统计（训练场）'],
 ];

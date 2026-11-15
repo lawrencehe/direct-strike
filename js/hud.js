@@ -7,7 +7,7 @@ Game.Hud = class Hud {
   constructor() {
     const $ = (id) => document.getElementById(id);
     this.el = {
-      crosshair: $('crosshair'), hitmarker: $('hitmarker'), reloadBar: $('ammo-reload'),
+      crosshair: $('crosshair'), scope: $('scope'), hitmarker: $('hitmarker'), reloadBar: $('ammo-reload'),
       stats: $('stats'), shots: $('stat-shots'), hits: $('stat-hits'), heads: $('stat-heads'),
       acc: $('stat-acc'), kills: $('stat-kills'),
       ammo: $('ammo'), ammoCur: $('ammo-cur'), ammoMax: $('ammo-max'), weapons: $('weapons'),
@@ -40,7 +40,7 @@ Game.Hud = class Hud {
     this.el.health.style.display = battle ? 'block' : 'none';
     this.el.wave.style.display = battle ? 'flex' : 'none';
     const key = (a) => this.input ? Game.Input.bindingName(this.input.bindings[a]) : '?';
-    const common = `${key('reload')} 换弹 · ${key('lastWeapon')} / 滚轮 切枪 · ${key('buy')} / ${key('quickBuy')} 出生点购买`;   // 训练场也能买（免费，#90）
+    const common = `${key('reload')} 换弹 · ${key('aim')} 开镜（狙击枪） · ${key('lastWeapon')} / 滚轮 切枪 · ${key('buy')} / ${key('quickBuy')} 出生点购买`;   // 训练场也能买（免费，#90）
     this.el.hint.textContent = battle
       ? `${common} · Esc 暂停`
       : `${common} · ${key('resetStats')} 重置统计 · Esc 暂停`;
@@ -269,6 +269,15 @@ Game.Hud = class Hud {
   banner(text, seconds = 2) {
     this.el.banner.textContent = text;
     this.bannerTimer = seconds;
+  }
+
+  // 狙击镜（#110）：on 显示镜框（这时不显示准星）；crosshair = 这把枪不开镜时有没有准星（狙击枪没有）
+  setScope(on, crosshair = true) {
+    if (on === this.scopeOn && crosshair === this.crosshairOn) return;
+    this.scopeOn = on;
+    this.crosshairOn = crosshair;
+    this.el.scope.classList.toggle('on', on);
+    this.el.crosshair.classList.toggle('off', on || !crosshair);
   }
 
   // 把散布角度换算成屏幕像素，让准星张开的大小和真实散布一致

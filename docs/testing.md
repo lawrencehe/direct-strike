@@ -91,6 +91,7 @@ await g.close();
 | `tools/tests/real-sfx.mjs` | #45：录音全部下载解码、起音在开头；开枪按选的枪放录音、NPC 和爆炸越远越闷越轻；空枪换弹四段按顺序响；没下完时退回合成声 |
 | `tools/tests/map-materials.mjs` | #50：地图的 PBR 贴图和环境光 HDRI 加载成功并用上、按真实尺寸铺；从几个固定机位截图看地面和水泥墩的质感（`tools/out/tests/map-materials/`） |
 | `tools/tests/weather.mjs` | #77：默认晴天；点首页按钮切到阴雨傍晚后天空贴图、环境光、曝光、雾、湿地面、多撒的水洼都换上，设置存下来；切回晴天全部还原。两种天气下截图看 12 / 25 米外的 NPC 能不能看清（`tools/out/tests/weather/`） |
+| `tools/tests/sniper.mjs` | #110：买狙击枪、枪模四个部件；不开镜没准星；右键开镜的视野、灵敏度、移动速度、镜框、散布；开枪退镜、拉栓、拉完回镜；身体一枪死；换弹 / 切枪 / 死了退镜；子弹价格；NPC 不拿。截图 `sniper-hip` / `-scope` / `-bolt` / `-reload` |
 | `tools/tests/arm-wrist.mjs` | #3：每把枪、换弹中、三种投掷物的手腕相对绑定姿势弯折不超过 `wristMaxBend`、没有扭转；#11：步枪左手肘不在画面中间、小臂从画面下方伸出 |
 
 ```bash

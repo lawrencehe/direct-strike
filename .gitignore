@@ -29,3 +29,6 @@ assets-src/sound/Prepared SFX Library/
 assets-src/maps/*/download/
 assets-src/weather/download/
 assets/manifest.json
+
+# 狙击枪的旧预览母版（tripo/ 原始输出可重新生成）
+assets-src/models/gun/sniper/sniper-preview.glb

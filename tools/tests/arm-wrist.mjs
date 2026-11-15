@@ -67,7 +67,7 @@ const judge = (name, r) => {
   for (const [s, v] of Object.entries(r)) check(v.bend <= maxBend + 0.5 && v.twist <= 1, `${name} ${s} 手腕弯折 ≤ ${maxBend}°、不扭转`, v);
 };
 
-for (const [rifle, pistol] of [['m4', 'sg'], ['ak', 'beretta']]) {
+for (const [rifle, pistol] of [['m4', 'sg'], ['ak', 'beretta'], ['sniper', 'sg']]) {
   // 换成这一套枪（枪模在开局后后台下载，先等下载完），再给上主武器
   await p.evaluate(async ([r, s]) => {
     const L = Game.Config.loadout;

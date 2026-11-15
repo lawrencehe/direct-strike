@@ -443,6 +443,20 @@ b.enemy { color: var(--enemy) !important; }
 #crosshair .ch-left   { right: var(--gap); }
 #crosshair .ch-right  { left: var(--gap); }
 
+/* 狙击镜（#110）：圆形镜片外面全黑，镜片边缘一圈暗角，细十字线 + 中心红点。镜片直径占屏幕短边的 92% */
+#scope {
+  --r: 46vmin;
+  position: absolute; inset: 0; display: none;
+  background: radial-gradient(circle at 50% 50%, transparent 0, transparent calc(var(--r) * 0.82),
+    rgba(0, 0, 0, 0.55) calc(var(--r) - 2px), #000 var(--r));
+}
+#scope.on { display: block; }
+#scope i { position: absolute; background: #000; }
+#scope .sc-h { left: calc(50% - var(--r)); width: calc(var(--r) * 2); top: 50%; height: 1px; margin-top: -0.5px; }
+#scope .sc-v { top: calc(50% - var(--r)); height: calc(var(--r) * 2); left: 50%; width: 1px; margin-left: -0.5px; }
+#scope .sc-dot { left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #ff3a2a; }
+#crosshair.off { display: none; }
+
 /* 命中标记：打中时在准星处闪一个 X */
 #hitmarker {
   position: absolute; left: 50%; top: 50%;

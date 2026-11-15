@@ -84,11 +84,12 @@ check(await p.evaluate(() => !!clearPair), '地图上找到一对中间通畅的
 
 // ---- 1. 随机挑枪 ----
 let r = await p.evaluate(() => {
+  const npcGuns = (slot) => Object.keys(Game.Config.loadout[slot]).filter((k) => Game.Config.loadout[slot][k].npc !== false).sort();
   const seen = { rifle: new Set(), pistol: new Set() };
   for (let i = 0; i < 200; i++) { const k = game.bots.pickGuns(); seen.rifle.add(k.rifle); seen.pistol.add(k.pistol); }
-  return { rifle: [...seen.rifle].sort(), pistol: [...seen.pistol].sort(), all: { rifle: Object.keys(Game.Config.loadout.rifle).sort(), pistol: Object.keys(Game.Config.loadout.pistol).sort() } };
+  return { rifle: [...seen.rifle].sort(), pistol: [...seen.pistol].sort(), all: { rifle: npcGuns('rifle'), pistol: npcGuns('pistol') } };
 });
-check(r.rifle.join() === r.all.rifle.join() && r.pistol.join() === r.all.pistol.join(), '200 次出生挑到了 loadout 里的每一把枪', r);
+check(r.rifle.join() === r.all.rifle.join() && r.pistol.join() === r.all.pistol.join(), '200 次出生挑到了 loadout 里每一把 NPC 能拿的枪（npc: false 的不拿，#110）', r);
 
 // ---- 2. M4 + SG ----
 r = await p.evaluate(() => {

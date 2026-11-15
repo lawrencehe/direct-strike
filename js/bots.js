@@ -845,8 +845,9 @@ Game.Bots = (function () {
     pickGuns() {
       const L = Game.Config.loadout, out = {};
       for (const slot of ['rifle', 'pistol']) {
-        const keys = Object.keys(L[slot]).filter((k) => Game.GunModel.isGunLoaded(L[slot][k].model));
-        out[slot] = keys.length ? keys[randInt(0, keys.length - 1)] : Game.Settings.get(slot);
+        const keys = Object.keys(L[slot]).filter((k) => L[slot][k].npc !== false && Game.GunModel.isGunLoaded(L[slot][k].model));   // npc: false 的枪 NPC 不拿（狙击枪，#110）
+        const fallback = L[slot][Game.Settings.get(slot)].npc !== false ? Game.Settings.get(slot) : Object.keys(L[slot]).find((k) => L[slot][k].npc !== false);
+        out[slot] = keys.length ? keys[randInt(0, keys.length - 1)] : fallback;
       }
       return out;
     }
