@@ -1,10 +1,12 @@
 # ============================================================
 # 音效成品生成：从原始录音里切出要用的片段，剪空白、淡出、叠层、归一化，压成单声道 mp3 放到 assets/sound/。
 # 用 Blender 自带的 aud（读写音频、mp3 编码）和 numpy（剪切和混音），开发机不用另装 ffmpeg：
-#   blender -b --python assets-src/sound/build.py
+#   blender -b --python assets-src/sound/build.py            全部重做
+#   blender -b --python assets-src/sound/build.py -- 名字…   只做这几段（例如 sniper-1 sniper-2）
 # 听着哪段不对，改下面 CLIPS 里的切点 / 长度 / 音量再跑一遍。来源和授权见 assets/LICENSES.md（#45）。
 # ============================================================
 import os
+import sys
 import aud
 import numpy as np
 
@@ -27,6 +29,9 @@ CLIPS = {
     'ak-2':      dict(src=lib('AK-47/C_28P.wav'), at=3.1, dur=0.85, fade=0.45),
     'm4-1':      dict(src=lib('AR-15/D_32P.wav'), at=0.6, dur=0.85, fade=0.45),
     'm4-2':      dict(src=lib('AR-15/D_32P.wav'), at=5.5, dur=0.85, fade=0.45),
+    # 狙击枪（#110）：Tikka T3 栓动步枪 .30-06，比 AK 的 7.62x39 重得多，尾巴留长一点
+    'sniper-1':  dict(src=lib('Tikka/W_29P.wav'), at=0.4, dur=1.2, fade=0.7),
+    'sniper-2':  dict(src=lib('Tikka/W_29P.wav'), at=5.5, dur=1.2, fade=0.7),
     'pistol-1':  dict(src=lib('Walther PPQ/X_39P.wav'), at=1.3, dur=0.7, fade=0.4),
     'pistol-2':  dict(src=lib('Walther PPQ/X_39P.wav'), at=6.3, dur=0.7, fade=0.4),
     # NPC 开枪：中距录音（自带远处的回声尾巴）
@@ -94,5 +99,6 @@ def build(name, c):
 
 
 os.makedirs(OUT, exist_ok=True)
+ONLY = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 for k, v in CLIPS.items():
-    build(k, v)
+    if not ONLY or k in ONLY: build(k, v)

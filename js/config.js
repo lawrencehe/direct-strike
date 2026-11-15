@@ -366,9 +366,9 @@ Game.Config = {
       ak: { name: 'AK', model: 'assets/models/gun/ak47.glb', sound: 'ak' },   // assets-src/models/gun/ak47.py 加工
       m4: { name: 'M4', model: 'assets/models/gun/m4.glb', sound: 'm4' },     // assets-src/models/gun/m4.py 加工
       // 狙击枪（#110）：栓动，右键开镜。模型是负责人用 Tripo 生成的，assets-src/models/gun/sniper/build.py 加工。
-      // 还没有狙击枪的录音，先用 AK 的录音放慢（soundRate）顶着
+      // 枪声是 Tikka T3 栓动步枪（.30-06）的近距录音（assets-src/sound/build.py 的 sniper-1 / sniper-2）
       sniper: {
-        name: '狙击枪', model: 'assets/models/gun/sniper.glb', sound: 'ak', soundRate: 0.72,
+        name: '狙击枪', model: 'assets/models/gun/sniper.glb', sound: 'sniper',
         npc: false,            // NPC 不拿（NPC 没有开镜的逻辑，栓动枪在它手里没法用）
         auto: false,
         fireInterval: 1.3,     // 两发之间：拉栓上膛的时间（拉栓动作和声音按这个时长走）
@@ -424,7 +424,7 @@ Game.Config = {
     // 文件由 assets-src/sound/build.py 从原始录音剪出来，都归一化到同样的峰值，相对音量在 gain 里调。
     samples: {
       dir: 'assets/sound/',
-      files: ['ak-1', 'ak-2', 'ak-far', 'm4-1', 'm4-2', 'm4-far', 'pistol-1', 'pistol-2', 'pistol-far',
+      files: ['ak-1', 'ak-2', 'ak-far', 'm4-1', 'm4-2', 'm4-far', 'pistol-1', 'pistol-2', 'pistol-far', 'sniper-1', 'sniper-2',
         'mag-out', 'mag-in', 'rack-back', 'rack-forward', 'frag', 'flash'],
       gain: {
         shot: 0.75,        // 自己开枪（近距录音，每把枪两发随机挑）
