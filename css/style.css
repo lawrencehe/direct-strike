@@ -457,23 +457,6 @@ b.enemy { color: var(--enemy) !important; }
 #scope .sc-dot { left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #ff3a2a; }
 #crosshair.off { display: none; }
 
-/* 命中标记：打中时在准星处闪一个 X */
-#hitmarker {
-  position: absolute; left: 50%; top: 50%;
-  width: 22px; height: 22px; margin: -11px 0 0 -11px;
-  opacity: 0;
-}
-#hitmarker::before, #hitmarker::after {
-  content: ""; position: absolute; left: 50%; top: 0;
-  width: 2px; height: 100%; margin-left: -1px;
-  background: #fff; box-shadow: 0 0 2px #000;
-}
-#hitmarker::before { transform: rotate(45deg); }
-#hitmarker::after  { transform: rotate(-45deg); }
-#hitmarker.head::before, #hitmarker.head::after { background: #f33; }
-#hitmarker.kill { width: 34px; height: 34px; margin: -17px 0 0 -17px; }
-#hitmarker.kill::before, #hitmarker.kill::after { width: 3px; margin-left: -1.5px; }
-
 /* 在购买区里：左侧（购买面板弹出的位置）一个购物车图标 + 购买键的键帽，进区滑入、轻轻呼吸；买不起变灰 */
 #buy-cue {
   position: absolute; left: 20px; top: 50%; width: 46px; height: 46px; margin-top: -23px;

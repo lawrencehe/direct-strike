@@ -1,4 +1,4 @@
-# Direct-Strike v0.50
+# Direct-Strike v0.51
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -179,7 +179,7 @@ direct-strike/
     ├── textures.js   程序生成的贴图（沥青、水泥、集装箱、沙袋、铁丝网、天空……）
     ├── targets.js    靶子（状态机：立着 → 倒下 → 立起）
     ├── effects.js    曳光、枪口火光、血（血雾、血滴、血迹、血泊）、爆炸
-    ├── hud.js        战斗中的 HUD：准星、命中标记、弹药、生命、受击方向、比分、钱和购买菜单
+    ├── hud.js        战斗中的 HUD：准星、弹药、生命、受击方向、比分、钱和购买菜单
     ├── economy.js    经济：击杀赏金、出生点购买区（买枪、子弹、投掷物）、B 经典 / F 快捷购买菜单和 Smart Buy
     ├── ui.js         界面流程：加载 → 首页 → 作战简报 → 暂停 / 结算，设置页和改键
     ├── devlog.js     开发者模式：录每帧数据和画面、帧率浮层、上传（要服务器校验密码）

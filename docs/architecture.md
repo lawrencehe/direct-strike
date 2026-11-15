@@ -122,7 +122,7 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
   对决开局玩家在 `spawns[0]`、NPC 离玩家最远；玩家重生 `playerSpawn()` 避开活着的 NPC（NPC 也死了就随便挑），NPC 重生避开玩家；
   波次一波从离玩家最远的点依次排，只用远的那一半，人比点多就再轮一遍、位置随机错开 1 米内（`isFree` 检查不卡进掩体）。
   出生保护：`player.protect` / `bot.protect` 是剩余秒数（`config.spawnProtect.time`），`reset()` / 构造时设，各自 `update` 里扣。
-  期间 `takeDamage` 直接返回（NPC 返回 `null`，和"打尸体"一样没有命中提示）；自己开枪清零（玩家在 `main.js` 的 `weapon.onShot`，NPC 在 `fireRay`），
+  期间 `takeDamage` 直接返回（NPC 返回 `null`，和"打尸体"一样没有命中反应）；自己开枪清零（玩家在 `main.js` 的 `weapon.onShot`，NPC 在 `fireRay`），
   投掷物不算（落地时保护早就过了）。NPC 闪烁是 `syncModel` 里切 `model.root.visible`：只是不画，射线照样打得到；
   玩家看到的是 HUD 的 `#spawn-protect`（屏幕边缘泛蓝、上方"出生保护"），训练场不显示。游戏循环只在锁住鼠标时走，所以简报界面不扣保护时间。
 - **经济**（`economy.js`，#1）：对决和波次花钱；训练场 `economy.free`，一切免费、不显示钱、不给赏金（#90）。`bots.onPlayerKill(hit)` 报告玩家的击杀，`main.js` 按最后一击换算成赏金类型交给 `economy.award`：
@@ -155,7 +155,7 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
   NPC 装备和玩家一样：`model.guns` 里有主、副武器两把（`model.rifle` 永远指手上那把，瞄准、枪口、IK、布娃娃掉枪都用它），
   弹药、换弹时间、各部位伤害、枪声读这个 NPC 自己的 `bot.gun`（随机挑的枪，见上面"可选装备"），切枪时间读 `config.weapons`。玩家只有一个碰撞盒，NPC 打中玩家时按命中高度分头 / 身 / 腿。
   NPC 丢雷走 `grenades.launch(kind, pos, vel, fuse, owner)`；`owner` 是丢雷的 NPC（玩家丢的是 `null`），
-  决定"炸到自己乘 selfMul"、要不要显示命中提示、算不算玩家的击杀（`hit.byBot`），雷飞行时也不和丢雷者自己的碰撞盒相撞。
+  决定"炸到自己乘 selfMul"、要不要算玩家的命中、算不算玩家的击杀（`hit.byBot`），雷飞行时也不和丢雷者自己的碰撞盒相撞。
   NPC 丢雷像人一样判断（#5，参数在 `config.bots`）：
   - 丢失视线后先等 `nadeDelay`（随机）再决定丢不丢，像人一样先看玩家往哪躲。
   - `guessPlayer` 推算玩家位置：从最后看见的位置沿当时的水平速度往前推（`sinceSeen + throwTime`，最多 `predictTime` 秒），射线碰到墙就停在墙前（人是躲到掩体后面，不会穿墙）。
@@ -180,6 +180,15 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 - **布娃娃**（`ragdoll.js`）：Verlet 质点 + 距离约束，和地图方块碰撞，每帧把质点位置换算回 Mixamo 骨骼的旋转。
   不同死法（爆头、炸飞、打腿、打身体的三种倒法）只是初始冲量不同，参数在 `config.ragdoll`。
 - **血**（`effects.js`）：血雾是 Sprite；血滴共用一个 `THREE.Points` 环形缓冲；地上的血迹和血泊是逐渐变大的平面。
+- **打中 NPC 的表现**（#116，参数在 `config.hitFx`）：准星上没有命中标记，打没打中看 NPC 本身——
+  打中身体全身闪红（`hitFx.flash`，`character.js` 的 `applyFlash`），入口一团血雾、子弹出口方向再冒一小股（`effects.bloodHit`）；
+  爆头头后面多叠三团停留更久、慢慢下沉的血雾（`bloodBurst`），头盔被打飞。血雾按到相机的距离放大，保证至少占 `mistMinAngle` 的视角（`effects.mistScale`，`main.js` 给 `effects.camera`），远处和开镜也看得清。
+  血腥程度刻意收着：只有血雾、血滴和地上的血，不在人身上、墙上留伤口。
+  - 头盔：`model.detachHelmet()` 在 `bots.takeDamage` 建布娃娃**之前**调用（之后骨骼就动了），按此刻的蒙皮姿势逐顶点 `boneTransform` 烘成一个普通网格、原网格藏起来，
+    交给 `effects.flyingProp` 做简单刚体（重力、翻滚、落地弹几下、撞箱子侧面弹回），留 `ragdoll.corpseTime` 秒后和尸体一起沉下去移除。
+    打飞哪块网格看 `hitFx.helmetMeshes`：乌克兰士兵是 `Hats`（头盔），特种兵的头盔和身体是一整块网格拆不出来，打飞的是面罩 `vanguard_visor`。
+    以后换人物模型，头盔要做成独立网格，名字加进这个列表。
+    烘出来的是不带蒙皮的网格，着色器要另编译：形象下载好后 `Game.Character.precompileHelmets` 先编译，免得第一次爆头卡一下。
 - **音效**（`audio.js`）：Web Audio。枪声、换弹、手雷 / 闪光爆炸放 `assets/sound/` 的录音（#45），其他是实时合成的。
   - `init()`（点开始时）后台 `fetch` + `decodeAudioData` 全部录音，不等；`sample(名字, {vol, pan, cutoff, rate})` 还没解码好就返回 `false`，
     每个方法据此退回原来的合成声，所以网络慢或下载失败也照样有声音。
@@ -203,7 +212,7 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
 - **第一次出现的材质会卡一下**（第一次击杀、第一次丢雷）。`effects.precompile` 和 `grenades.precompile` 在开局前预编译，新增特效材质要加进去。
 - **枪模在第一帧之前就要摆好位置**，否则界面背后会看到一把巨大的枪：`weapon.js` 的 `buildModels` 里按 `basePos / baseRot` 初始化。
 - **死亡的 NPC 还要继续更新**（布娃娃、血泊、尸体下沉），包括对决结束后的 `phase === 'over'`。
-- **受击闪红**：NPC 死亡前要把 `model.flash` 清零，否则尸体会一直发红。
+- **受击闪红**：NPC 死亡前要把 `model.flash` 清零，否则尸体会一直发红。强度是 `hitFx.flash`（#116 从 0.9 减弱）。
 - **中弹反应**（#60，参数在 `config.hitReaction`，玩家和 NPC 同一套）：
   - 硬直：枪打中 `stunBullet` 秒，手雷按伤害（`stunPerDamage`，最多 `stunMax`）。硬直完 `stunImmune` 秒内再被枪打中不再硬直，**不加这个，AK 一梭子能把人一直定住**；手雷不受免疫限制。
   - 玩家（`player.js` 的 `hitReaction`）：硬直时移动输入当没按（按加速度刹住）、不能跳，`weapon.js` 看 `player.stunned` 不让开枪、不让拔环；**转视角不锁**（锁了像卡顿）。

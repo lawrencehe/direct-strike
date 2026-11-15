@@ -86,6 +86,7 @@ await g.close();
 | `tools/tests/devlog.mjs` | #2：开发者模式的解锁、录制开销和零内存分配、事件、录画面的自动关闭保护、上传、分析脚本 |
 | `tools/tests/npc-grenade.mjs` | #5：引信从出手算、手雷按露出部位算伤害、推算玩家位置、听枪声、NPC 预演丢雷的准度、雷不卡在 NPC 身上 |
 | `tools/tests/npc-loadout-scan.mjs` | #54（玩家要"看不见"时停在地图外、不推 `player.update`，否则掉出地图被拉回出生点、被 NPC 看见）：NPC 随机挑 loadout 里的枪、手上是 glb 枪模、数值和枪声按那把枪；巡逻边走边张望；听到枪声直奔；搜索去推算位置和附近看不到的点。截图看 NPC 的手握没握在枪上 |
+| `tools/tests/hit-fx.mjs` | #116：准星没有 X；打中身体闪红强度按 `hitFx.flash`、入口 + 出口两团血雾；两种形象各爆头一次，头盔 / 面罩从头上飞出、往上再顺着子弹方向、落地停住、尸体消失时移除；远处血雾放大。截图 `tools/out/tests/hit-fx/` |
 | `tools/tests/hit-reaction.mjs` | #60：玩家中弹镜头上抬歪向一侧再回正、硬直走不动打不出、硬直后免疫、手雷硬直按伤害；四角溅血、血条那一截留着再缩；NPC 硬直不开枪、往后缩 |
 | `tools/tests/input-focus.mjs` | #6：先锁鼠标再全屏、锁定被拒自动重试、全屏接管键盘后短按 Esc 只暂停、失焦和 ⌘ 后按键放开并自动暂停（开发机上约两分钟） |
 | `tools/tests/real-sfx.mjs` | #45：录音全部下载解码、起音在开头；开枪按选的枪放录音、NPC 和爆炸越远越闷越轻；空枪换弹四段按顺序响；没下完时退回合成声 |
