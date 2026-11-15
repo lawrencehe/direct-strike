@@ -81,7 +81,7 @@ Game.UI = class UI {
       ['下蹲', k('crouch')], ['奔跑', k('sprint')],
       ...(mode === 'range' ? [] : [['出生点购买', k('buy')], ['快捷购买', k('quickBuy')]]),
       ['切换武器', `${['slotRifle', 'slotPistol', 'slotFrag', 'slotFlash', 'slotSmoke'].map(k).join(' ')} / 滚轮`],
-      ['暂停', 'Esc'],
+      ['看战绩（按住）', k('scoreboard')], ['暂停', 'Esc'],
     ];
     this.$('brief-keys').innerHTML = keys.map(([label, key]) => `<div><kbd>${key}</kbd><span>${label}</span></div>`).join('');
     this.show('brief');
@@ -408,6 +408,6 @@ Game.UI.MODES = {
     title: '训练场', en: 'RANGE', sub: '打靶、练枪、练投掷', npc: false,
     desc: '站在高台上打固定靶和移动靶，熟悉后坐力、散布和投掷弧线。在出生点免费买枪，子弹和投掷物不限量，没有敌人。',
     tags: () => ['固定靶 + 移动靶', '投掷物不限量', '没有敌人'],
-    goal: (k) => `随便打。在出生点按 ${k('quickBuy')} / ${k('buy')} 免费买枪，按 ${k('resetStats')} 重置统计，Esc 暂停或回首页。`,
+    goal: (k) => `随便打。在出生点按 ${k('quickBuy')} / ${k('buy')} 免费买枪，按住 ${k('scoreboard')} 看统计、按 ${k('resetStats')} 重置，Esc 暂停或回首页。`,
   },
 };
