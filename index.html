@@ -81,7 +81,7 @@
       <header class="topbar">
         <a class="brand" href="#" data-tab="play">
           <img src="assets/brand/logo-dark.png" alt="" width="63" height="32">
-          <span>DIRECT-STRIKE <small>v0.52</small></span>
+          <span>DIRECT-STRIKE <small>v0.53</small></span>
         </a>
         <nav class="tabs">
           <a href="#" data-tab="play" class="on">作战</a>
@@ -164,6 +164,18 @@
                 <a href="#" class="link" id="dev-logout">退出开发者</a>
               </div>
               <div id="dev-result"></div>
+              <!-- 本地地图（#115）：载入 Blender 地图工具导出的 JSON，下一局就用它；可以上传给开发。说明见 docs/blender-maps.md -->
+              <div class="dev-map">
+                <div class="row"><span>地图</span><b id="dev-map-state"></b></div>
+                <div class="dev-btns">
+                  <button class="btn-sm" id="dev-map-load">载入地图文件…</button>
+                  <button class="btn-sm" id="dev-map-upload">上传给开发</button>
+                  <button class="btn-sm" id="dev-map-reset">换回原来的地图</button>
+                  <a href="mapkit/" class="link" target="_blank" rel="noopener">Blender 地图工具</a>
+                  <input type="file" id="dev-map-file" accept=".json,application/json" hidden>
+                </div>
+                <div id="dev-map-result"></div>
+              </div>
             </div>
           </div>
         </div>

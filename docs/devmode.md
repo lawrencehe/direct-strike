@@ -21,13 +21,17 @@
 5. 按 Esc 暂停 →"开发者数据"（或按快捷键、回首页的设置页），看统计，点"上传"。上传成功会显示一个编号，例如 `20261109-213000-a3f9c1`，
    把编号告诉开发。上传失败可以先"下载到本地"（只有帧数据）。
 
+**本地地图**（#115）："开发者"一栏下面的"地图"：**载入地图文件…** 选 Blender 地图工具导出的 JSON，页面刷新后进入战斗就是这张图（首页地图名后面标"（本地文件）"，关掉标签页恢复）；
+**上传给开发** 把它传上来，得到一个编号；**换回原来的地图**。流程见 `blender-maps.md`。
+
 只录战斗中（鼠标锁定时）的帧，暂停、菜单不录，所以暂停下来看面板、上传不会把战斗数据挤掉。
 内存里保留最近 60 秒（`config.dev.seconds`，按 250 帧/秒预留，帧率更高时保留的秒数短一些），画面保留最近 30 秒（6 片 × 5 秒）。
 
 ## 怎么分析（开发）
 
 ```bash
-node tools/devlog/analyze.mjs --list          # 所有上传：编号、版本、模式、时长、帧率、标记数、视频片数
+node tools/devlog/analyze.mjs --list          # 所有上传：编号、版本、模式、时长、帧率、标记数、视频片数（上传的地图单独一行）
+node tools/map-check.mjs --map <编号>          # 检查负责人上传的地图（#115）
 node tools/devlog/analyze.mjs                 # 最新一次
 node tools/devlog/analyze.mjs <编号> --at 12.5,30 --around 2   # 额外看某几个时刻，前后 2 秒
 node tools/devlog/analyze.mjs devlog-xxx.json.gz              # 分析"下载到本地"的文件（或任意目录）
@@ -60,7 +64,8 @@ node tools/devlog/analyze.mjs <编号> --no-video                # 不拆视频�
 
 上传目录 `~/direct-strike-data/devlogs/<编号>/`：
 
-- `meta.json`：服务器写的，收到的时间和客户端给的摘要（版本、帧数、时长、帧率、标记数、视频片数、模式；别的键服务器丢掉）。
+- `meta.json`：服务器写的，收到的时间和客户端给的摘要（版本、帧数、时长、帧率、标记数、视频片数、模式；上传地图时是 `kind: "map"` 和地图名；别的键服务器丢掉）。
+- `map.json`：上传的本地地图（只有这一个文件，#115），是 Blender 导出的原文。
 - `frames.json.gz`：帧数据，见下。
 - `seg-NNN.webm`：画面切片，每片 5 秒，每片都能单独播放（960 宽、30fps、1.5Mbps，参数在 `config.dev.video`）。
 
@@ -135,7 +140,7 @@ node tools/devlog/analyze.mjs <编号> --no-video                # 不拆视频�
 | `POST /api/dev/login` `{password}` | 密码对了返回 `{token, exp}`。同一 IP 10 分钟内输错 10 次就拒绝 |
 | `GET /api/dev/session` | 令牌还有没有效。页面启动时查一次，失效（比如改了密码）就自动退出开发者模式 |
 | `POST /api/dev/uploads` `{meta}` | 新建一次上传，返回编号 |
-| `PUT /api/dev/uploads/<编号>/<文件名>` | 放一个文件。文件名只允许 `frames.json.gz`、`seg-NNN.webm/mp4`；单个最大 25MB；新建 1 小时后关闭 |
+| `PUT /api/dev/uploads/<编号>/<文件名>` | 放一个文件。文件名只允许 `frames.json.gz`、`seg-NNN.webm/mp4`、`map.json`（上传的地图，#115）；单个最大 25MB；新建 1 小时后关闭 |
 | `GET /api/health` | 健康检查 |
 
 - 令牌是 `base64(JSON {sub, exp}).HMAC`，签名的钥匙由 `API_SECRET` 和密码一起算出来，**改密码就让所有旧令牌失效**。

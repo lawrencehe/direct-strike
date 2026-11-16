@@ -9,7 +9,7 @@
 - 顺序：`config → assets → settings → physics → audio → input → textures → effects → truck → world → targets → ragdoll → character → player → gunmodel → grenades → weapon → bots → hud → economy → ui → devlog → main`。
   `settings` 紧跟 `config`：它把玩家存在浏览器里的设置写回 `Game.Config`，后面的文件读到的就是玩家的值。
 - **打开网页只建首页，点"进入战斗"才下载资源、创建游戏**（#85）。`main.js` 的 `Game.Main` 分两段：
-  - `boot()`：`Assets.init()` 读资源清单，`World.loadMapData` 只读地图文件（几 KB，首页显示地图名），建 `input / audio / hud / ui`
+  - `boot()`：`Assets.init()` 读资源清单，`DevLog.useLocalMap()` 看这个标签页有没有载入过本地地图（开发者模式，#115），`World.loadMapData` 只读地图文件（几 KB，首页显示地图名），建 `input / audio / hud / ui`
     （`ui.world` 先是只有 `mapName` 的占位），`DevLog.attach` 先给这几个（首页设置里就能解锁开发者），显示首页。首页背景是静态截图，
     首页这一段不下载任何模型。
   - `load(mode)`（点"进入战斗"，全屏已在点击里同步发起）：`Assets.prefetch` 把这一局要的文件读进内存——地图目录、开局天气目录、
@@ -268,6 +268,9 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
   改了它跑 `tools/tests/devlog.mjs`，里面用采样堆分析器检查零分配。
 - **录画面要在渲染之后立刻拷画布。** WebGL 画布没开 `preserveDrawingBuffer`，交给屏幕后就清空了，晚一步拷到的是黑的。
 - **同色集装箱共用贴图**，只显示第一个的编号，见 `maps.md`。
+- **地图文件分布局层和玩法实体层**（format 2，#115）：`World.build` 读 `map.layout`，`points()` 把 `map.entities` 换成 `spawns / navPoints / rangeSpawn / targetLayout`，
+  所以 `bots.js`、`targets.js`、测试拿到的列表和以前一样；`spawns[0]` / `spawns[3]` 由 `start` / `fallback` 标记决定，不靠文件里的顺序。`world.map` 留着原始数据（`map-check` 画编号用）。
+- **测试里替换地图文件要用正则匹配地址**：资源清单给请求加了 `?v=哈希`（#85），glob `**/maps/*.json` 匹配不到，会悄悄用回原来的地图（#115，`tools/lib/game-page.mjs`）。
 - **下载来的模型常是 HASHED / BLEND 材质。** M4、SG 的原始材质都是 HASHED（半透明抖动），在游戏里会透；加工脚本里统一改 `OPAQUE`。
   原始单位也不统一（SG 是厘米），加工脚本按"全长"缩放，见 `assets-src/models/gun/m4.py`、`sg.py`。
 - **换 NPC 模型先看朝向和材质。** 下载来的模型可能面朝反方向（左手在 +X），`rig.sh add-anim` 会报"静止姿态相差 ~180°"，

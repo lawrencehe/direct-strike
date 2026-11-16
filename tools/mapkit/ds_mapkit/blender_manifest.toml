@@ -1,0 +1,13 @@
+schema_version = "1.0.0"
+
+id = "ds_mapkit"
+version = "0.0.0"
+name = "Direct-Strike 地图工具"
+tagline = "编辑 Direct-Strike 的地图并导出成游戏用的 JSON"
+maintainer = "Direct-Strike"
+type = "add-on"
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-3.0-or-later"]
+
+[permissions]
+files = "读写地图 JSON 文件"

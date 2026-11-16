@@ -1,149 +1,169 @@
 {
+  "format": 2,
+  "id": "yard",
   "name": "废弃集装箱堆场",
-
+  "grid": 2,
   "yard": { "w": 37, "d": 49 },
   "bounds": { "minX": -17.5, "maxX": 17.5, "minZ": -23.5, "maxZ": 23.5 },
   "shadowRange": 34,
-
   "surfaces": { "asphalt": 2.2, "concreteFloor": 5, "concrete": 4, "dirt": 2 },
   "environment": "env.hdr",
   "models": { "centralPlatform": "props/central-platform.glb", "container": "props/container.glb", "jersey": "props/jersey.glb", "sandbags": "props/sandbag.glb", "ammoCrate": "props/ammo-crate.glb", "drum": "props/steel-drum.glb" },
-
-  "pads": [
-    { "x": 0, "z": 14, "w": 14, "d": 7 },
-    { "x": 0, "z": -14, "w": 14, "d": 7 }
-  ],
-  "puddles": [
-    { "x": -3, "z": -18, "w": 2.4, "d": 1.4, "rot": 0.4 },
-    { "x": 12.5, "z": 19.5, "w": 1.8, "d": 1.1, "rot": -0.3 },
-    { "x": -14.5, "z": 11, "w": 1.5, "d": 1.0, "rot": 1.0 }
-  ],
-  "stains": [
-    { "x": 15.5, "z": -10.5, "r": 1.6 },
-    { "x": -15, "z": -16, "r": 1.2 },
-    { "x": 2, "z": 7, "r": 1.0 },
-    { "x": -10, "z": 18, "r": 0.8 }
-  ],
-  "debris": 60,
-
-  "fences": [
-    { "len": 37, "x": 0, "z": -24.25, "alongX": true },
-    { "len": 37, "x": 0, "z": 24.25, "alongX": true },
-    { "len": 49, "x": -18.25, "z": 0, "alongX": false },
-    { "len": 49, "x": 18.25, "z": 0, "alongX": false }
-  ],
-
-  "objects": [
-    { "type": "lampPost", "x": -17, "z": -23 },
-    { "type": "lampPost", "x": 17, "z": -23 },
-    { "type": "lampPost", "x": -17, "z": 23 },
-    { "type": "lampPost", "x": 17, "z": 23 },
-
-    { "type": "model", "model": "centralPlatform", "x": 0.75, "z": 0.25, "rot": 1.5708, "note": "中央战术平台（Tripo 底模，#50）：楼梯朝东，台面高 1.4。下面是它的碰撞" },
-    { "type": "proxy", "model": "centralPlatform", "size": [5.7, 1.4, 7.3], "pos": [0, 0, 0], "material": "concrete", "note": "台面" },
-    { "type": "proxy", "model": "centralPlatform", "size": [1.05, 1.4, 3.03], "pos": [3.375, 0, 2.135], "material": "concrete", "note": "楼梯南边伸出来的一块台面" },
-    { "type": "proxy", "model": "centralPlatform", "size": [0.3, 1.15, 3.02], "pos": [3.0, 0, -0.89], "material": "concreteDark", "note": "台阶（每级不超过 0.25）" },
-    { "type": "proxy", "model": "centralPlatform", "size": [0.3, 0.92, 3.02], "pos": [3.3, 0, -0.89], "material": "concreteDark" },
-    { "type": "proxy", "model": "centralPlatform", "size": [0.3, 0.69, 3.02], "pos": [3.6, 0, -0.89], "material": "concreteDark" },
-    { "type": "proxy", "model": "centralPlatform", "size": [0.3, 0.46, 3.02], "pos": [3.9, 0, -0.89], "material": "concreteDark" },
-    { "type": "proxy", "model": "centralPlatform", "size": [0.3, 0.23, 3.02], "pos": [4.2, 0, -0.89], "material": "concreteDark" },
-    { "type": "proxy", "model": "centralPlatform", "size": [1.5, 0.8, 0.74], "pos": [-1.6, 1.4, 0.25], "material": "wood", "note": "台上掩体：木箱" },
-    { "type": "proxy", "model": "centralPlatform", "size": [0.7, 1.2, 0.76], "pos": [-2.0, 1.4, -0.5], "material": "wood" },
-    { "type": "proxy", "model": "centralPlatform", "size": [1.45, 1.65, 1.0], "pos": [-2.125, 1.4, -1.63], "material": "metalDark", "note": "绿色弹药箱" },
-    { "type": "proxy", "model": "centralPlatform", "size": [0.7, 1.0, 0.74], "pos": [0, 1.4, 0.25], "material": "wood" },
-    { "type": "proxy", "model": "centralPlatform", "size": [0.95, 0.8, 1.25], "pos": [0.875, 1.4, 0.0], "material": "wood" },
-    { "type": "proxy", "model": "centralPlatform", "size": [2.5, 0.9, 1.0], "pos": [0.9, 1.4, -2.63], "material": "sandbag", "note": "北边沙袋墙" },
-    { "type": "proxy", "model": "centralPlatform", "size": [0.9, 1.5, 0.77], "pos": [3.4, 1.4, 3.865], "material": "metal", "note": "台角配电箱" },
-    { "type": "proxy", "model": "centralPlatform", "size": [0.45, 1.0, 2.02], "pos": [4.125, 0, 1.99], "material": "barrelGrey", "note": "楼梯旁的油桶" },
-    { "type": "proxy", "model": "centralPlatform", "size": [0.1, 1.0, 7.3], "pos": [-2.85, 1.4, 0], "shoot": false, "note": "栏杆：只挡人不挡子弹" },
-    { "type": "proxy", "model": "centralPlatform", "size": [5.7, 1.0, 0.1], "pos": [0, 1.4, -3.65], "shoot": false },
-    { "type": "proxy", "model": "centralPlatform", "size": [6.75, 1.0, 0.1], "pos": [0.525, 1.4, 3.65], "shoot": false },
-
-    { "type": "container", "x": -9, "y": 0, "z": 14, "alongZ": false, "color": "#8c3b2a", "label": "MSCU 482913", "note": "南排" },
-    { "type": "container", "x": 9, "y": 0, "z": 14, "alongZ": false, "color": "#2f5f8f", "label": "TCLU 771204" },
-    { "type": "container", "x": 9.6, "y": 2.6, "z": 14.2, "alongZ": false, "color": "#6f7378", "label": "CMAU 309557", "note": "叠放" },
-    { "type": "container", "x": -11.5, "y": 0, "z": 0, "alongZ": false, "color": "#3e6b3a", "label": "OOLU 115878", "note": "中排" },
-    { "type": "container", "x": 11.5, "y": 0, "z": 0, "alongZ": false, "color": "#b8912a", "label": "HLXU 640021" },
-    { "type": "container", "x": -9, "y": 0, "z": -14, "alongZ": true, "color": "#2f5f8f", "label": "TCLU 905311", "note": "北排" },
-    { "type": "container", "x": 9, "y": 0, "z": -14, "alongZ": true, "color": "#8c3b2a", "label": "MSCU 207466" },
-    { "type": "container", "x": 9, "y": 2.6, "z": -14, "alongZ": true, "color": "#3e6b3a", "label": "OOLU 558120", "note": "叠放" },
-
-    { "type": "jersey", "x": -4, "z": 8, "alongX": true },
-    { "type": "jersey", "x": 4, "z": 8, "alongX": true },
-    { "type": "jersey", "x": -4, "z": -8, "alongX": true },
-    { "type": "jersey", "x": 4, "z": -8, "alongX": true },
-    { "type": "sandbags", "len": 3, "x": 0, "z": 14, "note": "南排中间" },
-    { "type": "sandbags", "len": 3, "x": -15.5, "z": -8, "alongZ": true, "note": "西道" },
-    { "type": "sandbags", "len": 3, "x": 15.5, "z": 8, "alongZ": true, "note": "东道" },
-
-    { "type": "sandbags", "len": 4, "x": 0, "y": 0, "z": 19.3, "note": "南中出生点的掩体（#97）：两层沙袋墙，挡住朝中央的一面" },
-    { "type": "sandbags", "len": 4, "x": 0, "y": 0.9, "z": 19.3 },
-    { "type": "sandbags", "len": 4, "x": 0, "y": 0, "z": -19.3, "note": "北中出生点的掩体（#97）：两层沙袋墙，挡住朝中央的一面" },
-    { "type": "sandbags", "len": 4, "x": 0, "y": 0.9, "z": -19.3 },
-
-    { "type": "barrel", "x": -15.5, "z": 6, "material": "barrelRed" },
-    { "type": "barrel", "x": -16.2, "z": 6.7, "material": "barrelBlue" },
-    { "type": "barrel", "x": -14.9, "z": 6.8, "material": "barrelGrey" },
-    { "type": "barrel", "x": 3.2, "z": -19.5, "material": "barrelGrey" },
-    { "type": "barrel", "x": 3.9, "z": -20.1, "material": "barrelRed" },
-    { "type": "barrel", "x": -12.5, "z": -20, "material": "barrelBlue" },
-    { "type": "barrelLying", "x": -14.2, "z": 7.6 },
-
-    { "type": "tires", "x": -16, "z": 16 },
-    { "type": "ammoCrates", "x": -15, "z": -17, "note": "西北角，原来的电缆盘" },
-    { "type": "palletStack", "x": 15, "z": 13 },
-    { "type": "truck", "x": 15.5, "z": -4.3, "color": "#2f5d8c" }
-  ],
-
-  "backdrop": {
-    "buildings": [
-      { "w": 30, "h": 10, "d": 20, "x": -40, "z": -60, "style": 0 },
-      { "w": 40, "h": 12, "d": 18, "x": 35, "z": -70, "style": 1 },
-      { "w": 25, "h": 9, "d": 40, "x": 70, "z": -10, "style": 2 },
-      { "w": 30, "h": 8, "d": 35, "x": -75, "z": 10, "style": 1 },
-      { "w": 35, "h": 11, "d": 20, "x": -30, "z": 65, "style": 2 },
-      { "w": 28, "h": 9, "d": 22, "x": 45, "z": 60, "style": 0 },
-      { "w": 60, "h": 14, "d": 20, "x": 0, "z": -95, "style": 1 },
-      { "w": 20, "h": 7, "d": 20, "x": 80, "z": 40, "style": 2 },
-      { "w": 22, "h": 8, "d": 30, "x": -85, "z": -40, "style": 0 }
+  "layout": {
+    "pads": [
+      { "id": "PAD1", "x": 0, "z": 14, "w": 14, "d": 7 },
+      { "id": "PAD2", "x": 0, "z": -14, "w": 14, "d": 7 }
     ],
-    "cranes": [
-      { "x": -55, "z": -30 },
-      { "x": 60, "z": 25 }
+    "puddles": [
+      { "id": "PUD1", "x": -3, "z": -18, "w": 2.4, "d": 1.4, "rot": 0.4 },
+      { "id": "PUD2", "x": 12.5, "z": 19.5, "w": 1.8, "d": 1.1, "rot": -0.3 },
+      { "id": "PUD3", "x": -14.5, "z": 11, "w": 1.5, "d": 1, "rot": 1 }
     ],
-    "waterTowers": [
-      { "x": 55, "z": -45 }
-    ]
+    "stains": [
+      { "id": "STN1", "x": 15.5, "z": -10.5, "r": 1.6 },
+      { "id": "STN2", "x": -15, "z": -16, "r": 1.2 },
+      { "id": "STN3", "x": 2, "z": 7, "r": 1 },
+      { "id": "STN4", "x": -10, "z": 18, "r": 0.8 }
+    ],
+    "debris": 60,
+    "fences": [
+      { "id": "F1", "len": 37, "x": 0, "z": -24.25, "alongX": true },
+      { "id": "F2", "len": 37, "x": 0, "z": 24.25, "alongX": true },
+      { "id": "F3", "len": 49, "x": -18.25, "z": 0, "alongX": false },
+      { "id": "F4", "len": 49, "x": 18.25, "z": 0, "alongX": false }
+    ],
+    "objects": [
+      { "id": "L1", "type": "lampPost", "x": -17, "z": -23 },
+      { "id": "L2", "type": "lampPost", "x": 17, "z": -23 },
+      { "id": "L3", "type": "lampPost", "x": -17, "z": 23 },
+      { "id": "L4", "type": "lampPost", "x": 17, "z": 23 },
+      { "id": "M1", "type": "model", "model": "centralPlatform", "x": 0.75, "z": 0.25, "rot": 1.5708, "note": "中央战术平台（Tripo 底模，#50）：楼梯朝东，台面高 1.4。碰撞在 colliders 里（相对模型，跟着模型走）", "colliders": [
+        { "size": [7.3, 1.4, 5.7], "pos": [0.25, 0, -0.75], "material": "concrete", "note": "台面" },
+        { "size": [3.03, 1.4, 1.05], "pos": [-1.885, 0, 2.625], "material": "concrete", "note": "楼梯南边伸出来的一块台面" },
+        { "size": [3.02, 1.15, 0.3], "pos": [1.14, 0, 2.25], "material": "concreteDark", "note": "台阶（每级不超过 0.25）" },
+        { "size": [3.02, 0.92, 0.3], "pos": [1.14, 0, 2.55], "material": "concreteDark" },
+        { "size": [3.02, 0.69, 0.3], "pos": [1.14, 0, 2.85], "material": "concreteDark" },
+        { "size": [3.02, 0.46, 0.3], "pos": [1.14, 0, 3.15], "material": "concreteDark" },
+        { "size": [3.02, 0.23, 0.3], "pos": [1.14, 0, 3.45], "material": "concreteDark" },
+        { "size": [0.74, 0.8, 1.5], "pos": [0, 1.4, -2.35], "material": "wood", "note": "台上掩体：木箱" },
+        { "size": [0.76, 1.2, 0.7], "pos": [0.75, 1.4, -2.75], "material": "wood" },
+        { "size": [1, 1.65, 1.45], "pos": [1.88, 1.4, -2.875], "material": "metalDark", "note": "绿色弹药箱" },
+        { "size": [0.74, 1, 0.7], "pos": [0, 1.4, -0.75], "material": "wood" },
+        { "size": [1.25, 0.8, 0.95], "pos": [0.25, 1.4, 0.125], "material": "wood" },
+        { "size": [1, 0.9, 2.5], "pos": [2.88, 1.4, 0.15], "material": "sandbag", "note": "北边沙袋墙" },
+        { "size": [0.77, 1.5, 0.9], "pos": [-3.615, 1.4, 2.65], "material": "metal", "note": "台角配电箱" },
+        { "size": [2.02, 1, 0.45], "pos": [-1.74, 0, 3.375], "material": "barrelGrey", "note": "楼梯旁的油桶" },
+        { "size": [7.3, 1, 0.1], "pos": [0.25, 1.4, -3.6], "shoot": false, "note": "栏杆：只挡人不挡子弹" },
+        { "size": [0.1, 1, 5.7], "pos": [3.9, 1.4, -0.75], "shoot": false },
+        { "size": [0.1, 1, 6.75], "pos": [-3.4, 1.4, -0.225], "shoot": false }
+      ] },
+      { "id": "C1", "type": "container", "x": -9, "y": 0, "z": 14, "alongZ": false, "color": "#8c3b2a", "label": "MSCU 482913", "note": "南排" },
+      { "id": "C2", "type": "container", "x": 9, "y": 0, "z": 14, "alongZ": false, "color": "#2f5f8f", "label": "TCLU 771204" },
+      { "id": "C3", "type": "container", "x": 9.6, "y": 2.6, "z": 14.2, "alongZ": false, "color": "#6f7378", "label": "CMAU 309557", "note": "叠放" },
+      { "id": "C4", "type": "container", "x": -11.5, "y": 0, "z": 0, "alongZ": false, "color": "#3e6b3a", "label": "OOLU 115878", "note": "中排" },
+      { "id": "C5", "type": "container", "x": 11.5, "y": 0, "z": 0, "alongZ": false, "color": "#b8912a", "label": "HLXU 640021" },
+      { "id": "C6", "type": "container", "x": -9, "y": 0, "z": -14, "alongZ": true, "color": "#2f5f8f", "label": "TCLU 905311", "note": "北排" },
+      { "id": "C7", "type": "container", "x": 9, "y": 0, "z": -14, "alongZ": true, "color": "#8c3b2a", "label": "MSCU 207466" },
+      { "id": "C8", "type": "container", "x": 9, "y": 2.6, "z": -14, "alongZ": true, "color": "#3e6b3a", "label": "OOLU 558120", "note": "叠放" },
+      { "id": "J1", "type": "jersey", "x": -4, "z": 8, "alongX": true },
+      { "id": "J2", "type": "jersey", "x": 4, "z": 8, "alongX": true },
+      { "id": "J3", "type": "jersey", "x": -4, "z": -8, "alongX": true },
+      { "id": "J4", "type": "jersey", "x": 4, "z": -8, "alongX": true },
+      { "id": "SB1", "type": "sandbags", "len": 3, "x": 0, "z": 14, "note": "南排中间" },
+      { "id": "SB2", "type": "sandbags", "len": 3, "x": -15.5, "z": -8, "alongZ": true, "note": "西道" },
+      { "id": "SB3", "type": "sandbags", "len": 3, "x": 15.5, "z": 8, "alongZ": true, "note": "东道" },
+      { "id": "SB4", "type": "sandbags", "len": 4, "x": 0, "z": 19.3, "note": "南中出生点的掩体（#97）：两层沙袋墙，挡住朝中央的一面" },
+      { "id": "SB5", "type": "sandbags", "len": 4, "x": 0, "y": 0.9, "z": 19.3 },
+      { "id": "SB6", "type": "sandbags", "len": 4, "x": 0, "z": -19.3, "note": "北中出生点的掩体（#97）：两层沙袋墙，挡住朝中央的一面" },
+      { "id": "SB7", "type": "sandbags", "len": 4, "x": 0, "y": 0.9, "z": -19.3 },
+      { "id": "B1", "type": "barrel", "x": -15.5, "z": 6, "material": "barrelRed" },
+      { "id": "B2", "type": "barrel", "x": -16.2, "z": 6.7, "material": "barrelBlue" },
+      { "id": "B3", "type": "barrel", "x": -14.9, "z": 6.8, "material": "barrelGrey" },
+      { "id": "B4", "type": "barrel", "x": 3.2, "z": -19.5, "material": "barrelGrey" },
+      { "id": "B5", "type": "barrel", "x": 3.9, "z": -20.1, "material": "barrelRed" },
+      { "id": "B6", "type": "barrel", "x": -12.5, "z": -20, "material": "barrelBlue" },
+      { "id": "B7", "type": "barrelLying", "x": -14.2, "z": 7.6 },
+      { "id": "T1", "type": "tires", "x": -16, "z": 16 },
+      { "id": "A1", "type": "ammoCrates", "x": -15, "z": -17, "note": "西北角，原来的电缆盘" },
+      { "id": "P1", "type": "palletStack", "x": 15, "z": 13 },
+      { "id": "TR1", "type": "truck", "x": 15.5, "z": -4.3, "color": "#2f5d8c" }
+    ],
+    "backdrop": {
+      "buildings": [
+        { "id": "BG1", "w": 30, "h": 10, "d": 20, "x": -40, "z": -60, "style": 0 },
+        { "id": "BG2", "w": 40, "h": 12, "d": 18, "x": 35, "z": -70, "style": 1 },
+        { "id": "BG3", "w": 25, "h": 9, "d": 40, "x": 70, "z": -10, "style": 2 },
+        { "id": "BG4", "w": 30, "h": 8, "d": 35, "x": -75, "z": 10, "style": 1 },
+        { "id": "BG5", "w": 35, "h": 11, "d": 20, "x": -30, "z": 65, "style": 2 },
+        { "id": "BG6", "w": 28, "h": 9, "d": 22, "x": 45, "z": 60, "style": 0 },
+        { "id": "BG7", "w": 60, "h": 14, "d": 20, "x": 0, "z": -95, "style": 1 },
+        { "id": "BG8", "w": 20, "h": 7, "d": 20, "x": 80, "z": 40, "style": 2 },
+        { "id": "BG9", "w": 22, "h": 8, "d": 30, "x": -85, "z": -40, "style": 0 }
+      ],
+      "cranes": [
+        { "id": "CR1", "x": -55, "z": -30 },
+        { "id": "CR2", "x": 60, "z": 25 }
+      ],
+      "waterTowers": [
+        { "id": "WT1", "x": 55, "z": -45 }
+      ]
+    }
   },
-
-  "spawns": [
-    { "x": 0, "z": 21, "yaw": 0 },
-    { "x": -14, "z": 21, "yaw": 0.35 },
-    { "x": 14, "z": 21, "yaw": -0.35 },
-    { "x": 0, "z": -21, "yaw": 3.141592653589793 },
-    { "x": -14, "z": -21, "yaw": 2.791592653589793 },
-    { "x": 14, "z": -21, "yaw": 3.4915926535897934 }
+  "entities": [
+    { "id": "S1", "type": "spawn", "x": 0, "z": 21, "yaw": 0, "start": true },
+    { "id": "S2", "type": "spawn", "x": -14, "z": 21, "yaw": 0.35 },
+    { "id": "S3", "type": "spawn", "x": 14, "z": 21, "yaw": -0.35 },
+    { "id": "S4", "type": "spawn", "x": 0, "z": -21, "yaw": 3.1416, "fallback": true },
+    { "id": "S5", "type": "spawn", "x": -14, "z": -21, "yaw": 2.7916 },
+    { "id": "S6", "type": "spawn", "x": 14, "z": -21, "yaw": 3.4916 },
+    { "id": "N1", "type": "nav", "x": -9, "z": 16.5 },
+    { "id": "N2", "type": "nav", "x": -9, "z": 11.5 },
+    { "id": "N3", "type": "nav", "x": 9, "z": 16.5 },
+    { "id": "N4", "type": "nav", "x": 9, "z": 11.5 },
+    { "id": "N5", "type": "nav", "x": -2.5, "z": 16 },
+    { "id": "N6", "type": "nav", "x": 2.5, "z": 12 },
+    { "id": "N7", "type": "nav", "x": -4, "z": 9.3 },
+    { "id": "N8", "type": "nav", "x": 4, "z": 9.3 },
+    { "id": "N9", "type": "nav", "x": -4, "z": -9.3 },
+    { "id": "N10", "type": "nav", "x": 4, "z": -9.3 },
+    { "id": "N11", "type": "nav", "x": -11.5, "z": 2.6 },
+    { "id": "N12", "type": "nav", "x": -11.5, "z": -2.6 },
+    { "id": "N13", "type": "nav", "x": 11.5, "z": 2.6 },
+    { "id": "N14", "type": "nav", "x": 11.5, "z": -2.6 },
+    { "id": "N15", "type": "nav", "x": -9, "z": -18.5 },
+    { "id": "N16", "type": "nav", "x": -9, "z": -9.5 },
+    { "id": "N17", "type": "nav", "x": 9, "z": -18.5 },
+    { "id": "N18", "type": "nav", "x": 9, "z": -9.5 },
+    { "id": "N19", "type": "nav", "x": -16.5, "z": 3 },
+    { "id": "N20", "type": "nav", "x": -16.5, "z": -11 },
+    { "id": "N21", "type": "nav", "x": 16, "z": 11 },
+    { "id": "N22", "type": "nav", "x": 16, "z": -11 },
+    { "id": "N23", "type": "nav", "x": 1.8, "z": 2 },
+    { "id": "N24", "type": "nav", "x": 0, "z": -21 },
+    { "id": "N25", "type": "nav", "x": 0, "z": 21 },
+    { "id": "N26", "type": "nav", "x": -13, "z": 17.5 },
+    { "id": "N27", "type": "nav", "x": 13, "z": 20 },
+    { "id": "N28", "type": "nav", "x": -13, "z": -21 },
+    { "id": "N29", "type": "nav", "x": 13, "z": -21 },
+    { "id": "R1", "type": "rangeSpawn", "x": 0.3, "y": 1.4, "z": -1.4, "yaw": 0 },
+    { "id": "TG1", "type": "target", "x": -6, "z": -7 },
+    { "id": "TG2", "type": "target", "x": -2, "z": -7 },
+    { "id": "TG3", "type": "target", "x": 2, "z": -7 },
+    { "id": "TG4", "type": "target", "x": 6, "z": -7 },
+    { "id": "TG5", "type": "target", "x": -5, "z": -12, "move": { "range": 2, "speed": 1.2 } },
+    { "id": "TG6", "type": "target", "x": 0, "z": -12 },
+    { "id": "TG7", "type": "target", "x": 5, "z": -12, "move": { "range": 2, "speed": 0.9 } },
+    { "id": "TG8", "type": "target", "x": -6, "z": -20 },
+    { "id": "TG9", "type": "target", "x": 0, "z": -20, "move": { "range": 5, "speed": 0.7 } },
+    { "id": "TG10", "type": "target", "x": 6, "z": -20 }
   ],
-
-  "navPoints": [
-    { "x": -9, "z": 16.5 }, { "x": -9, "z": 11.5 }, { "x": 9, "z": 16.5 }, { "x": 9, "z": 11.5 },
-    { "x": -2.5, "z": 16 }, { "x": 2.5, "z": 12 },
-    { "x": -4, "z": 9.3 }, { "x": 4, "z": 9.3 }, { "x": -4, "z": -9.3 }, { "x": 4, "z": -9.3 },
-    { "x": -11.5, "z": 2.6 }, { "x": -11.5, "z": -2.6 }, { "x": 11.5, "z": 2.6 }, { "x": 11.5, "z": -2.6 },
-    { "x": -9, "z": -18.5 }, { "x": -9, "z": -9.5 }, { "x": 9, "z": -18.5 }, { "x": 9, "z": -9.5 },
-    { "x": -16.5, "z": 3 }, { "x": -16.5, "z": -11 }, { "x": 16, "z": 11 }, { "x": 16, "z": -11 },
-    { "x": 1.8, "z": 2.0 }, { "x": 0, "z": -21 }, { "x": 0, "z": 21 },
-    { "x": -13, "z": 17.5 }, { "x": 13, "z": 20 }, { "x": -13, "z": -21 }, { "x": 13, "z": -21 }
-  ],
-
-  "rangeSpawn": { "x": 0.3, "y": 1.4, "z": -1.4, "yaw": 0 },
-  "targets": [
-    { "x": -6, "z": -7 }, { "x": -2, "z": -7 }, { "x": 2, "z": -7 }, { "x": 6, "z": -7 },
-    { "x": -5, "z": -12, "move": { "range": 2, "speed": 1.2 } },
-    { "x": 0, "z": -12 },
-    { "x": 5, "z": -12, "move": { "range": 2, "speed": 0.9 } },
-    { "x": -6, "z": -20 },
-    { "x": 0, "z": -20, "move": { "range": 5, "speed": 0.7 } },
-    { "x": 6, "z": -20 }
+  "regions": [
+    { "id": "mid", "name": "中央平台", "x": 0.75, "z": 0.25, "w": 10, "d": 9 },
+    { "id": "northSpawn", "name": "北出生", "x": 0, "z": -21, "w": 35, "d": 5 },
+    { "id": "southSpawn", "name": "南出生", "x": 0, "z": 21, "w": 35, "d": 5 },
+    { "id": "northRow", "name": "北排", "x": 0, "z": -14, "w": 24, "d": 8 },
+    { "id": "southRow", "name": "南排", "x": 0, "z": 14, "w": 24, "d": 6 },
+    { "id": "west", "name": "西道", "x": -15.5, "z": 0, "w": 4, "d": 32 },
+    { "id": "east", "name": "东道", "x": 15.5, "z": 0, "w": 4, "d": 32 }
   ]
 }

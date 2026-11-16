@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direct-Strike 地图工具</title>
+<!-- Blender 地图工具的下载页（#115）。zip 由 deploy.sh 调 tools/mapkit/build.sh 打包到这个目录，版本和游戏一样 -->
+<style>
+  :root { --bg: #14160f; --panel: #1d2017; --line: #343829; --text: #e8e2d0; --muted: #a39d8a; --accent: #ff5f00; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.7 system-ui, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 48px 16px 64px; }
+  h1 { font: 700 30px/1.2 Bahnschrift, "DIN Alternate", "Roboto Condensed", sans-serif; letter-spacing: .02em; margin: 0 0 6px; }
+  h1 b { color: var(--accent); }
+  .sub { color: var(--muted); margin: 0 0 28px; }
+  .dl { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 18px; background: var(--panel); border: 1px solid var(--line); }
+  .btn { display: inline-block; padding: 10px 22px; background: var(--accent); color: #140a02; font-weight: 700; text-decoration: none; }
+  .btn:hover { filter: brightness(1.1); }
+  .meta { color: var(--muted); font-size: 13px; }
+  h2 { font-size: 17px; margin: 34px 0 8px; }
+  ol { padding-left: 22px; margin: 0; }
+  li { margin: 6px 0; }
+  code, kbd { font: 13px ui-monospace, Menlo, Consolas, monospace; background: var(--panel); border: 1px solid var(--line); padding: 1px 6px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>DIRECT-STRIKE <b>地图工具</b></h1>
+  <p class="sub">Blender 插件：打开游戏地图、摆放物体和出生点，导出后在游戏里直接试玩。</p>
+  <div class="dl">
+    <a class="btn" href="ds_mapkit.zip" download>下载 ds_mapkit.zip</a>
+    <span class="meta" id="meta">需要 Blender 4.2 以上（推荐 5.2 LTS）</span>
+  </div>
+
+  <h2>安装（只做一次）</h2>
+  <ol>
+    <li>打开 Blender，菜单 <b>编辑 → 偏好设置 → 获取扩展</b>（英文界面：Edit → Preferences → Get Extensions）。</li>
+    <li>右上角的 <b>⌄</b> 下拉 → <b>从磁盘安装…</b>（Install from Disk…），选刚下载的 <code>ds_mapkit.zip</code>。<br>也可以直接把 zip 拖进 Blender 窗口。</li>
+    <li>回到 3D 视图，按 <kbd>N</kbd> 打开侧栏，找到 <b>Direct-Strike</b> 标签页。</li>
+  </ol>
+
+  <h2>用法</h2>
+  <ol>
+    <li>侧栏点 <b>打开游戏自带的地图</b>。</li>
+    <li>改地图：选中物体按 <kbd>G</kbd> 移动、<kbd>R</kbd> 转动；侧栏"添加"里放新的东西。</li>
+    <li>点 <b>导出地图…</b>，存成 json 文件。</li>
+    <li>打开游戏 → 设置 → 开发者 → <b>载入地图文件…</b>，选刚导出的文件。进入战斗就是改过的地图。</li>
+    <li>满意了点 <b>上传给开发</b>，把编号告诉开发。</li>
+  </ol>
+  <p>一步步的教程：<a href="https://github.com/lawrencehe/direct-strike/blob/main/docs/blender-lessons.md" target="_blank" rel="noopener">Blender 地图课程</a>。更新插件：下载新的 zip 再装一次。</p>
+</main>
+<script>
+  // build.sh 写的版本信息（没有就算了）
+  fetch('ds_mapkit.json', { cache: 'no-cache' }).then((r) => r.json()).then((v) => {
+    document.getElementById('meta').textContent = `版本 ${v.version} · ${(v.bytes / 1048576).toFixed(1)} MB · 需要 Blender 4.2 以上（推荐 5.2 LTS）`;
+  }).catch(() => {});
+</script>
+</body>
+</html>

@@ -711,14 +711,95 @@ Game.DevLog = (() => {
     Overlay.marked();
   });
 
+  // ============================================================
+  // 本地地图（#115）：负责人用 Blender 地图工具改好地图、导出 JSON，在这里载入，下一局就用它。
+  // 游戏场景一个页面只建一次，所以载入后刷新页面；地图存在 sessionStorage，这个标签页里一直有效，关掉就恢复原来的地图。
+  // 也可以把它上传给开发（和帧数据走同一个接口，一次上传一个 map.json），开发跑 map-check 检查、合进仓库
+  // ============================================================
+  const MAP_KEY = 'ds.localMap';
+  const LocalMap = (() => {
+    const $ = (id) => document.getElementById(id);
+    // 存的是导出的原文（不是解析后再序列化的），上传给开发的就是 Blender 导出的那个文件，排版一字不差
+    const raw = () => { try { return sessionStorage.getItem(MAP_KEY); } catch (e) { return null; } };
+    const read = () => { try { const t = raw(); return t ? JSON.parse(t) : null; } catch (e) { return null; } };
+    const msg = (text, cls = '') => { const el = $('dev-map-result'); if (el) { el.textContent = text; el.className = cls; } };
+    const count = (m) => m.layout.objects.length + m.entities.length;
+
+    async function choose(file) {
+      let map, text;
+      try {
+        text = await file.text();
+        map = JSON.parse(text);
+        Game.World.checkFormat(map);
+      } catch (e) {
+        msg(`载入失败：${e.message}`, 'err');
+        return;
+      }
+      try { sessionStorage.setItem(MAP_KEY, text); } catch (e) { msg(`载入失败：浏览器不让存（${e.message}）`, 'err'); return; }
+      msg(`已载入「${map.name}」（${count(map)} 个物体和点位），页面马上刷新…`, 'ok');
+      setTimeout(() => location.reload(), 600);
+    }
+
+    async function upload() {
+      const map = read();
+      if (!map) return;
+      $('dev-map-upload').disabled = true;
+      try {
+        msg('上传中…');
+        const ver = (document.querySelector('.brand small') || {}).textContent || '';
+        const { id } = await api('POST', '/uploads', { meta: { kind: 'map', map: map.name, version: ver } });
+        await api('PUT', `/uploads/${id}/map.json`, new Blob([raw()], { type: 'application/json' }));
+        msg(`已上传：${id}（把这个编号告诉开发）`, 'ok');
+      } catch (e) {
+        msg(`上传失败：${e.message}`, 'err');
+      } finally {
+        $('dev-map-upload').disabled = false;
+      }
+    }
+
+    return {
+      read,
+      bind() {
+        $('dev-map-load').addEventListener('click', (e) => { e.preventDefault(); $('dev-map-file').click(); });
+        $('dev-map-file').addEventListener('change', (e) => { if (e.target.files[0]) choose(e.target.files[0]); e.target.value = ''; });
+        $('dev-map-upload').addEventListener('click', (e) => { e.preventDefault(); upload(); });
+        $('dev-map-reset').addEventListener('click', (e) => {
+          e.preventDefault();
+          try { sessionStorage.removeItem(MAP_KEY); } catch (err) { /* 存不了也就没存过 */ }
+          location.reload();
+        });
+        this.render();
+      },
+      render() {
+        const m = read(), st = $('dev-map-state');
+        if (!st) return;
+        st.textContent = m ? `本地文件「${m.name}」（${count(m)} 个物体和点位，刷新不丢，关掉标签页恢复）` : '用的是游戏自带的地图';
+        st.className = m ? 'local' : '';
+        $('dev-map-upload').disabled = !m;
+        $('dev-map-reset').disabled = !m;
+      },
+    };
+  })();
+
   return {
     get on() { return on; },
+    // 打开网页时（main.js 读地图之前）：这个标签页里载入过本地地图就用它。格式不对就丢掉，用原来的
+    useLocalMap() {
+      const m = LocalMap.read();
+      if (!m) return null;
+      try { Game.World.setLocalMap(m); return m; } catch (e) {
+        console.warn('本地地图格式不对，已丢弃：', e);
+        try { sessionStorage.removeItem(MAP_KEY); } catch (err) { /* 忽略 */ }
+        return null;
+      }
+    },
     // main.js 调两次：打开网页建首页时（只有 input、hud、ui，设置里就能解锁），创建完游戏对象后再给全的（#85）
     attach(objs) {
       const first = !g;
       g = objs;
       if (!first) return;
       Panel.bind();
+      LocalMap.bind();
       if (token && state.enabled) setOn(true);
       if (on && state.video) Video.set(true);
       verifyToken();

@@ -55,7 +55,10 @@ tools/setup.sh
 - `assets/`：压缩后的结果，**整个目录都会发布到线上**，由母版生成。还没接进游戏的模型不要放这里。
 - 现在有哪些资源、各在哪、怎么来的：`art-sources.md` 的"现有资源"。
 
-Blender 读不了 meshopt 压缩过的文件，所以母版不能省。
+Blender 读不了 meshopt 压缩过的文件，所以母版不能省。Blender 地图工具要显示游戏里的道具，用 `tools/mapkit/decode-props.mjs` 把压缩过的 glb 还原（#115，`blender-maps.md`）。
+
+开发机没有显示器，要看 Blender 的真实界面（侧栏面板）用虚拟显示器：`xvfb-run -a -s "-screen 0 1600x1000x24" blender --enable-event-simulate --python …`，
+截图用 ImageMagick 的 `import -window root`（Blender 自己的截图在软件渲染下是黑的），例子见 `tools/mapkit/shot_ui.py`。
 
 ## 常用命令
 

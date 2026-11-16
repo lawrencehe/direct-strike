@@ -17,6 +17,8 @@ rsync -a --delete \
   ./ "$SITE/"
 # 资源清单（#85）：每个游戏资源的大小和内容哈希，浏览器拿它和本地缓存比对，变了的文件才重新下载
 node tools/build-manifest.mjs "$SITE"
+# Blender 地图工具（#115）：插件 + 还原过的道具模型 + 地图文件，打包到 https://game.lightup.host/mapkit/
+tools/mapkit/build.sh "$SITE/mapkit"
 
 # 开发接口要的密码文件和数据目录（首次部署时生成密码，之后不动）
 mkdir -p "$DATA/devlogs" "$API"
