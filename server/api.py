@@ -44,8 +44,8 @@ MAX_FILES_PER_UPLOAD = 64             # 一次上传最多放几个文件
 UPLOAD_OPEN_SECONDS = 3600            # 新建上传后多久内可以往里放文件
 LOGIN_FAILS = 10                      # 同一个 IP 在 LOGIN_WINDOW 秒内最多输错几次
 LOGIN_WINDOW = 600
-CLIENT_KEYS = {'version', 'frames', 'seconds', 'fps', 'markers', 'videoSegments', 'mode'}   # meta.json 里留的客户端摘要
-FILE_NAME = re.compile(r'^(frames\.json\.gz|meta\.json|seg-\d{3}\.(webm|mp4))$')
+CLIENT_KEYS = {'version', 'frames', 'seconds', 'fps', 'markers', 'videoSegments', 'mode', 'kind', 'map'}   # meta.json 里留的客户端摘要（kind: 'map' 是上传的地图，#115）
+FILE_NAME = re.compile(r'^(frames\.json\.gz|meta\.json|map\.json|seg-\d{3}\.(webm|mp4))$')   # map.json：开发者模式上传的本地地图（#115）
 UPLOAD_ID = re.compile(r'^\d{8}-\d{6}-[0-9a-f]{6}$')
 
 

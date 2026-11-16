@@ -18,6 +18,7 @@ Game.Main = (function () {
   let shell = null;     // 首页就要用的对象 { input, audio, hud, ui }
   let game = null;      // startGame 的结果（也挂在 window.game 上）
   let loading = null;   // 正在下载、创建游戏的 Promise
+  let mapId = null;     // 地图素材目录名（assets/maps/<mapId>/）
 
   function fail(err, text) {
     console.error(err);
@@ -29,12 +30,14 @@ Game.Main = (function () {
   // 打开网页：读清单和地图文件（几 KB），建首页
   async function boot() {
     await Game.Assets.init();
+    const local = Game.DevLog.useLocalMap();   // 开发者模式里载入的本地地图（#115）
     const mapData = await Game.World.loadMapData(Game.Config.map);
+    mapId = mapData.id || Game.Config.map;     // 地图素材目录按地图文件里的 id 找，本地地图也能用 yard 的模型
     const input = new Game.Input($('game'));
     const audio = new Game.Audio();
     const hud = new Game.Hud();
     hud.input = input;            // 武器栏和底部提示要显示当前绑定的按键
-    const ui = new Game.UI({ input, hud, audio, world: { mapName: mapData.name || Game.Config.map } });
+    const ui = new Game.UI({ input, hud, audio, world: { mapName: (mapData.name || Game.Config.map) + (local ? '（本地文件）' : '') } });
     shell = { input, audio, hud, ui };
     ui.npcReady = true;
     ui.npcNote = '';
@@ -76,7 +79,7 @@ Game.Main = (function () {
       //    本地缓存里有的不算。别的枪和形象进了游戏再在后台下载（startGame 末尾）
       const npcModel = npc ? Game.Character.paths()[Math.floor(Math.random() * Game.Character.paths().length)] : null;
       const files = [
-        `maps/${C.map}.json`, ...A.under(`assets/maps/${C.map}/`), ...Game.World.weatherDirs().flatMap(A.under),
+        `maps/${C.map}.json`, ...A.under(`assets/maps/${mapId}/`), ...Game.World.weatherDirs().flatMap(A.under),
         C.weapons.rifle.model, C.weapons.pistol.model, C.weapons.arms.model, ...A.under(C.audio.samples.dir), npcModel,
       ].filter(Boolean);
       const total = await A.prefetch(files, (got, all) => bar(0.85 * got / all, `下载资源 ${MB(got)} / ${MB(all)} MB`));

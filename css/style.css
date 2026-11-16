@@ -769,6 +769,13 @@ b.enemy { color: var(--enemy) !important; }
 #dev-result { min-height: 20px; margin-top: 10px; font-size: 13px; color: var(--muted); user-select: text; }
 #dev-result.ok { color: var(--me); }
 #dev-result.err { color: var(--enemy); }
+/* 本地地图（#115） */
+.dev-map { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.dev-map #dev-map-state { font-weight: 400; font-size: 13px; color: var(--muted); }
+.dev-map #dev-map-state.local { color: var(--accent); }
+#dev-map-result { min-height: 20px; margin-top: 10px; font-size: 13px; color: var(--muted); user-select: text; white-space: pre-line; }
+#dev-map-result.ok { color: var(--me); }
+#dev-map-result.err { color: var(--enemy); }
 
 /* 战斗中的浮层：左上角统计框下面 */
 #dev-hud {

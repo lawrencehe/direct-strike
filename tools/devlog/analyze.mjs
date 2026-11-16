@@ -39,12 +39,13 @@ if (LIST) {
     let m = {};
     try { m = JSON.parse(fs.readFileSync(path.join(DATA, id, 'meta.json'))).client || {}; } catch (e) { /* 没有就算了 */ }
     const files = fs.readdirSync(path.join(DATA, id));
+    if (m.kind === 'map') { console.log(`${id}  ${m.version || ''}  地图「${m.map || ''}」  node tools/map-check.mjs --map ${id}`); continue; }   // 上传的本地地图（#115）
     console.log(`${id}  ${m.version || ''}  ${m.mode || ''}  ${(m.seconds || 0).toFixed?.(0) || ''}s  ${Math.round(m.fps || 0)}fps  标记 ${m.markers ?? '?'}  视频 ${files.filter((f) => f.startsWith('seg-')).length} 片`);
   }
   process.exit(0);
 }
 
-let src = args[0] || uploads().at(-1);
+let src = args[0] || uploads().filter((u) => fs.existsSync(path.join(DATA, u, 'frames.json.gz'))).at(-1);   // 最新一次帧数据（跳过上传的地图）
 if (!src) { console.error(`没有上传的数据（${DATA}）`); process.exit(2); }
 let dir, framesFile;
 if (fs.existsSync(src) && fs.statSync(src).isFile()) { framesFile = src; dir = path.dirname(src); }

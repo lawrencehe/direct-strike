@@ -12,7 +12,7 @@ import { openGame, OUT } from '../lib/game-page.mjs';
 
 const dir = path.join(OUT, 'tests/map-props');
 fs.mkdirSync(dir, { recursive: true });
-const map = JSON.parse(fs.readFileSync('maps/yard.json', 'utf8'));
+const map = JSON.parse(fs.readFileSync('maps/yard.json', 'utf8')).layout;
 const g = await openGame({ width: 1280, height: 720 });
 const p = g.page;
 let fails = 0;
@@ -36,7 +36,15 @@ const props = await p.evaluate(() => {
 const count = (t) => map.objects.filter((o) => o.type === t).length;
 // 中央战术平台：模型摆上了，落在地面上，盖住台面的碰撞盒
 const plat = props.filter((q) => q.type === 'centralPlatform');
-const deck = map.objects.find((o) => o.type === 'proxy' && o.note === '台面');
+// 台面的碰撞写在平台模型的 colliders 里（相对模型，#115），换成世界坐标：碰撞按最近的 90° 转
+const deck = (() => {
+  const m = map.objects.find((o) => o.type === 'model' && o.model === 'centralPlatform');
+  const k = m && m.colliders.find((c) => c.note === '台面');
+  if (!k) return null;
+  const q = ((Math.round((m.rot || 0) / (Math.PI / 2)) % 4) + 4) % 4, c = [1, 0, -1, 0][q], s = [0, 1, 0, -1][q];
+  const [w, h, d] = k.size;
+  return { size: q % 2 ? [d, h, w] : [w, h, d], pos: [m.x + c * k.pos[0] + s * k.pos[2], k.pos[1], m.z - s * k.pos[0] + c * k.pos[2]] };
+})();
 check(plat.length === 1, '中央战术平台用模型显示', plat.length);
 if (plat[0] && deck) {
   const [w, , d] = deck.size, [x, , z] = deck.pos;

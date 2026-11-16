@@ -18,7 +18,8 @@
 | `docs/devmode.md` | 开发者模式：真机录帧数据和画面、上传、分析 |
 | `docs/tools.md` | 工具链安装和用法、开发机限制 |
 | `docs/ui.md` | 界面流程、全屏规则、玩家设置、视觉规范 |
-| `docs/maps.md` | 地图格式 |
+| `docs/maps.md` | 地图格式（布局层、玩法实体、编号、网格坐标） |
+| `docs/blender-maps.md` / `docs/blender-lessons.md` | Blender 地图工具（负责人在 Blender 改地图 → 游戏里试玩 → 上传）；给负责人的 Blender 课 |
 | `docs/deploy.md` | 线上架构、发布、回滚 |
 | `docs/game-references.md` | 可参考的开源游戏：联网、手感数值、1v1 地图（只参考设计，不抄代码和素材） |
 | `docs/art-sources.md` | 美术参考图、CC0 模型和材质的来源，授权规则 |

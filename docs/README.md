@@ -22,7 +22,9 @@ AI 助手（Claude Code）的约定在根目录的 `CLAUDE.md`，它也指向这
 | [testing.md](testing.md) | 写无头浏览器测试脚本：逐帧推进游戏、模拟按键、断言和截图 |
 | [devmode.md](devmode.md) | 开发者模式：负责人在真机上录帧数据和画面、上传；开发怎么分析（`tools/devlog/analyze.mjs`）；数据格式；开发接口 `server/api.py` |
 | [ui.md](ui.md) | 界面流程（首页 → 简报 → 战斗 → 暂停 / 结算）、全屏规则、玩家设置、视觉规范、地图预览图 |
-| [maps.md](maps.md) | 地图 JSON 格式、改地图、加新地图 |
+| [maps.md](maps.md) | 地图 JSON 格式（布局层、玩法实体、编号、网格坐标）、改地图、加新地图 |
+| [blender-maps.md](blender-maps.md) | Blender 地图工具：负责人在 Blender 里改地图 → 游戏里试玩 → 上传；插件怎么工作、加新类型、坑 |
+| [blender-lessons.md](blender-lessons.md) | 给负责人的 Blender 上手课，一课一件真实的地图任务 |
 | [deploy.md](deploy.md) | 线上架构、发布、回滚、首次接入 |
 | [game-references.md](game-references.md) | 可参考的开源游戏：联网对战（Quake III）、手感和武器数值（AssaultCube、Xonotic）、1v1 地图（Xonotic、Red Eclipse） |
 | [art-sources.md](art-sources.md) | **现有美术资源一览和目录规则**；找枪械参考图、CC0 模型、PBR 材质的网站；用 Tripo 生成底模的流程；授权规则；挑好后交什么 |

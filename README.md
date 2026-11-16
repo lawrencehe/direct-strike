@@ -1,4 +1,4 @@
-# Direct-Strike v0.52
+# Direct-Strike v0.53
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -107,7 +107,7 @@ NPC 死亡是实时物理（布娃娃）：爆头会被打飞，打身体有踉�
 
 一座废弃的集装箱堆场，36 × 48 米。南北两头各三个出生点，中间两个前面有一道一人高的沙袋墙，中间一座战术平台（楼梯朝东，台上有沙袋和弹药箱），
 两侧各有一排集装箱和一条侧道。所有掩体、出生点、NPC 巡逻点、靶子位置都在 `maps/yard.json` 里，
-格式说明见 `docs/maps.md`。地面、水泥用真实的 PBR 材质（Poly Haven，CC0），环境光用 HDRI；集装箱、隔离墩是 Blender 建的模型，中央战术平台、沙袋墙、油桶、弹药箱是 Tripo 生成再修整的（`assets/maps/yard/props/`）。文件在 `assets/maps/yard/`；
+格式说明见 `docs/maps.md`。负责人用 Blender 地图工具（`tools/mapkit/`，下载页 https://game.lightup.host/mapkit/）改地图，导出后在游戏的开发者设置里载入试玩（`docs/blender-maps.md`）。地面、水泥用真实的 PBR 材质（Poly Haven，CC0），环境光用 HDRI；集装箱、隔离墩是 Blender 建的模型，中央战术平台、沙袋墙、油桶、弹药箱是 Tripo 生成再修整的（`assets/maps/yard/props/`）。文件在 `assets/maps/yard/`；
 轮胎、木托盘、货车和远景还是 `js/textures.js` 用 Canvas 画的贴图，正在逐个换成模型（#50）。
 
 首页地图下面可以选**天气 / 时段**：晴天，或者阴雨傍晚（厚云、冷蓝灰、刚下过雨的湿地面和水洼，比晴天暗但看得清对手）。
@@ -131,10 +131,14 @@ direct-strike/
 │   ├── tools.md          本地工具链的安装和用法
 │   ├── ui.md             界面流程、全屏规则、玩家设置、视觉规范
 │   ├── maps.md           地图文件格式、怎么改地图、怎么加新地图
+│   ├── blender-maps.md   Blender 地图工具：在 Blender 里改地图 → 游戏里试玩 → 上传
+│   ├── blender-lessons.md 给负责人的 Blender 上手课
 │   ├── art-sources.md    现有美术资源一览、目录规则、素材来源和授权
 │   └── deploy.md         部署架构、首次接入、回滚
-├── maps/yard.json    ★ 地图数据：掩体、出生点、巡逻点、靶子
+├── maps/yard.json    ★ 地图数据：布局（掩体、地面、远景）和玩法实体（出生点、巡逻点、靶子），每个都有编号
+├── mapkit/index.html Blender 地图工具的下载页（zip 由 deploy.sh 打包到旁边）
 ├── tools/            开发工具（验证、模型、图片、骨骼、地图、资源清单 build-manifest.mjs），不发布；tools/tests/ 是留在仓库里的针对性测试，
+│                     tools/mapkit/ 是 Blender 地图工具（插件源码、打包脚本），
 │                     tools/devlog/analyze.mjs 分析开发者模式上传的数据
 ├── assets-src/       母版和加工脚本，目录和 assets/ 一一对应（例如 assets-src/maps/yard/props/ → assets/maps/yard/props/），不发布
 ├── CLAUDE.md         给 AI 助手看的项目约定
@@ -211,7 +215,8 @@ direct-strike/
 - **把需求交给 Claude 做**：开 GitHub issue，在 Claude Code 里说"ISSUE 编号"，Claude 接手做到 PR 待验收，说 `commit push & deploy` 上线，见 `docs/workflow.md`
 - **查真机上的卡顿、动画和手感问题**：游戏里的开发者模式（设置 → 开发者）录下来上传，开发用 `tools/devlog/analyze.mjs` 分析，见 `docs/devmode.md`
 - **改死亡效果**：`config.js` 的 `ragdoll`（爆头打飞的力度、尸体留多久）
-- **改地图**：改 `maps/yard.json`，格式见 `docs/maps.md`；要加新种类的物体再改 `world.js` 的 `builders`
+- **改地图**：在 Blender 地图工具里改（`docs/blender-maps.md`），或直接改 `maps/yard.json`（格式见 `docs/maps.md`）；
+  要加新种类的物体改 `world.js` 的 `builders`，再给 Blender 插件的 `tools/mapkit/ds_mapkit/schema.py` 加一项
 - **改对决规则**：`config.js` 的 `duel`（赢的杀数、重生时间、对手强度）
 - **换 NPC 模型**：见 `assets/LICENSES.md`。走/跑动画的步幅在加载时自动测量，换了模型不用调参数
 - **改卡车**：`truck.js`，每个零件一行；颜色在 `maps/yard.json` 的 truck 对象里改

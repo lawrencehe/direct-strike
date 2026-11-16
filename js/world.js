@@ -20,13 +20,23 @@ Game.World = (function () {
   // 加载地图文件。名字对应 maps/<名字>.json，由 config.js 的 map 指定
   // loadMapData 只读地图文件（几 KB，首页显示地图名要用）；loadMap 再把地图素材和开局天气一起下载好（点进入战斗时，#85）
   const mapData = {};
+  // 本地地图（#115）：开发者模式里载入的 JSON（Blender 地图工具导出的），设了就代替 maps/<名字>.json，素材仍按它的 id 找
+  let localMap = null;
+  function setLocalMap(map) {
+    if (map) checkFormat(map);
+    localMap = map;
+  }
+  function checkFormat(map) {
+    if (map.format !== 2 || !map.layout || !map.entities) throw new Error('地图格式不对：要 format 2（有 layout 和 entities），见 docs/maps.md');
+  }
   function loadMapData(name) {
+    if (localMap) return Promise.resolve(localMap);
     if (!mapData[name]) {
       const path = `maps/${name}.json`;
       mapData[name] = Game.Assets.ensure(path).then(() => fetch(Game.Assets.url(path))).then((res) => {
         if (!res.ok) throw new Error(`地图 ${name} 加载失败（HTTP ${res.status}）`);
         return res.json();
-      });
+      }).then((map) => { checkFormat(map); return map; });
       mapData[name].catch(() => { delete mapData[name]; });
     }
     return mapData[name];
@@ -35,7 +45,7 @@ Game.World = (function () {
   async function loadMap(name) {
     const map = await loadMapData(name);
     // 开局要用的天气素材和地图素材一起下载（其他天气第一次切过去时再下载）
-    await Promise.all([loadAssets(name, map), loadWeather(currentWeatherKey()).catch(() => {})]);
+    await Promise.all([loadAssets(map.id || name, map), loadWeather(currentWeatherKey()).catch(() => {})]);
     return map;
   }
 
@@ -120,7 +130,7 @@ Game.World = (function () {
     // 集装箱每种颜色一张颜色贴图（几何、法线、粗糙度共用），文件名 container_<颜色>_diff.webp，和 glb 放一起
     if (map.models && map.models.container) {
       const base = dir + map.models.container.replace(/[^/]*$/, '');
-      const colors = new Set(map.objects.filter((o) => o.type === 'container').map((o) => o.color.slice(1).toLowerCase()));
+      const colors = new Set(map.layout.objects.filter((o) => o.type === 'container').map((o) => o.color.slice(1).toLowerCase()));
       for (const c of colors) {
         jobs.push(texLoader.loadAsync(`${base}container_${c}_diff.webp`).then((t) => {
           t.encoding = THREE.sRGBEncoding;
@@ -159,6 +169,7 @@ Game.World = (function () {
   }
 
   function build(scene, map) {
+    const L = map.layout;
     const colliders = [];
     const shootables = [];
     const animated = [];   // 每帧需要更新的东西（尘埃、云）
@@ -426,7 +437,7 @@ Game.World = (function () {
 
     // 两块水泥浇筑区
     const padMat = pbr('concreteFloor', null);
-    for (const { x, z, w, d } of map.pads) {
+    for (const { x, z, w, d } of L.pads) {
       let pad;
       if (padMat) pad = plane(w, d, padMat);
       else {
@@ -451,7 +462,7 @@ Game.World = (function () {
       parent.add(m);
       return m;
     };
-    map.puddles.forEach((p) => puddle(p.x, p.z, p.w, p.d, p.rot));
+    L.puddles.forEach((p) => puddle(p.x, p.z, p.w, p.d, p.rot));
     // 下过雨的天气多撒的水洼（extraPuddles）：用固定种子的随机数，每次开局位置一样；按最多的那个天气建好，用几个显示几个
     const extraPuddles = [];
     {
@@ -471,7 +482,7 @@ Game.World = (function () {
       m.position.set(x, 0.007, z);
       scene.add(m);
     };
-    map.stains.forEach((p) => stain(p.x, p.z, p.r));
+    L.stains.forEach((p) => stain(p.x, p.z, p.r));
 
     // ---------- 围栏：矮水泥墩 + 铁丝网 + 空气墙 ----------
     const fenceTexRepeat = (len) => {
@@ -495,7 +506,7 @@ Game.World = (function () {
         addBox(0.12, 3.6, 0.12, alongX ? x + i : x, 0, alongX ? z : z + i, mats.metalDark, { collide: false });
       }
     }
-    map.fences.forEach((f) => fenceSide(f.len, f.x, f.z, f.alongX));
+    L.fences.forEach((f) => fenceSide(f.len, f.x, f.z, f.alongX));
 
     // ---------- 地图物体：每种 type 一个造型，位置来自地图文件 ----------
     function material(name) {
@@ -514,9 +525,22 @@ Game.World = (function () {
         const [w, h, d] = o.size, [x, y, z] = o.pos;
         addBlocker(w, h, d, x, y, z);
       },
-      // 只显示的模型（地图文件 models 里的名字），rot 绕竖轴转（弧度）。碰撞另外用 proxy / blocker 写
+      // 模型（地图文件 models 里的名字），rot 绕竖轴转（弧度）。碰撞写在 colliders 里，坐标相对模型（没转过时的），
+      // 跟着模型一起平移、旋转（#115）；碰撞盒只能是正的方块，所以碰撞按 rot 取最近的 90° 转
       model(o) {
-        if (loaded.models[o.model]) placeModel(o.model, o.x, o.y || 0, o.z, o.rot || 0);
+        const y0 = o.y || 0, rot = o.rot || 0;
+        if (loaded.models[o.model]) placeModel(o.model, o.x, y0, o.z, rot);
+        const q = ((Math.round(rot / (Math.PI / 2)) % 4) + 4) % 4;
+        const c = [1, 0, -1, 0][q], s = [0, 1, 0, -1][q];
+        for (const k of o.colliders || []) {
+          const [lx, ly, lz] = k.pos, [w, h, d] = k.size;
+          // three.js 绕 y 转：x' = x·cos + z·sin，z' = −x·sin + z·cos
+          builders.proxy({
+            ...k, model: o.model,
+            size: q % 2 ? [d, h, w] : [w, h, d],
+            pos: [o.x + c * lx + s * lz, y0 + ly, o.z - s * lx + c * lz],
+          });
+        }
       },
       // 配合 model 的碰撞：看不见、挡人挡子弹的方块（shoot: false 时只挡人，比如栏杆）。
       // 写了 model 的，那个模型没加载上就把方块用 material 画出来，不会出现看不见的墙
@@ -664,14 +688,14 @@ Game.World = (function () {
       },
     };
 
-    for (const o of map.objects) {
+    for (const o of L.objects) {
       if (!builders[o.type]) throw new Error(`地图里用了不存在的物体类型：${o.type}`);
       builders[o.type](o);
     }
 
     // 碎石、水泥碎块：不碰撞，只增加地面细节。不规则的多面体压扁、贴水泥材质（方块在太阳下发白，像"白色小方块"，#50）
     const debrisMat = pbr('concrete', new THREE.MeshStandardMaterial({ color: 0x5b5955, roughness: 1 }), { color: 0x6e6b66 });
-    for (let i = 0; i < map.debris; i++) {
+    for (let i = 0; i < L.debris; i++) {
       const s = 0.06 + Math.random() * 0.18;
       const m = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), debrisMat);
       m.scale.set(1, 0.35 + Math.random() * 0.3, 0.6 + Math.random() * 0.6);
@@ -688,15 +712,15 @@ Game.World = (function () {
       m.castShadow = false;
       return m;
     };
-    map.backdrop.buildings.forEach((b) => far(b.w, b.h, b.d, b.x, b.z, b.style));
+    L.backdrop.buildings.forEach((b) => far(b.w, b.h, b.d, b.x, b.z, b.style));
     // 龙门吊
-    for (const { x, z } of map.backdrop.cranes) {
+    for (const { x, z } of L.backdrop.cranes) {
       addBox(1.2, 26, 1.2, x - 10, 0, z, mats.metalDark, { collide: false, shoot: false });
       addBox(1.2, 26, 1.2, x + 10, 0, z, mats.metalDark, { collide: false, shoot: false });
       addBox(26, 1.6, 1.6, x, 25, z, mats.metalDark, { collide: false, shoot: false });
     }
     // 水塔
-    for (const { x, z } of map.backdrop.waterTowers) {
+    for (const { x, z } of L.backdrop.waterTowers) {
       addCylinder(0.6, 18, x, 0, z, mats.metalDark, { collide: false, shoot: false });
       addCylinder(4, 5, x, 18, z, mats.metal, { collide: false, shoot: false });
     }
@@ -817,14 +841,34 @@ Game.World = (function () {
       }
     }
 
+    const P = points(map);
     return Object.assign(result, {
       colliders, shootables, update, setWeather,
       mapName: map.name || Game.Config.map,   // 界面上显示的地图名
-      spawns: map.spawns, navPoints: map.navPoints, rangeSpawn: map.rangeSpawn,
-      targetLayout: map.targets, bounds: map.bounds,
-      spawn: new THREE.Vector3(map.spawns[0].x, 0, map.spawns[0].z),
+      map,                                     // 原始地图数据（map-check 画编号和区域用）
+      ...P, bounds: map.bounds,
+      spawn: new THREE.Vector3(P.spawns[0].x, 0, P.spawns[0].z),
     });
   }
 
-  return { build, loadMap, loadMapData, weatherDirs };
+  // 玩法实体（entities）→ 游戏里用的点位列表（#115）。
+  // 出生点：标了 start 的排第一个（玩家开局），标了 fallback 的排第四个（都被占了时 NPC 的兜底，bots.js 用 spawns[3]），其余按文件顺序。
+  // note（备注标记）只给人看，游戏不管
+  function points(map) {
+    const E = map.entities, of = (t) => E.filter((e) => e.type === t);
+    const sp = of('spawn'), start = sp.find((e) => e.start) || sp[0], fb = sp.find((e) => e.fallback && e !== start);
+    const spawns = sp.filter((e) => e !== start && e !== fb);
+    spawns.unshift(start);
+    if (fb) spawns.splice(3, 0, fb);
+    const pick = ({ x, z, yaw }) => ({ x, z, yaw: yaw || 0 });
+    const range = of('rangeSpawn')[0] || { ...start, y: 0 };
+    return {
+      spawns: spawns.map(pick),
+      navPoints: of('nav').map(({ x, z }) => ({ x, z })),
+      rangeSpawn: { x: range.x, y: range.y || 0, z: range.z, yaw: range.yaw || 0 },
+      targetLayout: of('target').map(({ x, z, move }) => (move ? { x, z, move } : { x, z })),
+    };
+  }
+
+  return { build, loadMap, loadMapData, setLocalMap, checkFormat, weatherDirs };
 })();

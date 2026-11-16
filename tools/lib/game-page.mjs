@@ -49,7 +49,8 @@ export async function openGame({ width = 1280, height = 720, url, mapFile, cold 
   // 软件渲染下首帧要编译所有着色器，可能要几十秒，所以超时放宽；这个耗时不代表真实玩家的体验。
   page.setDefaultTimeout(180000);
   const t0 = Date.now();
-  if (mapFile) await page.route('**/maps/*.json', (r) => r.fulfill({ body: fs.readFileSync(mapFile), contentType: 'application/json' }));
+  // 地图请求带着资源清单的 ?v=哈希（#85），用正则匹配（glob 的 **/maps/*.json 匹配不到带查询串的地址，会悄悄用回原来的地图，#115）
+  if (mapFile) await page.route(/\/maps\/[^/?]+\.json(\?|$)/, (r) => r.fulfill({ body: fs.readFileSync(mapFile), contentType: 'application/json' }));
   await page.goto(url || `http://127.0.0.1:${port}/`, { waitUntil: 'commit', timeout: 180000 });
   // 打开网页只建首页，点"进入战斗"才下载资源、创建游戏（#85）。cold：停在首页，不创建游戏（测首页和加载流程用）；
   // 否则直接调 Game.Main.load（对决要的资源，含 NPC 模型）创建游戏，再回到首页，和以前打开网页的状态一样。
