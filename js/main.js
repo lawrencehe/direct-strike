@@ -374,6 +374,7 @@ function startGame(mapData, { input, audio, hud, ui }) {
       grenades.update(dt);   // 人死了手雷还在飞
     }
     world.update(dt);
+    hud.showStats(input.isAction('scoreboard'));
     hud.update(dt, player);
     if (dev.on) dev.sample(rawDt, dt);   // 开发者模式：录这一帧（要在 endFrame 之前，读"刚按下"的键）
     input.endFrame();

@@ -41,8 +41,8 @@ Game.Hud = class Hud {
     const key = (a) => this.input ? Game.Input.bindingName(this.input.bindings[a]) : '?';
     const common = `${key('reload')} 换弹 · ${key('aim')} 开镜（狙击枪） · ${key('lastWeapon')} / 滚轮 切枪 · ${key('buy')} / ${key('quickBuy')} 出生点购买`;   // 训练场也能买（免费，#90）
     this.el.hint.textContent = battle
-      ? `${common} · Esc 暂停`
-      : `${common} · ${key('resetStats')} 重置统计 · Esc 暂停`;
+      ? `${common} · ${key('scoreboard')} 战绩 · Esc 暂停`
+      : `${common} · ${key('scoreboard')} 战绩 · ${key('resetStats')} 重置统计 · Esc 暂停`;
     this.mode = mode;
     this.damageTimer = this.bannerTimer = 0;
     this.flashTimer = 0;
@@ -313,6 +313,13 @@ Game.Hud = class Hud {
     this.el.heads.textContent = s.heads;
     this.el.kills.textContent = s.kills;
     this.el.acc.textContent = this.accuracy();
+  }
+
+  // 左上角战绩：平时隐藏，按住 Tab（keys.scoreboard）才显示（#118）
+  showStats(on) {
+    if (on === this.statsOn) return;
+    this.statsOn = on;
+    this.el.stats.classList.toggle('on', on);
   }
 
   update(dt, player) {

@@ -1,4 +1,4 @@
-# Direct-Strike v0.51
+# Direct-Strike v0.52
 
 ![Direct-Strike](assets/brand/logo.png)
 
@@ -98,6 +98,7 @@ NPC 死亡是实时物理（布娃娃）：爆头会被打飞，打身体有踉�
 | B | 在出生点打开经典购买菜单（可用鼠标） |
 | F | 在出生点打开快捷套餐菜单（纯键盘，1 ~ 3 买一套） |
 | T | 重置统计（训练场） |
+| Tab（按住） | 显示左上角战绩（击杀、命中率等），平时隐藏 |
 | Esc | 暂停 |
 
 默认按键在 `js/config.js` 的 `keys` 里，鼠标侧键也可以绑（Mouse3 / Mouse4）。

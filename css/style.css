@@ -567,7 +567,9 @@ b.enemy { color: var(--enemy) !important; }
   position: absolute; left: 20px; top: 20px; min-width: 150px;
   padding: 10px 14px; background: rgba(10, 11, 8, .55); border-left: 2px solid var(--accent);
   font-size: 13px; line-height: 1.75;
+  display: none;   /* 平时隐藏，按住 Tab 才显示（#118） */
 }
+#stats.on { display: block; }
 #stats div { display: flex; justify-content: space-between; gap: 16px; }
 #stats span { color: var(--muted); }
 #stats b { font-family: var(--font-m); font-weight: 400; color: var(--ink); }
