@@ -85,6 +85,10 @@ Game.Bots = (function () {
       this.detourTimer = 0;
       this.detourSide = 1;
       this.stuckCount = 0;
+      this.path = null;                // 寻路（#92）：A* 算出的拐角点，沿着走
+      this.pathIdx = 0;
+      this.pathGoal = new THREE.Vector3();
+      this.repathT = 0;
 
       this.deathTimer = 0;
       this.aimPoint = new THREE.Vector3();
@@ -210,11 +214,13 @@ Game.Bots = (function () {
       this.updateWeapons(dt);
       this.nadeCooldown -= dt;
       this.stunCool -= dt;
+      this.repathT -= dt;
       if (this.blind <= 0 && this.stun <= 0 && !this.throwing) this.considerGrenade(dist);
 
       // ---- 根据状态决定：往哪走、多快、面朝哪 ----
       let mx = 0, mz = 0, speed = 0, faceYaw = this.yaw;
       let roam = false, sure = false;   // roam：巡逻 / 搜索（可以张望）；sure：确定玩家在哪
+      this.steered = false;             // 这一帧有没有按路线走（没有就扔掉旧路线，下次重算）
 
       if (this.blind > 0) {
         // 被闪了：什么都看不见，站在原地晃脑袋，等恢复后再重新发现玩家
@@ -242,8 +248,7 @@ Game.Bots = (function () {
         if (!this.waypoint || Math.hypot(this.waypoint.x - this.pos.x, this.waypoint.z - this.pos.z) < 1) {
           this.waypoint = this.mgr.nextNavPoint(this.pos, this.hasIntel ? this.lastSeen : null);
         }
-        mx = this.waypoint.x - this.pos.x;
-        mz = this.waypoint.z - this.pos.z;
+        [mx, mz] = this.steer(this.waypoint.x, this.waypoint.z);
         speed = cfg.walkSpeed;
         roam = true;
       } else if (this.state === 'combat' && this.outOfAmmo()) {
@@ -275,7 +280,9 @@ Game.Bots = (function () {
         if (this.searchPause > 0) {
           this.searchPause -= dt;
           mx = mz = 0;
-        } else if (this.reachedSpot(Math.hypot(mx, mz))) {
+        } else if (!this.reachedSpot(Math.hypot(mx, mz))) {
+          [mx, mz] = this.steer(this.searchPos.x, this.searchPos.z);   // 绕着掩体走过去（#92）
+        } else {
           // 到了（或者走近了已经看清那里）还没看见：站住张望一下，再去附近下一个"从这看不到"的地方（人多半躲在掩体后面）
           this.searchVisited.push(this.searchPos.clone());
           const next = this.nextSearchSpot();
@@ -291,6 +298,7 @@ Game.Bots = (function () {
         if (this.searchTimer <= 0) { this.state = 'patrol'; this.waypoint = null; }
       }
 
+      if (!this.steered) this.path = null;
       const mlen = Math.hypot(mx, mz);
       if (mlen > 0.001) {
         mx /= mlen; mz /= mlen;
@@ -397,6 +405,26 @@ Game.Bots = (function () {
       this.searchPos.copy(this.searchOrigin);
       this.searchVisited.length = 0;
       this.searchPause = 0;
+    }
+
+    // 往 (tx, tz) 去，这一帧该朝哪走（#92）：按 nav.js 的 A* 路线一个拐角一个拐角地走，
+    // 不再朝目标直线撞——两个箱子夹出的凹角挡在中间时直线会卡死在角里。
+    // 目标挪动超过 1 米、隔 nav.repath 秒、卡住时重新算路；算不出路（被围住、在地图外）就直线走
+    steer(tx, tz) {
+      const nav = this.mgr.nav, C = Game.Config.bots.nav;
+      const straight = [tx - this.pos.x, tz - this.pos.z];
+      this.steered = true;
+      if (!nav) return straight;
+      if (!this.path || this.repathT <= 0 || Math.hypot(tx - this.pathGoal.x, tz - this.pathGoal.z) > 1) {
+        this.pathGoal.set(tx, 0, tz);
+        this.path = nav.findPath(this.pos, this.pathGoal, C.snap) || [];
+        this.pathIdx = 0;
+        this.repathT = C.repath * rand(0.8, 1.2);   // 错开，几个 NPC 不在同一帧算
+      }
+      const P = this.path;
+      while (this.pathIdx < P.length && Math.hypot(P[this.pathIdx].x - this.pos.x, P[this.pathIdx].z - this.pos.z) < C.reach) this.pathIdx++;
+      if (this.pathIdx >= P.length) return straight;   // 走完了（最后一个点是离目标最近的可走点），剩下一点直线过去
+      return [P[this.pathIdx].x - this.pos.x, P[this.pathIdx].z - this.pos.z];
     }
 
     // 搜索点算不算查看过了：走到 2 米内，或者 5 米内已经能看清那里（点贴着箱子时走不到正上方）
@@ -699,6 +727,7 @@ Game.Bots = (function () {
             this.stuckCount++;
             this.detour = { x: -mz * this.detourSide, z: mx * this.detourSide };
             this.detourTimer = Math.min(3, 0.8 * this.stuckCount);
+            this.path = null;                  // 绕完重新算路（#92）
             if (this.state === 'patrol') this.waypoint = null;
           } else {
             this.stuckCount = 0;
@@ -763,6 +792,9 @@ Game.Bots = (function () {
     constructor({ scene, camera, world, player, audio, hud, effects }) {
       Object.assign(this, { scene, camera, world, player, audio, hud, effects });
       this.colliders = world.colliders;
+      // 寻路格子（#92）：按地图的碰撞盒建一次，NPC 共用。半径比 NPC 实际的大一点，路线离墙留余量
+      const N = Game.Config.bots.nav;
+      this.nav = new Game.Nav.Grid(world.colliders, { cell: N.cell, radius: RADIUS + N.margin, height: HEIGHT, step: Game.Config.bots.stepHeight });
       this.obstacles = world.shootables;  // 挡视线、挡子弹的静态物体
       this.bots = [];
       this.raycaster = new THREE.Raycaster();
