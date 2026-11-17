@@ -6,7 +6,7 @@
 
 - 没有构建步骤，也没有模块系统。`index.html` 按顺序加载 `vendor/` 和 `js/` 下的脚本，每个文件往全局 `Game` 上挂一个东西
   （`Game.Config`、`Game.Player`、`Game.Weapon`……）。**后加载的可以用先加载的，反过来不行**，新文件要插到正确位置。
-- 顺序：`config → assets → settings → physics → audio → input → textures → effects → truck → world → targets → ragdoll → character → player → gunmodel → grenades → weapon → bots → hud → economy → ui → devlog → main`。
+- 顺序：`config → assets → settings → physics → nav → audio → input → textures → effects → truck → world → targets → ragdoll → character → player → gunmodel → grenades → weapon → bots → hud → economy → ui → devlog → main`。
   `settings` 紧跟 `config`：它把玩家存在浏览器里的设置写回 `Game.Config`，后面的文件读到的就是玩家的值。
 - **打开网页只建首页，点"进入战斗"才下载资源、创建游戏**（#85）。`main.js` 的 `Game.Main` 分两段：
   - `boot()`：`Assets.init()` 读资源清单，`DevLog.useLocalMap()` 看这个标签页有没有载入过本地地图（开发者模式，#115），`World.loadMapData` 只读地图文件（几 KB，首页显示地图名），建 `input / audio / hud / ui`
@@ -177,6 +177,21 @@ bots.Manager（NPC 和对决/波次规则）  ← 每个 NPC = bots.js 的大脑
     看的方向就是 `bot.yaw`，感知也用它，所以张望能看到侧面；腿由 `character.js` 朝移动方向，上半身扭过去（最多 `character.maxTwist`）。
   - **巡逻**：知道玩家大概在哪（`hasIntel`）后，`nextNavPoint(from, lastSeen)` 从离那最近的 `patrolNear` 个点里挑，慢慢往那边摸。
   - 测试：`tools/tests/npc-loadout-scan.mjs`（随机挑枪、glb 枪模、张望、直奔、搜索点），截图 `npc-m4` / `npc-sg` 看手握得对不对。
+
+  NPC 寻路（#92，`nav.js`，参数在 `config.bots.nav`）：
+  - **为什么**：原来朝目标直线走，卡住了往侧面"绕一下"。两个箱子拼成的凹角（卡车 TR1 和集装箱 C5 的 L 形角）挡在中间时，
+    直线方向两边都是墙，绕哪边都出不去，NPC 就卡死在角里。
+  - **格子**：`bots.Manager` 构造时按 `world.colliders` 建一次 `Game.Nav.Grid`，所有 NPC 共用，yard 约 2.2 万个节点、开发机建一次几十毫秒。
+    每 `nav.cell` 米一个格点，能不能站人和 `physics.js` / `tools/map-check.mjs` 同一套规则：比脚底高 `stepHeight` 以内的顶面能踩上去（台阶、平台楼梯），
+    再往上一个身高内不能有东西。半径用 NPC 的 0.3 加 `nav.margin`，路线离墙留余量。一个格点可以有几层（地面、平台顶上），节点是 (列, 行, 高度)；
+    只保留从地面走得到的节点，边是有方向的（能从平台边上掉下去，只能走楼梯上来），斜着走要两个直角方向都通（不切墙角）。
+    格子只在开局建一次，**中途加的碰撞盒（以后要是有会动的门、可破坏的掩体）不会进格子**，到时要重建或局部更新。
+  - **A\***：`findPath(from, to, snap)` 八方向、直线距离作估计值，终点站不了人（贴着箱子）时改去 `snap` 米内最近的可走点；
+    算出的格点路径先去掉同方向的中间点，再从当前位置往后找"直线走得通"（`walkable`，按台阶规则逐点查）的最远拐角，剩下几个拐角。整张图对角算一次几毫秒。
+  - **走路线**：`Bot.steer(tx, tz)` 返回这一帧的前进方向，巡逻（去巡逻点）和搜索（去搜索点）用它；交战的横移、打空弹后跑开、丢烟后撤仍是直接方向。
+    目标挪动超过 1 米、隔 `nav.repath` 秒（随机错开）、卡住检测触发时重算；这一帧没用路线（交战、站住张望）就扔掉，下次重算。走到离拐角 `nav.reach` 内换下一个，
+    走完最后一个拐角直线过去。算不出路（被围住、在地图外）退回直线走。原来的卡住检测（往侧面绕）留着兜底，对付挡路的玩家和别的 NPC（它们不在格子里）。
+  - 测试：`tools/tests/npc-nav.mjs`（关掉寻路复现卡在死角、开着走出来，#92 原来的复现，路线走得通，平台顶上，随机 16 对点都走得到）。
 - **布娃娃**（`ragdoll.js`）：Verlet 质点 + 距离约束，和地图方块碰撞，每帧把质点位置换算回 Mixamo 骨骼的旋转。
   不同死法（爆头、炸飞、打腿、打身体的三种倒法）只是初始冲量不同，参数在 `config.ragdoll`。
 - **血**（`effects.js`）：血雾是 Sprite；血滴共用一个 `THREE.Points` 环形缓冲；地上的血迹和血泊是逐渐变大的平面。
