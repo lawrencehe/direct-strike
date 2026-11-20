@@ -77,7 +77,11 @@
 
 - **开发机**（2026-11-05）：GCP 实例 4 核 32G，x86_64，无 GPU、无显示器。WebGL 靠 SwiftShader 软件渲染，
   截图和报错可信，帧率不可信。真实帧率和手感要在有显卡的电脑上测。
-- **暂不支持 Safari**，所以没有为测试租云 Mac。需要真实帧率时优先按小时开 GPU 主机，不包月。
+- **GPU 开发机用负责人租的 Mac mini**（#125）：Apple M4，通过 tailscale `ssh macmini` 登录。开发机仍是主力（代码、部署、GitHub 都在开发机），
+  Mac 只当"带真 GPU 的执行机"：`tools/mac.sh` 把仓库同步过去跑 verify、测试、Blender，结果拷回来。
+  它测的是 M4 上的性能，用来比较改动前后、抓性能回退；玩家显示器的刷新率和真实手感仍然靠开发者模式录数据（见下面"真机问题"）。
+  那台机器是出租方的工作机上开的账号（出租方的管理员账号和软件都在上面），所以只放公开仓库的代码，不放部署密钥和 GitHub 令牌，软件只装在自己的 `~/.local`。
+- **暂不支持 Safari**，Mac 上有 Safari，要支持时可以在那里测。
 - **工具链走命令行**（Playwright、gltf-transform、Blender 无头模式），Claude Code 通过 `.claude/skills/` 调用，见 `tools.md`。
 - **线上**（2026-11-04）：https://game.lightup.host，跑在开发机上，借用 paseo-relay 项目的 Caddy 按域名分流。
   relay 是另一个在线服务，不能中断，所以游戏不单独占 80/443。细节见 `deploy.md`。

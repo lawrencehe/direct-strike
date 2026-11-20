@@ -91,7 +91,9 @@ for (const [width, height] of sizes) {
     const png = path.join(dir, `${m}${tag}-${width}x${height}.png`);
     const small = png.replace(/\.png$/, '.small.jpg');
     await page.screenshot({ path: png });
-    execFileSync('magick', [png, '-resize', '800x800>', '-quality', '75', small]);
+    // 缩略图：开发机用 ImageMagick，Mac 上没装、用系统自带的 sips（#125）
+    if (process.platform === 'darwin') execFileSync('sips', ['-Z', '800', '-s', 'format', 'jpeg', '-s', 'formatOptions', '75', png, '--out', small], { stdio: 'ignore' });
+    else execFileSync('magick', [png, '-resize', '800x800>', '-quality', '75', small]);
     report.runs.push({ mode: m, size: `${width}x${height}`, ...s, screenshot: path.relative(process.cwd(), small) });
     console.log(`${m.padEnd(6)} ${width}x${height}  ${String(s.fps).padStart(5)}fps  draw=${s.calls} tris=${s.tris} botMeshes=${s.bots}  ${path.relative(process.cwd(), small)}`);
   }

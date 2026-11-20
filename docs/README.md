@@ -18,7 +18,7 @@ AI 助手（Claude Code）的约定在根目录的 `CLAUDE.md`，它也指向这
 
 | 文档 | 什么时候看 |
 |---|---|
-| [tools.md](tools.md) | 装工具链；处理模型、图片、骨骼动画；这台开发机的限制 |
+| [tools.md](tools.md) | 装工具链；处理模型、图片、骨骼动画；这台开发机的限制；Mac mini 真 GPU 执行机（`tools/mac.sh`） |
 | [testing.md](testing.md) | 写无头浏览器测试脚本：逐帧推进游戏、模拟按键、断言和截图 |
 | [devmode.md](devmode.md) | 开发者模式：负责人在真机上录帧数据和画面、上传；开发怎么分析（`tools/devlog/analyze.mjs`）；数据格式；开发接口 `server/api.py` |
 | [ui.md](ui.md) | 界面流程（首页 → 简报 → 战斗 → 暂停 / 结算）、全屏规则、玩家设置、视觉规范、地图预览图 |

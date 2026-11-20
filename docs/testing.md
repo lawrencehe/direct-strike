@@ -72,7 +72,7 @@ await g.close();
 ## 留在仓库里的测试
 
 需要反复跑的测试放 `tools/tests/`，按主题起名，登记到下表，PR 的验证里写上跑过哪个。
-**一个一个跑，不要并行**：开发机没有 GPU，软件渲染一张截图在负载高时要上百秒，几个 Chromium 一起跑会互相拖到超时（#90 踩过）；带截图多的测试 `timeout` 给到 600 秒以上。截图写到 `tools/out/tests/`（不入仓库）。
+**一个一个跑，不要并行**（在 Mac mini 上跑就快得多，`tools/mac.sh node tools/tests/xxx.mjs`，#125）：开发机没有 GPU，软件渲染一张截图在负载高时要上百秒，几个 Chromium 一起跑会互相拖到超时（#90 踩过）；带截图多的测试 `timeout` 给到 600 秒以上。截图写到 `tools/out/tests/`（不入仓库）。
 失败时退出码非 0。
 
 | 脚本 | 测什么 |
@@ -103,7 +103,8 @@ node tools/tests/reload-nade-economy.mjs
 
 ## 什么测不了
 
-- 帧率、卡顿、真实手感：要在有显卡的电脑上用浏览器试玩。负责人试玩时打开开发者模式录下来上传，开发用
+- 帧率：开发机上的数字不可信；要比较改动前后的性能，在 Mac mini 上跑（`tools/mac.sh node tools/verify.mjs`，真 GPU，见 `tools.md`）（#125）。
+- 玩家电脑上的帧率、卡顿、真实手感：要在有显卡的电脑上用浏览器试玩。负责人试玩时打开开发者模式录下来上传，开发用
   `tools/devlog/analyze.mjs` 看（`devmode.md`）。
 - 录 WebGL 画面：无头 Chromium + 软件渲染下会卡住出帧、录出来是空的。
 - 指针锁定：无头环境里 `requestPointerLock` 能成功，但模拟不了"玩家按 Esc 让浏览器退出锁定 / 全屏"和系统快捷键抢焦点，这些要真机确认。

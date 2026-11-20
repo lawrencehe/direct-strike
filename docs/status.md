@@ -1,6 +1,6 @@
 # 项目状态
 
-> 最近更新：2026-11-16　｜　**每次做完一件事都要更新本页**，规则见 `CLAUDE.md` 的"文档和项目状态"。
+> 最近更新：2026-11-20　｜　**每次做完一件事都要更新本页**，规则见 `CLAUDE.md` 的"文档和项目状态"。
 > 本页只写"现在怎样"，旧内容直接改掉或删掉；历史看 GitHub 的 issue、PR、Releases 和 git log。
 
 ## 版本
@@ -13,6 +13,11 @@
 ## 进行中
 
 Claude 在做的 issue 看标签 `Claude处理中` / `等你回复` / `待验收`，上线了的是 `已上线`（`workflow.md`）。正在做的需求看 [开启的 Milestone](https://github.com/lawrencehe/direct-strike/milestones) 和 [开着的 PR](https://github.com/lawrencehe/direct-strike/pulls)。
+
+## 开发环境
+
+- 开发机（GCP，无 GPU）是主力；有一台租的 Mac mini（M4，真 GPU）当执行机，`tools/mac.sh` 同步仓库过去跑 verify、测试、Blender（#125）。
+  出租方的账号和软件还在那台机器上、可用磁盘只有约 25 GB，负责人在跟出租方交涉；那边只放公开仓库的代码，不放部署密钥和 GitHub 令牌。
 
 ## 现在能玩什么
 

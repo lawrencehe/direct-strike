@@ -5,13 +5,11 @@
 //   4. 线上改了一个文件（清单里它的哈希和版本号变了）：只重新下这一个，旧的那份从缓存里删掉
 // 用法：node tools/tests/asset-cache.mjs
 import { chromium } from 'playwright';
-import { startServer, OUT } from '../lib/game-page.mjs';
+import { startServer, OUT, GL_ARGS } from '../lib/game-page.mjs';
 
 const { server, port } = await startServer();
 const base = `http://127.0.0.1:${port}/`;
-const browser = await chromium.launch({
-  args: ['--use-angle=swiftshader', '--use-gl=angle', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
-});
+const browser = await chromium.launch({ args: GL_ARGS });
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });   // 同一个上下文：Cache Storage 在几次打开之间保留
 let fails = 0;
 const check = (ok, name, info = '') => { console.log(ok ? 'PASS' : 'FAIL', name, info); if (!ok) fails++; };
