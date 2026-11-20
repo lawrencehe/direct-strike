@@ -1,5 +1,5 @@
 // 公共部分：起一个只监听本机的静态服务，再用无头 Chromium 打开游戏。
-// 这台机器没有 GPU，WebGL 靠 SwiftShader 软件渲染，所以帧率只能作相对参考。
+// 开发机没有 GPU，WebGL 靠 SwiftShader 软件渲染，帧率只能作相对参考；在 Mac mini 上（tools/mac.sh）走 Metal，是真 GPU（#125）。
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -9,6 +9,10 @@ import { buildManifest } from '../build-manifest.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const OUT = path.join(ROOT, 'tools/out');
+// Chromium 的 WebGL 参数：macOS 用 Metal（真 GPU），其他（开发机）用 SwiftShader 软件渲染
+export const GL_ARGS = process.platform === 'darwin'
+  ? ['--use-angle=metal', '--ignore-gpu-blocklist']
+  : ['--use-angle=swiftshader', '--use-gl=angle', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml',
@@ -37,9 +41,7 @@ export function startServer() {
 // mapFile：用这个文件代替游戏配置的地图，用来检查还没启用的新地图
 export async function openGame({ width = 1280, height = 720, url, mapFile, cold = false } = {}) {
   const { server, port } = url ? { server: null, port: 0 } : await startServer();
-  const browser = await chromium.launch({
-    args: ['--use-angle=swiftshader', '--use-gl=angle', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
-  });
+  const browser = await chromium.launch({ args: GL_ARGS });
   const page = await browser.newPage({ viewport: { width, height } });
   const problems = [];
   page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') problems.push(`console.${m.type()}: ${m.text()}`); });

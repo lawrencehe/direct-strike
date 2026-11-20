@@ -34,7 +34,7 @@
 - 工具链在 `tools/`，安装用 `tools/setup.sh`。
 - 做负责人指定的 issue 用 `/issue`，验证用 `/verify`，模型用 `/glb`，图片用 `/img`，骨骼动画用 `/rig`，AI 生成底模用 `/tripo`，地图用 `/map`，发布用 `/deploy`，提交推送部署一条龙用 `/ship`。
 - 改完代码或资源要先跑 `/verify`，玩法逻辑的改动再写针对性测试（`docs/testing.md`）。
-- 这台机器没有 GPU：截图和报错可信，帧率不可信。真机上的帧率、动画和手感问题，让负责人用游戏里的开发者模式录下来上传，
+- 这台机器没有 GPU：截图和报错可信，帧率不可信。要真 GPU 用 Mac mini：`tools/mac.sh node tools/verify.mjs`（`docs/tools.md`）。真机上的帧率、动画和手感问题，让负责人用游戏里的开发者模式录下来上传，
   再用 `node tools/devlog/analyze.mjs` 看报告、曲线和视频帧（`docs/devmode.md`）。
 
 ## 约定

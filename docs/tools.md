@@ -107,11 +107,44 @@ node tools/verify.mjs
 `assets-src/models/human/ukrainian-soldier/build.sh`（脚本里加一行 `add-anim`）。
 `add-anim` 的来源也可以是另一个同骨架的 glb，用 `--clip` 选其中一段动画。
 
+## Mac mini（真 GPU 的执行机）
+
+负责人租的 Mac mini，通过 tailscale 用 `ssh macmini` 登录（开发机的 `~/.ssh/config` 里配好了 IP 和账号 `super-agent`）（#125）。
+开发机没有 GPU，要真 GPU 跑浏览器或 Blender 时，用 `tools/mac.sh` 把仓库同步过去在那边跑，输出拷回 `tools/out/mac/`：
+
+```bash
+tools/mac.sh setup                        # 首次：同步并安装（tools/setup-mac.sh），可重复执行
+tools/mac.sh node tools/verify.mjs        # verify，WebGL 走 Metal
+tools/mac.sh node tools/tests/sniper.mjs  # 测试脚本
+tools/mac.sh blender -b --version
+tools/mac.sh sync                         # 只同步
+```
+
+- 机器：Apple M4（10 核 CPU / 10 核 GPU，Metal 4），16 GB 内存，macOS 26。无头 Chromium 的 WebGL 渲染器是 `ANGLE Metal Renderer: Apple M4`。
+- **实测对比**（`verify`，1280x720）：开发机 SwiftShader 启动 13 秒、0.3 ~ 0.7 帧、整个 verify 2 分半；Mac 启动 1.2 秒、54 ~ 60 帧、半分钟。
+  `asset-cache` 测试 27 秒。Mac 上的帧率是这台 M4 的数字，用来比较改动前后，不代表玩家的电脑。
+- Blender 能用 Metal GPU（`Apple M4 (GPU - 10 cores)`），Cycles 渲染预览图可以选 METAL。
+- `tools/lib/game-page.mjs` 的 `GL_ARGS` 按平台选 WebGL 参数：macOS 用 `--use-angle=metal`，开发机用 SwiftShader。自己起 Chromium 的测试也用它。
+- 装了什么：node、Playwright Chromium（`tools/node_modules` 和 `~/Library/Caches/ms-playwright`）、Blender（`~/Applications/Blender-5.2.3.app`，`~/.local/bin/blender`）。
+  全部在 `super-agent` 自己的目录，不用 sudo，不用机器上的 Homebrew 和 `/usr/local/bin/node`：那是出租方账号装的。
+- **只同步 git 管的文件**（`git ls-files -co --exclude-standard`，含没提交的改动）。`refer/`、本地母版这些 gitignore 掉的不上传，
+  要用 Blender 处理这些母版的活还是在开发机上做。Mac 上不放部署密钥和 GitHub 令牌：机器上有出租方的管理员账号。
+
+坑：
+
+- **网络慢。** Mac 在国内，开发机 → Mac 只有约 100 KB/s，首次同步整个仓库（约 95 MB）要十几分钟，之后只传改动的文件；
+  在 Mac 上直连 GitHub 约 20 KB/s，所以不在 Mac 上 `git clone`。下载 node / Blender / Chromium 走国内镜像（npmmirror、阿里云），
+  校验值仍然从官方取，见 `setup-mac.sh` 开头。
+- **Mac 上没有 ImageMagick**：`verify.mjs` 的缩略图在 macOS 上改用系统自带的 `sips`。别的工具脚本如果调 `magick` 在 Mac 上会失败，需要时同样加平台判断。
+- **`blender` 是启动脚本，不是软链接。** Blender 按自己的路径找 App 包里的 Python，软链接启动会报 `No module named 'encodings'`。
+- **rsync 要加 `--protocol=29`。** macOS 自带的是 openrsync，和开发机的 rsync 3.x 用默认协议握手会卡死不动。
+- 同一时间只跑一个 `mac.sh`：两个 rsync 同时往 Mac 传，有一个会被断掉。
+
 ## 这台机器的限制
 
 开发机是 GCP 实例：4 核 32G，x86_64，无 GPU、无显示器。
 
-- **没有 GPU。** WebGL 靠 SwiftShader 软件渲染，帧率只有个位数，启动可达 40 秒，这些都不代表玩家体验。手感和真实帧率要在有显卡的电脑上测。
+- **没有 GPU。** WebGL 靠 SwiftShader 软件渲染，帧率只有个位数，启动可达 40 秒，这些都不代表玩家体验。要真 GPU 用上面的 Mac mini；手感和玩家显示器上的帧率靠开发者模式录数据（`devmode.md`）。
 - **指针锁定没有真实测试。** 工具直接把 `game.input.locked` 设为真。
 - **Ubuntu 26.10** 不在 Playwright 官方支持列表里，目前实测能用，升级 Playwright 后要留意。
 - `npm audit` 有 4 个中等级别提示，来自 gltf-transform CLI 的依赖（minimatch）。工具只在本地运行，不会发布到线上。
