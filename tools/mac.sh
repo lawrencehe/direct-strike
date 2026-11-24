@@ -9,7 +9,7 @@
 # 那台机器上有出租方的管理员账号，所以 Mac 上只放公开仓库的代码，不放部署密钥和 GitHub 令牌。
 set -euo pipefail
 cd "$(dirname "$0")/.."
-HOST=${MAC_HOST:-macmini}
+HOST=${MAC_HOST:-macmini}   # 备用机：MAC_HOST=mac-gpu（docs/tools.md）
 DIR=direct-strike            # Mac 上的目录，相对 home
 
 [ $# -ge 1 ] || { sed -n '2,9p' "$0"; exit 1; }
