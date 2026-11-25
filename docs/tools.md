@@ -148,8 +148,18 @@ tools/mac.sh sync                         # 只同步
 - `tools/lib/game-page.mjs` 的 `GL_ARGS` 按平台选 WebGL 参数：macOS 用 `--use-angle=metal`，开发机用 SwiftShader。自己起 Chromium 的测试也用它。
 - 装了什么：node、Playwright Chromium（`tools/node_modules` 和 `~/Library/Caches/ms-playwright`）、Blender（`~/Applications/Blender-5.2.3.app`，`~/.local/bin/blender`）。
   全部在 `super-agent` 自己的目录，不用 sudo，不用机器上的 Homebrew 和 `/usr/local/bin/node`：那是出租方账号装的。
+- **备用机 MacBook Pro（`ssh mac-gpu`）**：另一家合租的 Apple M3（8 核 CPU / 10 核 GPU），24 GB 内存，普通用户 `agent`，没有 sudo；
+  通过本机 `127.0.0.1:2222` 的隧道连，负责人那边开着才连得上，派任务前先 `ssh -o ConnectTimeout=3 mac-gpu "echo ok"` 探测。
+  工具链装法和 Mac mini 一样：`MAC_HOST=mac-gpu tools/mac.sh setup`，之后命令前加 `MAC_HOST=mac-gpu`。
+  合租的人多、实际分到的资源少，负责人可能不续费；停了就删掉这一条，流程上不依赖它。
+- **默认用 Mac mini，MacBook 只在 Mac mini 连不上、或者要两台并行时用。** 两台价格一样，实测（同时段）：
+  Cycles METAL 渲染同一场景 Mac mini 96 秒、MacBook 181 秒；verify 两边都到 60 帧上限。MacBook 的机主在重度使用
+  （负载 12、交换区快满，留给我们约 6 GB），Mac mini 的出租方账号基本闲着（留给我们约 12 GB）。
+  帧率只在同一台机器上比改动前后，测之前看一眼负载（`uptime`），高了就换机器或等一会。
+- **看内存用 `memory_pressure` 和 `vm_stat`，不要把 `ps` 的 RSS 加起来**：共享的系统框架内存会被重复计算，Mac mini 上把出租方账号算成 7.3 GB，实际所有用户在用的只有约 3 GB。
+  出租方账号的那些都是系统常驻进程（Spotlight、Tailscale、输入法等），我们的账号在 admin 组但 sudo 要密码，也不去关它们：能省的不到 1 GB。
 - **只同步 git 管的文件**（`git ls-files -co --exclude-standard`，含没提交的改动）。`refer/`、本地母版这些 gitignore 掉的不上传，
-  要用 Blender 处理这些母版的活还是在开发机上做。Mac 上不放部署密钥和 GitHub 令牌：机器上有出租方的管理员账号。
+  要用 Blender 处理这些母版的活还是在开发机上做。两台 Mac 上都不放部署密钥和 GitHub 令牌：都是合租的机器，有别人的账号。
 
 坑：
 

@@ -157,7 +157,9 @@ for (const n of E.filter((e) => e.type === 'note')) {
 svg += `<g transform="translate(8,${+Hgt - 10})"><text fill="#333">网格每格 ${GRID} 米（字母 = 东西，数字 = 南北）  蓝 出生点  绿 巡逻点  橙 训练场  黄 备注  红 有问题的点位  方块越深越高</text></g></svg>`;
 const svgPath = path.join(dir, 'topdown.svg'), png = path.join(dir, 'topdown.png');
 fs.writeFileSync(svgPath, svg);
-execFileSync('rsvg-convert', ['-o', png, svgPath]);
+// 俯视图 SVG → PNG：开发机用 rsvg-convert，Mac 上没装、用 tools 自带的 sharp（#125）
+if (process.platform === 'darwin') await (await import('sharp')).default(svgPath).png().toFile(png);
+else execFileSync('rsvg-convert', ['-o', png, svgPath]);
 
 fs.writeFileSync(path.join(dir, 'report.json'), JSON.stringify({ issues, overlaps, problems, size: [x1 - x0, z1 - z0], colliders: m.boxes.length }, null, 2));
 for (const n of E.filter((e) => e.type === 'note')) console.log(`备注 ${n.id} (${n.x}, ${n.z})：${n.text || ''}`);

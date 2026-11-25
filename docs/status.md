@@ -16,7 +16,7 @@ Claude 在做的 issue 看标签 `Claude处理中` / `等你回复` / `待验收
 
 ## 开发环境
 
-- 开发机（GCP，无 GPU）是主力；有一台租的 Mac mini（M4，真 GPU）当执行机，`tools/mac.sh` 同步仓库过去跑 verify、测试、Blender（#125）。
+- 开发机（GCP，无 GPU）是主力；有一台租的 Mac mini（M4，真 GPU）当执行机，`tools/mac.sh` 同步仓库过去跑 verify、完整测试、Blender；另一台合租的 MacBook（M3）作备用，Mac mini 连不上时才用（#125）。负责人还在找更可靠的 GPU 资源。
   出租方的账号和软件还在那台机器上、可用磁盘只有约 25 GB，负责人在跟出租方交涉；那边只放公开仓库的代码，不放部署密钥和 GitHub 令牌。
 - Claude Code 里常用流程都是斜杠命令，可以带参数（`/deploy`、`/rollback v0.50`、`/analyze <编号>`…），速查表在 `docs/tools.md`（#127）。
 
