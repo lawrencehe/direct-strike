@@ -1,9 +1,14 @@
 ---
 name: rig
 description: 用 Blender 无头模式处理角色骨骼：合并 Mixamo 或其他同骨架动画、重命名骨骼、减面，以及用脚本做硬表面道具。给角色加动画或改骨骼时用。
+argument-hint: "<模型.glb> [要做什么]"
 ---
 
 # 骨骼和动画
+
+## 参数
+
+`$ARGUMENTS` 是模型和要做的事（`/rig soldier 加 Jump 动画`）。缺动画文件等输入时先问。
 
 ```bash
 tools/rig.sh add-anim 模型.glb 动画.fbx --name Jump -o 输出.glb [--clip 来源动画名] [--force]

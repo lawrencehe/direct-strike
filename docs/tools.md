@@ -1,6 +1,27 @@
 # 本地工具链
 
-开发工具都在 `tools/`，不会发布到线上。Claude Code 通过 `/verify`、`/ship`、`/glb`、`/img`、`/rig`、`/map` 这些 Skill 调用，也可以直接在终端运行。
+开发工具都在 `tools/`，不会发布到线上。Claude Code 里用下面的斜杠命令调用（就是 `.claude/skills/<名字>/SKILL.md`），也可以直接在终端运行脚本。
+
+## 斜杠命令速查
+
+命令后面的参数可以不写，也可以用中文说要做什么。不打斜杠、直接说"部署""验证一下"，Claude 也会按意思选对应的命令。
+
+| 命令 | 做什么 | 例子 |
+|---|---|---|
+| `/issue <编号>` | 做指定的 issue，跟到 PR 待验收 | `/issue 51` |
+| `/deploy [编号] [推送]` | 提交 → PR 合并进 main → 部署 → tag 和 Release（`tools/ship.sh`）；加"推送"只推不部署 | `/deploy`、`/deploy 51`、`/deploy 推送` |
+| `/rollback [vX.Y]` | 把线上退回某个版本；不带版本号就列出版本让你选。线上排查也用它（`deploy.sh`） | `/rollback v0.50` |
+| `/verify [模式] [线上] [尺寸] [mac]` | 启动游戏查报错、截图 | `/verify`、`/verify duel,waves`、`/verify 线上`、`/verify mac` |
+| `/map [上传编号 \| 文件 \| 改动]` | 检查或修改地图，出俯视图 | `/map`、`/map 3f2a`、`/map C4 往北挪两格` |
+| `/glb <文件> [做什么]` | 查看、压缩模型，挂道具 | `/glb assets/models/gun/m4.glb 压缩` |
+| `/img <图片> [做什么]` | 压缩、转 WebP、缩放、裁切 | `/img logo.png 转 webp` |
+| `/rig <模型> [做什么]` | Blender 处理骨骼和动画 | `/rig soldier 加 Jump 动画` |
+| `/analyze [编号 \| 列表] [时刻] [哪里不对]` | 分析开发者模式录下的真机数据和画面，说清楚卡在哪、哪里闪 | `/analyze`、`/analyze c894f9 12.5 换弹手闪一下` |
+| `/tripo <参考图 \| 描述>` | AI 生成 3D 底模（先报价，同意了才花积分） | `/tripo refer/ak.png` |
+
+命名的坑（#127）：项目命令不要跟 Claude Code 自带的命令重名，重名时启动会报警告。所以提交部署一条龙叫 `/deploy` 不叫 `/ship`
+（自带的 `/ship` 只建 PR、盯 CI，不合并也不部署）。加新命令时在 `.claude/skills/<名字>/SKILL.md` 里写 `name`、`description`（Claude 靠它判断什么时候自动用）
+和 `argument-hint`，正文里用 `$ARGUMENTS` 接参数，再补进上面这张表。
 
 ## 安装
 

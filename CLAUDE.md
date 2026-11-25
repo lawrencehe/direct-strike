@@ -27,20 +27,20 @@
 ## 运行
 
 - 本地：`./start.sh`（python http.server，自动开浏览器）。不能用 `file://`，.glb 模型加载不了。
-- 线上：https://game.lightup.host，发布用 `./deploy.sh`，细节见 `docs/deploy.md` 和 `/deploy` skill。
+- 线上：https://game.lightup.host，发布用 `./deploy.sh`，细节见 `docs/deploy.md` 和 `/rollback` skill（回滚、排查）。
 
 ## 开发工具
 
 - 工具链在 `tools/`，安装用 `tools/setup.sh`。
-- 做负责人指定的 issue 用 `/issue`，验证用 `/verify`，模型用 `/glb`，图片用 `/img`，骨骼动画用 `/rig`，AI 生成底模用 `/tripo`，地图用 `/map`，发布用 `/deploy`，提交推送部署一条龙用 `/ship`。
+- 做负责人指定的 issue 用 `/issue`，验证用 `/verify`，模型用 `/glb`，图片用 `/img`，骨骼动画用 `/rig`，AI 生成底模用 `/tripo`，地图用 `/map`，提交推送部署一条龙用 `/deploy`，回滚和线上排查用 `/rollback`，分析真机录像用 `/analyze`。命令和参数速查见 `docs/tools.md`。
 - 改完代码或资源要先跑 `/verify`，玩法逻辑的改动再写针对性测试（`docs/testing.md`）。
 - 这台机器没有 GPU：截图和报错可信，帧率不可信。要真 GPU 用 Mac mini：`tools/mac.sh node tools/verify.mjs`（`docs/tools.md`）。真机上的帧率、动画和手感问题，让负责人用游戏里的开发者模式录下来上传，
-  再用 `node tools/devlog/analyze.mjs` 看报告、曲线和视频帧（`docs/devmode.md`）。
+  再用 `/analyze <编号>`（`tools/devlog/analyze.mjs`）看报告、曲线和视频帧（`docs/devmode.md`）。
 
 ## 约定
 
 - **分支：可以开分支开发，开发完建 PR 并入 `main`，从 `main` 部署。** 分支也推到远端，本地和远端都不删除，保留历史。详见 `docs/workflow.md`。
-  用户说"deploy"（或"commit push & deploy""部署""上线"，都是一个意思：部署就意味着前面的提交、推送、合并都要走到）时用 `/ship`（`tools/ship.sh`）一次完成：提交 → 推送分支 → 建 PR（`Closes #N`）并在 GitHub 上合并 → 从 `main` 部署 → 线上检查 → tag 和 Release。
+  用户说"deploy"（或"commit push & deploy""部署""上线"，都是一个意思：部署就意味着前面的提交、推送、合并都要走到）时用 `/deploy`（`tools/ship.sh`）一次完成：提交 → 推送分支 → 建 PR（`Closes #N`）并在 GitHub 上合并 → 从 `main` 部署 → 线上检查 → tag 和 Release。
 - **GitHub 管进展**：需求、bug、待确认、想法都开 Issue，一个版本一个 Milestone，合并走 PR。仓库是公开的，不往 GitHub 贴录下的数据、密码、玩家信息。
   **Claude 在 GitHub 上用机器账号 `primorigin`**（负责人是 `lawrencehe`），负责人说"给 primorigin 处理"和"给 Claude 处理"一样，配置见 `docs/tools.md`。
   **开 issue 只是记录**；负责人在会话里说"ISSUE51 / #51 / 做 51"才做那一条，用 `/issue` skill 走完接手 → 开发 → PR 待验收 → 上线，Claude 不自己挑 issue（`docs/workflow.md`）。
@@ -73,7 +73,7 @@
    遗留的、要负责人真机确认的开成 issue（`待确认` / `bug` / `想法`，写"来源：#N"）。`docs/status.md` 改版本和"最近更新"日期。
    提交正文写清改了什么、怎么验证的，`ship.sh` 拿它当 PR 说明。
 5. **上线**：`docs/status.md` 的线上版本提交前就写成上线后的样子；issue 由 PR 关闭并标 `已上线`，Release 由 `ship.sh --tag` 建。
-6. **跟提交一起走**：文档改动和代码放在同一次提交里。`/ship` 之前检查上面几步都做了，没做先补；`-c` 传这次关闭的 issue 编号。
+6. **跟提交一起走**：文档改动和代码放在同一次提交里。`/deploy` 之前检查上面几步都做了，没做先补；`-c` 传这次关闭的 issue 编号。
 
 `status.md` 只写现状，过时的内容直接改掉。
 

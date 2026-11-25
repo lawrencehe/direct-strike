@@ -1,9 +1,14 @@
 ---
 name: img
 description: 压缩图片、转 WebP、缩放、裁切、SVG 转 PNG。处理图片资源、图标、logo，或用户说"压缩图片"时用。
+argument-hint: "<图片> [要做什么]"
 ---
 
 # 图片处理
+
+## 参数
+
+`$ARGUMENTS` 是图片和要做的事（`/img logo.png 转 webp`）。只给图片就先 `info`，再给压缩建议。
 
 ```bash
 tools/img.sh png 输入.png [输出.png]          # 有损量化 + 无损优化，UI、图标首选

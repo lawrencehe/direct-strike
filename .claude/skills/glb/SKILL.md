@@ -1,9 +1,14 @@
 ---
 name: glb
 description: 查看、压缩 glb 模型，删减动画，把道具挂到骨骼上，对比压缩前后差异。处理 glb、模型体积过大、给角色加武器或道具时用。
+argument-hint: "<文件.glb> [要做什么]"
 ---
 
 # glb 处理
+
+## 参数
+
+`$ARGUMENTS` 是文件和要做的事（`/glb assets/models/gun/m4.glb 压缩`）。只给文件就先 `info` 加 `preview`，汇报体积、面数、动画、贴图，再问要不要处理。
 
 ```bash
 node tools/glb.mjs info 文件.glb

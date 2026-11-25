@@ -1,9 +1,17 @@
 ---
 name: map
 description: 修改或新增地图（maps/*.json），检查出生点和巡逻点是否卡住、能否走到，碰撞盒是否穿插，并生成俯视图。改布局、加掩体或点位、做新地图、讨论地图布局时用。
+argument-hint: "[上传编号 | maps/xxx.json]"
 ---
 
 # 地图
+
+## 参数
+
+`$ARGUMENTS` 可以为空（检查当前地图）：
+- 负责人从游戏里上传的编号（`/map 3f2a`）→ `--map <编号>`，检查完给俯视图和结论，问要不要合进来
+- 地图文件路径 → `--map <路径>`
+- 一句话的改动要求（`/map C4 往北挪两格`）→ 按要求改地图再检查
 
 地图数据在 `maps/*.json`（format 2：`layout` 布局层 + `entities` 玩法实体，每个东西有编号），格式见 `docs/maps.md`。`js/world.js` 只负责造型，改布局不用改代码。
 负责人在 Blender 地图工具里改地图、在游戏里上传（`docs/blender-maps.md`），开发收到编号后检查、合进来。

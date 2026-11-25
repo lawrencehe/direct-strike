@@ -1,48 +1,50 @@
 ---
 name: deploy
-description: deploy.sh 本身的说明：线上回滚、故障排查、只重新发布 main 当前版本。用户说"deploy / 部署 / 上线"要发新改动时用 /ship（全套提交推送合并部署），不用这个。
+description: 提交、建 PR 并入 main、推送并部署到线上。用户说"deploy / 部署 / 上线 / commit push & deploy / 提交推送部署 / 发版 / ship"时用（说 deploy 就是全套：提交、推送、合并、部署）；只说"提交推送"时加 --no-deploy。
+argument-hint: "[issue 编号…] [推送]"
 ---
 
-# 部署到 game.lightup.host
+# 提交 → PR 并入 main → 部署 → tag 和 Release
 
-详细说明见 `docs/deploy.md`。这里只列操作。
+## 参数
 
-## 日常更新（最常用）
+`$ARGUMENTS` 可以为空：
+- 数字（`/deploy 51` 或 `/deploy 51,52`）：这次关闭的 issue，传给 `-c`；没给就照第 0 步自己找。
+- 带"推送"或 `--no-deploy`：只提交推送合并，不部署、不打 tag。
+
+全部由 `tools/ship.sh` 完成，不要手动逐步执行，也不要再跑 git status / log / curl 去复查：脚本每步成功打印一行 ✓，失败打印 ✗ 并退出。
+
+## 步骤
+
+0. 检查文档（`CLAUDE.md` 的"文档和项目状态"）：结果已经融进 `docs/` 对应的主题文档（标了 `#N`）；
+   `docs/status.md` 已更新（版本）；遗留和要真机确认的都开成了 GitHub issue。要部署的话，把 `status.md` 的线上版本直接写成已上线后的样子，一起提交。
+   缺了先补，再继续。找出这次要关闭的需求 issue 编号（`gh issue list --label 需求`）。
+1. 判断版本号：有功能或玩法改动就加一个小版本（看 `README.md` 第一行，例如 v0.12 → v0.13）；只改文档或小修复沿用当前版本，不传 `-v`。
+2. 把提交信息写到草稿目录的一个文件里（中文，首行 `vX.Y：一句话摘要`，正文分条列要点，末尾带系统要求的 Co-Authored-By 行）。
+3. 运行一次：
 
 ```bash
-./deploy.sh
+tools/ship.sh -v v0.13 -m <提交信息文件> -c 6,27 --tag
 ```
 
-它把代码 rsync 到 `/home/donkey/fps-site`（排除 .git、refer、docs、.claude、tools、assets-src、部署脚本），再 `docker compose up -d` 确保 fps-game 容器在跑。
-rsync 完立刻生效，不需要重启任何容器。
+`-c` 是这次关闭的 issue 编号，写进 PR 正文的 `Closes #N`，合并时 GitHub 自动关闭。
 
-## 发布后验证（每次都做）
+发新版本（传了 `-v`）并且部署时都加 `--tag`：部署成功后给 `main` 打这个版本的 tag 并推送，回滚靠它。
+沿用当前版本的小修复不加（tag 已经在之前的提交上，脚本会报错，不移动已发布的 tag）。
 
-```bash
-for u in / /js/main.js /maps/yard.json /assets/models/human/ukrainian-soldier.glb /refer/ak.png /.git/HEAD; do
-  printf '%-28s ' "$u"; curl -s -o /dev/null -w '%{http_code}\n' "https://game.lightup.host$u"
-done
-```
+可选：`--no-pr` 不走 PR、本地合并（gh 不能用时）；`--no-deploy` 只推送不部署；`--live-verify` 部署后再验证线上（慢，只在改动大时用）；`--skip-verify` 跳过本地验证。
 
-预期：前四个 200，`/refer/` 和 `/.git/` 必须 404。任何一个不对，先别告诉用户"已上线"。
+## 脚本会做什么
 
-## 红线
+- 改版本号（README 标题、index.html），检查两处一致、提交信息首行版本一致。
+- 改了非文档文件时先跑 `verify`（菜单 + 对决），不通过就取消暂存、不提交。
+- 提交；在分支上时推送分支 → 建 PR（标题是提交首行，正文是提交正文加 `Closes #N`，挂同名 Milestone；已有开着的 PR 就沿用）
+  → `gh pr merge --merge` 合并进 `main` → 拉回本地 `main`。分支不删除，最后回到原分支。PR 合并失败多半是冲突：在分支上 `git merge origin/main` 解决后再跑。
+- 从 `main` 运行 `deploy.sh`，检查线上页面、脚本、地图、模型为 200，`/refer/`、`/.git/`、`/docs/` 为 404，页面版本号正确。
+- 加了 `--tag`：部署成功后打带注释的 tag（注释是提交首行）并推送，建 GitHub Release（说明是提交正文加 PR 编号），
+  同名 Milestone 的 issue 都关了就关掉 Milestone；部署失败不打。
 
-- **不要动 relay 服务**：`/home/donkey/paseo-relay/` 下的 relay 容器和 Caddy 容器都不要重启、重建。
-  80/443 归它们，游戏只是借它的 Caddy 按域名分流。
-- 改 `/home/donkey/paseo-relay/Caddyfile` 属于改共享资源，先征得用户同意，改完只用 `caddy reload` 热更新，不要 `docker compose up`。
-- 不要把 `/home/donkey/direct-strike` 直接挂进容器：会暴露 `.git` 和 `refer/`。
+## 汇报
 
-## 故障排查
-
-| 现象 | 看什么 | 处理 |
-|---|---|---|
-| 502 Bad Gateway | `docker ps` 里没有 fps-game | `./deploy.sh` 会拉起它 |
-| 页面是旧版本 | `/home/donkey/fps-site` 里文件日期 | 重跑 `./deploy.sh`；浏览器硬刷新 |
-| 证书错误 / 连不上 | `docker logs paseo-relay-caddy-1 --since 10m` | 检查 DNS `getent hosts game.lightup.host` 是否还是本机 IP |
-| Caddyfile 里没有 game 段 | `grep game.lightup /home/donkey/paseo-relay/Caddyfile` | 按 `docs/deploy.md` 的"首次接入"重新追加，经用户同意 |
-
-## 回滚
-
-代码回滚：`git checkout <版本>` 后 `./deploy.sh`。
-Caddyfile 回滚：同目录下有 `Caddyfile.bak-<时间戳>`，复制回去后 `caddy reload`。
+把脚本输出的 ✓ 行浓缩成两三句告诉用户即可（版本、PR 编号、已上线）。出现 ✗ 时按提示处理，处理不了再问用户。
+脚本没覆盖的情况（例如合并冲突、给旧版本补 tag）按 `docs/workflow.md` 手动处理。

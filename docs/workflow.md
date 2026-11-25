@@ -48,7 +48,7 @@
 | — | 有问题当场问你，结论记在 issue 评论里；你要走开就留言提问、标 `等你回复`，下次说"ISSUE N"接着做 |
 | — | 做完：提 PR（`Closes #N`），评论"改了什么、怎么验证的、要你真机试什么"，标 `待验收` |
 | 提修改意见（会话里说，或写在 issue 里再说"ISSUE N"） | 在同一个分支和 PR 上改 |
-| 说 `deploy`（等同 `commit push & deploy`、部署、上线） | `/ship`：合并上线、打 tag、建 Release，issue 关闭并标 `已上线`、评论"✅ 已上线 vX.Y" |
+| 说 `deploy`（等同 `commit push & deploy`、部署、上线） | `/deploy`：合并上线、打 tag、建 Release，issue 关闭并标 `已上线`、评论"✅ 已上线 vX.Y" |
 
 - 标签：`Claude处理中`、`等你回复`、`待验收` 表示进度，`已上线` 由 `ship.sh` 打。`已上线` 只代表合并部署成功、线上检查通过；真机效果有问题开新 issue。
   `交给Claude`、`优先`、`授权部署`、`上线失败` 是定时自动任务用的，不再使用（`ship.sh` 上线时仍会顺手摘掉）。
@@ -114,7 +114,7 @@ v0.11：手雷按住拉环、飞行轨迹，枪和投掷物都加上手
 4. 提交；在分支上开发的，建 PR 合并进 `main`（`Closes #N`）。推送 `main`（和分支）。
 5. 需要上线就在 `main` 上跑 `./deploy.sh`，再按 `deploy.md` 的"验证"一节检查。
 
-第 2、4、5 步可以用一条命令完成（Claude Code 里是 `/ship`）：
+第 2、4、5 步可以用一条命令完成（Claude Code 里是 `/deploy`）：
 
 ```bash
 tools/ship.sh -v v0.13 -m 提交信息文件 -c 6,27 --tag  # 发新版本：PR 关闭 #6、#27，部署成功后打 tag、建 Release
