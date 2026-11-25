@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 一键"提交 → 推送分支 → 建 PR 并在 GitHub 上合并进 main → 部署 → 线上检查 → tag 和 Release"。
-# 流程约定见 docs/workflow.md，Claude Code 里是 /ship。需要 gh 已登录（gh auth status）。
+# 流程约定见 docs/workflow.md，Claude Code 里是 /deploy。需要 gh 已登录（gh auth status）。
 # 输出尽量少：每步一行，出错才打印细节。
 #
 # 用法：tools/ship.sh [-v vX.Y] [-m 提交信息文件] [-c 6,27] [--tag] [--no-deploy] [--no-pr] [--live-verify] [--skip-verify]

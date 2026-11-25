@@ -1,9 +1,14 @@
 ---
 name: tripo
 description: 用 Tripo CLI 从参考图或文字生成 3D 底模，再交给 Blender 修整。负责人给了参考图要"生成模型 / 出底模"、提到 Tripo、或找不到合适的现成模型时用。花积分前必须报价并等负责人同意。
+argument-hint: "<参考图 | 文字描述>"
 ---
 
 # Tripo 生成底模
+
+## 参数
+
+`$ARGUMENTS` 是参考图路径（`refer/` 里的）或文字描述。先按下面的规则报价，等负责人同意再生成。
 
 规约见 `docs/art-sources.md` 的"四、用 Tripo 生成底模"，安装登录见 `docs/tools.md` 的"Tripo"（#72）。
 完整的 CLI 规则：`tripo docs --llm`；模型、参数、价格：`tripo docs --topic commands/generate`。

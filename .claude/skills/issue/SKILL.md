@@ -1,9 +1,14 @@
 ---
 name: issue
 description: 做负责人指定的 GitHub issue 并跟进到上线。负责人说"ISSUE51 / issue 51 / #51 / 做 51 / 继续 51"时用：看 issue 到哪一步、接手、开发、提 PR 等验收，负责人说 deploy（或 commit push & deploy）再上线。
+argument-hint: "<编号>"
 ---
 
 # 做负责人指定的 issue
+
+## 参数
+
+`$ARGUMENTS` 就是下面的 `N`（`/issue 51`、`/issue #51` 都行）；没给编号就问负责人做哪一条，不自己挑。
 
 **由负责人驱动**：负责人在会话里说编号才做，Claude 不自己挑 issue、不定时拉取（#58）。
 一个会话只做这一个 issue：只做 issue 里写清楚的事，不扩大范围，不动别的 issue（只能新开遗留 issue）。
@@ -74,7 +79,7 @@ gh pr create --base main --title "<提交首行>" --body-file <PR 正文文件> 
 
 ## 5. 上线
 
-负责人说 `deploy`（或 `commit push & deploy`、"上线"，都是全套）才上线，用 `/ship`，在 worktree 里跑：
+负责人说 `deploy`（或 `commit push & deploy`、"上线"，都是全套）才上线，用 `/deploy`，在 worktree 里跑：
 
 ```bash
 cd $WT && tools/ship.sh -c N --tag                 # 已经提交过、只差上线

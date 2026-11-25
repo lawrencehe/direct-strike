@@ -1,9 +1,17 @@
 ---
 name: verify
 description: 启动游戏检查 WebGL、模型加载和控制台报错，并按模式和分辨率截图。改完代码或资源后要确认游戏正常、用户说"验证 / 跑一下 / 截图看看"时用。
+argument-hint: "[模式…] [线上] [尺寸]"
 ---
 
 # 验证游戏
+
+## 参数
+
+`$ARGUMENTS` 可以为空（默认 menu,range,duel，1280x720）：
+- 模式名（`/verify duel,waves`）→ `--modes`；`界面` → `--modes menu,settings,brief,pause,result`
+- `线上` → `--url https://game.lightup.host`
+- 尺寸（`1920x1080`）→ `--sizes`；`mac` / `gpu` → 在 Mac mini 上跑（`tools/mac.sh node tools/verify.mjs …`，见 `docs/tools.md`）
 
 ```bash
 node tools/verify.mjs                                   # 默认 menu,range,duel，1280x720
