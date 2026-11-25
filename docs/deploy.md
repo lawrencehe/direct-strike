@@ -106,9 +106,10 @@ docker exec fps-game cat /etc/caddy/Caddyfile | grep -A3 /api   # Caddy 有没�
 
 ## 回滚
 
-- 代码：`git tag --sort=v:refname` 看有哪些版本，`git checkout <tag>` 然后 `./deploy.sh`，部署完 `git checkout main` 回来。
-  每个上线的版本都有 tag（`ship.sh --tag` 打的，见 `workflow.md` 的"版本号"）。
-  回滚只是临时措施：线上这时比 `main` 旧，修好后照常从 `main` 发新版本。
+- 代码：Claude Code 里 `/rollback v0.50`（不带版本号会列出最近的版本让你选）。做法是把那个 tag 检出到临时 git worktree，
+  在那里跑它自己的 `deploy.sh`，不动当前工作区和分支，部署完删掉 worktree。步骤见 `.claude/skills/rollback/SKILL.md`。
+  每个上线的版本都有 tag（`ship.sh --tag` 打的，见 `workflow.md` 的"版本号"）。回滚的是那个版本的全部线上文件，包括开发接口 `server/` 和 Caddyfile。
+  回滚只是临时措施：线上这时比 `main` 旧，下次 `/deploy` 从 `main` 发布就会覆盖，修好后照常发新版本。
 - relay 的 Caddyfile：`/home/donkey/paseo-relay/` 同目录有 `Caddyfile.bak-<时间戳>`，复制回去再 `caddy reload`。
 
 ## 以后加地图要注意

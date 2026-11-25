@@ -30,7 +30,7 @@ AI 助手（Claude Code）的约定在根目录的 `CLAUDE.md`，它也指向这
 | [art-sources.md](art-sources.md) | **现有美术资源一览和目录规则**；找枪械参考图、CC0 模型、PBR 材质的网站；用 Tripo 生成底模的流程；授权规则；挑好后交什么 |
 | [../assets/LICENSES.md](../assets/LICENSES.md) | 第三方资源的来源和协议、怎么换 NPC 模型 |
 | `../js/config.js` | 所有可调参数，每项都有中文注释 |
-| `../.claude/skills/*/SKILL.md` | `/verify`、`/ship`、`/deploy`、`/glb`、`/img`、`/rig`、`/tripo`、`/map` 这些命令的详细步骤 |
+| `../.claude/skills/*/SKILL.md` | 斜杠命令（`/issue`、`/deploy`、`/rollback`、`/verify`、`/map`…）的详细步骤；速查表和参数见 `tools.md` 的"斜杠命令速查" |
 
 ## 维护规则
 
